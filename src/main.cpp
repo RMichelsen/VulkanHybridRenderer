@@ -1,0 +1,86 @@
+#include "pch.h"
+#include "renderer.h"
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+	switch (msg) {
+	case WM_SIZE: {
+	} return 0;
+	case WM_MOVE: {
+	} return 0;
+	case WM_DESTROY: {
+		PostQuitMessage(0);
+	} return 0;
+	}
+
+	return DefWindowProc(hwnd, msg, wparam, lparam);
+}
+
+int WINAPI wWinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance, 
+	PWSTR cmd_line, int cmd_show) {
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+
+	AllocConsole();
+	FILE *dummy;
+	freopen_s(&dummy, "CONIN$", "r", stdin);
+	freopen_s(&dummy, "CONOUT$", "w", stdout);
+	freopen_s(&dummy, "CONOUT$", "w", stderr);
+
+	const wchar_t *window_class_name = L"VHR_Class";
+
+	const wchar_t *window_title = L"Vulkan Hybrid Renderer";
+	WNDCLASSEX window_class {
+		.cbSize = sizeof(WNDCLASSEX),
+		.style = CS_HREDRAW | CS_VREDRAW,
+		.lpfnWndProc = WndProc,
+		.hInstance = hinstance,
+		.hCursor = LoadCursor(NULL, IDC_ARROW),
+		.hbrBackground = nullptr,
+		.lpszClassName = window_class_name,
+	};
+
+	if(!RegisterClassEx(&window_class)) {
+		return 1;
+	}
+
+	HWND hwnd = CreateWindow(
+		window_class_name,
+		window_title,
+		WS_OVERLAPPEDWINDOW,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		nullptr,
+		nullptr,
+		hinstance,
+		nullptr
+	);
+	if(hwnd == NULL) return 1;
+	ShowWindow(hwnd, cmd_show);
+
+	Renderer renderer(hinstance, hwnd);
+
+	MSG msg;
+	bool alive = true;
+	while(alive) {
+		while(PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+			if(msg.message == WM_QUIT) {
+				alive = false;
+				break;
+			}
+		}
+
+		if(IsIconic(hwnd)) {
+			continue;
+		}
+		else {
+			renderer.Present();
+		}
+	}
+
+	UnregisterClass(window_class_name, hinstance);
+	DestroyWindow(hwnd);
+	return 0;
+}

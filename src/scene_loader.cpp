@@ -1,0 +1,171 @@
+#include "pch.h"
+#include "scene_loader.h"
+#include "resource_manager.h"
+
+namespace SceneLoader {
+void ParseNode(ResourceManager &resource_manager, cgltf_node *node,
+	std::vector<Mesh> &meshes, std::unordered_map<const char *, int> &textures) {
+	if(!node->mesh) {
+		return;
+	}
+
+	glm::mat4 transform;
+	cgltf_node_transform_world(node, glm::value_ptr(transform));
+
+	Mesh mesh;
+	for(int i = 0; i < node->mesh->primitives_count; ++i) {
+		cgltf_primitive *primitive = &node->mesh->primitives[i];
+		assert(primitive->type == cgltf_primitive_type_triangles);
+
+		uint32_t vertex_offset = resource_manager.global_vertex_buffer.offset;
+		uint32_t index_offset = resource_manager.global_index_buffer.offset;
+
+
+		cgltf_accessor *position_accessor = nullptr;
+		cgltf_accessor *normal_accessor = nullptr;
+		cgltf_accessor *uv0_accessor = nullptr;
+		cgltf_accessor *uv1_accessor = nullptr;
+
+		for(int j = 0; j < primitive->attributes_count; ++j) {
+			cgltf_accessor *accessor = primitive->attributes[j].data;
+
+			if(primitive->attributes[j].type == cgltf_attribute_type_position) {
+				position_accessor = accessor;
+				assert(accessor->type == cgltf_type_vec3);
+			}
+			else if(primitive->attributes[j].type == cgltf_attribute_type_normal) {
+				normal_accessor = accessor;
+				assert(accessor->type == cgltf_type_vec3);
+			}
+			else if(primitive->attributes[j].type == cgltf_attribute_type_texcoord) {
+				if(primitive->attributes[j].index == 0) {
+					uv0_accessor = accessor;
+				}
+				else if(primitive->attributes[j].index == 1) {
+					uv1_accessor = accessor;
+				}
+				assert(accessor->type == cgltf_type_vec2);
+			}
+		}
+
+		assert(position_accessor);
+		for(int j = 0; j < position_accessor->count; ++j) {
+			Vertex v {};
+			if(position_accessor) {
+				cgltf_accessor_read_float(position_accessor, j, 
+					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.pos)), 3);
+			}
+			if(normal_accessor) {
+				cgltf_accessor_read_float(normal_accessor, j, 
+					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.normal)), 3);
+			}
+			if(uv0_accessor) {
+				cgltf_accessor_read_float(uv0_accessor, j, 
+					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.uv0)), 2);
+			}
+			if(uv1_accessor) {
+				cgltf_accessor_read_float(uv1_accessor, j, 
+					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.uv1)), 2);
+			}
+			resource_manager.global_vertex_buffer.Insert(v);
+		}
+
+		assert(primitive->indices);
+
+		for(int j = 0; j < primitive->indices->count; ++j) {
+			uint32_t index = static_cast<uint32_t>(cgltf_accessor_read_index(primitive->indices, j));
+			resource_manager.global_index_buffer.Insert(index);
+		}
+
+		int texture = -1;
+		if(primitive->material->has_pbr_metallic_roughness) {
+			cgltf_texture_view albedo = 
+				primitive->material->pbr_metallic_roughness.base_color_texture;
+			if(albedo.texture) {
+				texture = textures[albedo.texture->image->uri];
+			}
+		}
+		else if(primitive->material->has_pbr_specular_glossiness) {
+			cgltf_texture_view albedo = 
+				primitive->material->pbr_specular_glossiness.diffuse_texture;
+			if(albedo.texture) {
+				texture = textures[albedo.texture->image->uri];
+			}
+		}
+
+		mesh.primitives.push_back(Primitive {
+			.transform = transform,
+			.vertex_offset = vertex_offset,
+			.index_offset = index_offset,
+			.index_count = static_cast<uint32_t>(primitive->indices->count),
+			.texture = texture
+		});
+	}
+
+	meshes.push_back(mesh);
+}
+
+void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *data,
+	std::vector<Mesh> &meshes) {
+	cgltf_options options {};
+	cgltf_load_buffers(&options, data, path);
+
+	std::string parent_path = std::filesystem::path(path).parent_path().string() + "/";
+
+	std::unordered_map<const char *, int> textures;
+
+	struct ImageData {
+		int id;
+		int x;
+		int y;
+		uint8_t *data;
+	};
+
+	std::vector<ImageData> images(data->textures_count);
+
+	int count = 0;
+	for(ImageData &image : images) {
+		image.id = count++;
+	}
+
+	std::for_each(std::execution::par, images.begin(), images.end(), 
+		[&](ImageData &image) {
+			std::string texture_path = parent_path + data->textures[image.id].image->uri;
+			int _;
+			image.data = stbi_load(texture_path.c_str(), &image.x, &image.y, &_, STBI_rgb_alpha);
+			assert(image.data);
+		}
+	);
+
+	for(int i = 0; i < data->textures_count; ++i) {
+		textures[data->textures[i].image->uri] = 
+			resource_manager.CreateTexture(images[i].x, images[i].y, images[i].data);
+		free(images[i].data);
+	}
+
+	for(int i = 0; i < data->nodes_count; ++i) {
+		ParseNode(resource_manager, &data->nodes[i], meshes, textures);
+	}
+}
+
+Scene LoadScene(ResourceManager &resource_manager, const char *path) {
+	Scene scene {};
+
+	cgltf_options options {};
+	cgltf_data *data = nullptr;
+	cgltf_result result = cgltf_parse_file(&options, path, &data);
+	if(result == cgltf_result_success) {
+		ParseglTF(resource_manager, path, data, scene.meshes);
+	}
+	else {
+		printf("Error Parsing glTF 2.0 File\n");
+	}
+
+	resource_manager.UpdateDescriptors();
+	return scene;
+}
+
+void DestroyScene(Scene scene) {
+		
+}
+}
