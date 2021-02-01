@@ -78,4 +78,101 @@ inline bool IsDepthFormat(VkFormat format) {
 		return false;
 	}
 }
+
+inline VkImageCreateInfo ImageCreateInfo2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage) {
+	return VkImageCreateInfo {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.format = format,
+		.extent = VkExtent3D {
+			.width = width,
+			.height = height,
+			.depth = 1
+		},
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.tiling = VK_IMAGE_TILING_OPTIMAL,
+		.usage = usage,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+	};
+}
+
+inline VkImageViewCreateInfo ImageViewCreateInfo2D(VkImage image, VkFormat format) {
+	VkImageAspectFlags aspect_mask = VkUtils::IsDepthFormat(format) ?
+		VK_IMAGE_ASPECT_DEPTH_BIT :
+		VK_IMAGE_ASPECT_COLOR_BIT;
+	return VkImageViewCreateInfo {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.image = image,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = format,
+		.components = VkComponentMapping {
+			.r = VK_COMPONENT_SWIZZLE_R,
+			.g = VK_COMPONENT_SWIZZLE_G,
+			.b = VK_COMPONENT_SWIZZLE_B,
+			.a = VK_COMPONENT_SWIZZLE_A
+		},
+		.subresourceRange = VkImageSubresourceRange {
+			.aspectMask = aspect_mask,
+			.levelCount = 1,
+			.layerCount = 1
+		}
+	};
+}
+
+inline VkBufferImageCopy BufferImageCopy2D(uint32_t width, uint32_t height) {
+	return VkBufferImageCopy {
+		.imageSubresource = VkImageSubresourceLayers {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.layerCount = 1
+		},
+		.imageExtent = VkExtent3D {
+			.width = width,
+			.height = height,
+			.depth = 1
+		}
+	};
+}
+
+inline VkBufferCreateInfo BufferCreateInfo(VkDeviceSize size, VkBufferUsageFlags usage) {
+	return VkBufferCreateInfo {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.size = size,
+		.usage = usage
+	};
+}
+
+inline MappedBuffer CreateMappedBuffer(VmaAllocator allocator, VkBufferCreateInfo buffer_info) {
+	MappedBuffer buffer;
+	VmaAllocationCreateInfo buffer_alloc_info {
+		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+		.usage = VMA_MEMORY_USAGE_CPU_TO_GPU
+	};
+	vmaCreateBuffer(allocator, &buffer_info, &buffer_alloc_info,
+		&buffer.handle, &buffer.allocation, nullptr);
+	vmaMapMemory(allocator, buffer.allocation, reinterpret_cast<void **>(&buffer.mapped_data));
+	return buffer;
+}
+
+inline GPUBuffer CreateGPUBuffer(VmaAllocator allocator, VkBufferCreateInfo buffer_info) {
+	GPUBuffer buffer;
+	VmaAllocationCreateInfo buffer_alloc_info {
+		.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+		.usage = VMA_MEMORY_USAGE_GPU_ONLY
+	};
+	vmaCreateBuffer(allocator, &buffer_info, &buffer_alloc_info,
+		&buffer.handle, &buffer.allocation, nullptr);
+	return buffer;
+}
+
+inline void DestroyMappedBuffer(VmaAllocator allocator, MappedBuffer buffer) {
+	vmaUnmapMemory(allocator, buffer.allocation);
+	vmaDestroyBuffer(allocator, buffer.handle, buffer.allocation);
+}
+
+inline void DestroyGPUBuffer(VmaAllocator allocator, GPUBuffer buffer) {
+	vmaDestroyBuffer(allocator, buffer.handle, buffer.allocation);
+}
 }

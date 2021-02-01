@@ -14,6 +14,13 @@ inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_WIRE
 	.frontFace = VK_FRONT_FACE_CLOCKWISE,
 	.lineWidth = 1.0f
 };
+inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_FILL_CULL_CCW {
+	.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+	.polygonMode = VK_POLYGON_MODE_FILL,
+	.cullMode = VK_CULL_MODE_FRONT_BIT,
+	.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+	.lineWidth = 1.0f
+};
 inline constexpr VkPipelineMultisampleStateCreateInfo MULTISAMPLE_STATE_OFF {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
 	.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT
@@ -34,4 +41,3 @@ inline constexpr VkPipelineColorBlendAttachmentState COLOR_BLEND_ATTACHMENT_STAT
 	.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
 		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
 };
-

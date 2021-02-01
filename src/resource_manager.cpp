@@ -7,26 +7,11 @@
 #define MAX_TEXTURES 1024
 
 ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
-	VkBufferCreateInfo buffer_info {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = 1024 * 1024 * 128,
-		.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-	};
-	VmaAllocationCreateInfo buffer_alloc_info {
-		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
-		.usage = VMA_MEMORY_USAGE_CPU_TO_GPU
-	};
-	vmaCreateBuffer(context.allocator, &buffer_info, &buffer_alloc_info,
-		&global_vertex_buffer.handle, &global_vertex_buffer.allocation, nullptr);
-
-	buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	vmaCreateBuffer(context.allocator, &buffer_info, &buffer_alloc_info,
-		&global_index_buffer.handle, &global_index_buffer.allocation, nullptr);
-
-	vmaMapMemory(context.allocator, global_vertex_buffer.allocation, 
-		reinterpret_cast<void **>(&global_vertex_buffer.mapped_data));
-	vmaMapMemory(context.allocator, global_index_buffer.allocation, 
-		reinterpret_cast<void **>(&global_index_buffer.mapped_data));
+	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(1024 * 1024 * 128, 
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	global_vertex_buffer = VkUtils::CreateGPUBuffer(context.allocator, buffer_info);
+	buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	global_index_buffer = VkUtils::CreateGPUBuffer(context.allocator, buffer_info);
 
 	VkDescriptorPoolSize global_descriptor_pool_size {
 		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -94,6 +79,14 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info, 
 		&texture_array_descriptor_set));
 
+	VkPipelineLayoutCreateInfo pipeline_layout_info {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.setLayoutCount = 1,
+		.pSetLayouts = &texture_array_descriptor_set_layout
+	};
+	VK_CHECK(vkCreatePipelineLayout(context.device, &pipeline_layout_info, 
+		nullptr, &texture_array_pipeline_layout));
+
 	VkSamplerCreateInfo sampler_info {
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 		.magFilter = VK_FILTER_LINEAR,
@@ -109,176 +102,74 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 }
 
 ResourceManager::~ResourceManager() {
-	vmaUnmapMemory(context.allocator, global_vertex_buffer.allocation);
-	vmaUnmapMemory(context.allocator, global_index_buffer.allocation);
-	vmaDestroyBuffer(context.allocator, global_vertex_buffer.handle, 
-		global_vertex_buffer.allocation);
-	vmaDestroyBuffer(context.allocator, global_index_buffer.handle, 
-		global_index_buffer.allocation);
+	VkUtils::DestroyGPUBuffer(context.allocator, global_vertex_buffer);
+	VkUtils::DestroyGPUBuffer(context.allocator, global_index_buffer);
 }
 
 Texture ResourceManager::CreateTransientTexture(uint32_t width, uint32_t height, VkFormat format) {
+	Texture texture;
+
 	VkImageUsageFlags usage = VkUtils::IsDepthFormat(format) ?
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT:
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT :
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	VkImageCreateInfo image_info {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-		.imageType = VK_IMAGE_TYPE_2D,
-		.format = format,
-		.extent = VkExtent3D {
-			.width = width,
-			.height = height,
-			.depth = 1
-		},
-		.mipLevels = 1,
-		.arrayLayers = 1,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.tiling = VK_IMAGE_TILING_OPTIMAL,
-		.usage = usage,
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED	
-	};
-	VmaAllocation image_allocation;
+	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, format, usage);
+
 	VmaAllocationCreateInfo image_alloc_info {
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY
 	};
-	VkImage image;
 	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
-		&image, &image_allocation, nullptr);
+		&texture.image, &texture.allocation, nullptr);
 
-	// TODO: Make helper for image view creation
-	VkImageView image_view;
-	VkImageAspectFlags aspect_mask = VkUtils::IsDepthFormat(format) ?
-		VK_IMAGE_ASPECT_DEPTH_BIT :
-		VK_IMAGE_ASPECT_COLOR_BIT;
-	VkImageViewCreateInfo image_view_info {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-		.image = image,
-		.viewType = VK_IMAGE_VIEW_TYPE_2D,
-		.format = format,
-		.components = VkComponentMapping {
-			.r = VK_COMPONENT_SWIZZLE_R,	
-			.g = VK_COMPONENT_SWIZZLE_G,	
-			.b = VK_COMPONENT_SWIZZLE_B,	
-			.a = VK_COMPONENT_SWIZZLE_A
-		},
-		.subresourceRange = VkImageSubresourceRange {
-			.aspectMask = aspect_mask,
-			.levelCount = 1,
-			.layerCount = 1
-		}
-	};
-	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &image_view));
+	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(texture.image, format);
+	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.image_view));
 
-	return Texture {
-		.image = image,
-		.image_view = image_view,
-		.allocation = image_allocation
-	};
+	return texture;
 }
 
 int ResourceManager::LoadTextureFromData(uint32_t width, uint32_t height, uint8_t *data) {
-	VkImageCreateInfo image_info {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-		.imageType = VK_IMAGE_TYPE_2D,
-		.format = VK_FORMAT_R8G8B8A8_UNORM,
-		.extent = VkExtent3D {
-			.width = width,
-			.height = height,
-			.depth = 1
-		},
-		.mipLevels = 1,
-		.arrayLayers = 1,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.tiling = VK_IMAGE_TILING_LINEAR,
-		.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED	
-	};
-	VmaAllocation image_allocation;
+	Texture texture;
+
+	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, 
+		VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 	VmaAllocationCreateInfo image_alloc_info {
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY
 	};
-	VkImage image;
 	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
-		&image, &image_allocation, nullptr);
+		&texture.image, &texture.allocation, nullptr);
 
-	VkBufferCreateInfo buffer_info {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = width * height * 4, // TODO: Assuming RGBA, 8-bit each
-		.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	};
-	VmaAllocation buffer_allocation;
-	VmaAllocationCreateInfo buffer_alloc_info {
-		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
-		.usage = VMA_MEMORY_USAGE_CPU_TO_GPU
-	};
-	VkBuffer buffer;
-	vmaCreateBuffer(context.allocator, &buffer_info, &buffer_alloc_info,
-		&buffer, &buffer_allocation, nullptr);
+	// TODO: Assuming RGBA, 8-bit each
+	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(width * height * 4, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
-	void *mapped_data;
-	vmaMapMemory(context.allocator, buffer_allocation, &mapped_data);
-	memcpy(mapped_data, data, width * height * 4);
+	MappedBuffer buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+	memcpy(buffer.mapped_data, data, width * height * 4);
 
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, 
 		context.command_pool, [&](VkCommandBuffer command_buffer) {
 
-		VkUtils::InsertImageBarrier(command_buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VkUtils::InsertImageBarrier(command_buffer, texture.image, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			0, VK_ACCESS_TRANSFER_WRITE_BIT);	
 
-		VkBufferImageCopy buffer_image_copy {
-			.imageSubresource = VkImageSubresourceLayers {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.layerCount = 1
-			},
-			.imageExtent = VkExtent3D {
-				.width = width,
-				.height = height,
-				.depth = 1
-			}
-		};
-		vkCmdCopyBufferToImage(command_buffer, buffer, image, 
+		VkBufferImageCopy buffer_image_copy = VkUtils::BufferImageCopy2D(width, height);
+		vkCmdCopyBufferToImage(command_buffer, buffer.handle, texture.image, 
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
 
-		VkUtils::InsertImageBarrier(command_buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VkUtils::InsertImageBarrier(command_buffer, texture.image, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);	
 	});
 
-	vmaUnmapMemory(context.allocator, buffer_allocation);
-	vmaDestroyBuffer(context.allocator, buffer, buffer_allocation);
+	VkUtils::DestroyMappedBuffer(context.allocator, buffer);
 
 	// TODO: Make helper for image view creation
-	VkImageView image_view;
-	VkImageViewCreateInfo image_view_info {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-		.image = image,
-		.viewType = VK_IMAGE_VIEW_TYPE_2D,
-		.format = VK_FORMAT_R8G8B8A8_UNORM,
-		.components = VkComponentMapping {
-			.r = VK_COMPONENT_SWIZZLE_R,	
-			.g = VK_COMPONENT_SWIZZLE_G,	
-			.b = VK_COMPONENT_SWIZZLE_B,	
-			.a = VK_COMPONENT_SWIZZLE_A
-		},
-		.subresourceRange = VkImageSubresourceRange {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.levelCount = 1,
-			.layerCount = 1
-		}
-	};
-	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &image_view));
+	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(texture.image, 
+		VK_FORMAT_R8G8B8A8_UNORM);
+	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.image_view));
 
-	textures.push_back(Texture {
-		.image = image,
-		.image_view = image_view,
-		.allocation = image_allocation
-	});
-
+	textures.push_back(texture);
 	return static_cast<int>(textures.size()) - 1;
 }
 
@@ -302,4 +193,22 @@ void ResourceManager::UpdateDescriptors() {
 	};
 
 	vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
+}
+
+void ResourceManager::UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDeviceSize size) {
+	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(size, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+	MappedBuffer staging_buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+	memcpy(staging_buffer.mapped_data, data, size);
+
+	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, context.command_pool,
+		[=](VkCommandBuffer command_buffer) {
+			VkBufferCopy buffer_copy {
+				.size = size
+			};
+			vkCmdCopyBuffer(command_buffer, staging_buffer.handle, buffer.handle, 1, &buffer_copy);
+		}
+	);
+
+	VkUtils::DestroyMappedBuffer(context.allocator, staging_buffer);
 }

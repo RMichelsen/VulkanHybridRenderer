@@ -80,24 +80,15 @@ constexpr std::array<VkVertexInputAttributeDescription, 4> VERTEX_ATTRIBUTE_DESC
 	}
 };
 
-template<typename T>
 struct MappedBuffer {
 	VkBuffer handle;
 	VmaAllocation allocation;
-	T *mapped_data;
-	uint32_t offset = 0;
-
-	void Insert(T v) {	
-		*(mapped_data + offset) = v;
-		++offset;
-	}
+	void *mapped_data;
 };
-using VertexBuffer = MappedBuffer<Vertex>;
-using IndexBuffer = MappedBuffer<uint32_t>;
 
-struct GraphicsPipeline {
-	VkPipeline handle;
-	VkPipelineLayout layout;
+struct GPUBuffer {
+	VkBuffer handle;
+	VmaAllocation allocation;
 };
 
 struct RaytracingPipeline {
@@ -114,6 +105,7 @@ struct TransientTexture {
 	VkFormat format;
 	uint32_t width;
 	uint32_t height;
+	bool color_blending;
 };
 
 struct TransientBuffer {
@@ -134,9 +126,14 @@ inline constexpr TransientResource TRANSIENT_BACKBUFFER {
 	.name = "BACKBUFFER"
 };
 
+enum class VertexInputState {
+	Default,
+	Empty
+};
 enum class RasterizationState {
 	Fill,
-	Wireframe
+	Wireframe,
+	FillCullCCW
 };
 enum class MultisampleState {
 	Off
@@ -149,32 +146,56 @@ enum class ColorBlendState {
 	Off
 };
 
+struct PushConstantDescription {
+	uint32_t size;
+	VkPipelineStageFlags pipeline_stages;
+};
+inline constexpr PushConstantDescription PUSHCONSTANTS_NONE {
+	.size = 0,
+	.pipeline_stages = 0
+};
+
 struct GraphicsPipelineDescription {
 	const char *name;
 	const char *vertex_shader;
 	const char *fragment_shader;
+	VertexInputState vertex_input_state;
 	RasterizationState rasterization_state;
 	MultisampleState multisample_state;
 	DepthStencilState depth_stencil_state;
-	std::vector<ColorBlendState> color_blend_states;
+	PushConstantDescription push_constants;
+};
+
+struct GraphicsPipeline {
+	GraphicsPipelineDescription description;
+	VkPipeline handle;
+	VkPipelineLayout layout;
 };
 
 struct RaytracingPipelineDescription {
 
 };
+
+class GraphicsPipelineExecutionContext;
+using GraphicsPipelineExecutionCallback = std::function<void(GraphicsPipelineExecutionContext &)>;
+using ExecutePipelineCallback = std::function<void(std::string, GraphicsPipelineExecutionCallback)>;
+using RenderPassCallback = std::function<void(ExecutePipelineCallback)>;
+
 struct RenderPass {
 	VkRenderPass handle;
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkDescriptorSet descriptor_set;
 	std::array<VkFramebuffer, MAX_FRAMES_IN_FLIGHT> framebuffers;
-	std::vector<std::string> attachments;
-	std::function<void(RenderPass &render_pass, std::unordered_map<std::string, GraphicsPipeline> &pipelines, VkCommandBuffer &command_buffer)> executor;
+	std::vector<TransientResource> attachments;
+	RenderPassCallback callback;
 };
 
 struct RenderPassDescription {
 	std::vector<std::string> inputs;
 	std::vector<std::string> outputs;
-	std::vector<GraphicsPipelineDescription> graphics_pipelines;
-	std::function<void(RenderPass &render_pass, std::unordered_map<std::string, GraphicsPipeline> &pipelines, VkCommandBuffer &command_buffer)> executor;
+	std::vector<GraphicsPipelineDescription> pipeline_descriptions;
+	RenderPassCallback callback;
 };
+
+
 

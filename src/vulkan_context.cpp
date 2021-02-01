@@ -68,13 +68,10 @@ VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) {
 
 	InitFrameResources();
 	InitSwapchain(hwnd);
-	InitDepthResources();
-	InitRenderPass();
 }
 
 VulkanContext::~VulkanContext() {
 	VK_CHECK(vkDeviceWaitIdle(device));
-	vkDestroyRenderPass(device, render_pass, nullptr);
 }
 
 #ifndef NDEBUG
@@ -232,7 +229,7 @@ void VulkanContext::InitFrameResources() {
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		.flags = VK_FENCE_CREATE_SIGNALED_BIT
 	};
-	VkCommandBufferAllocateInfo commandbuffer_info {
+	VkCommandBufferAllocateInfo command_buffer_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.commandPool = command_pool,
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -240,7 +237,7 @@ void VulkanContext::InitFrameResources() {
 	};
 
 	for(FrameResources &resources : frame_resources) {
-		VK_CHECK(vkAllocateCommandBuffers(device, &commandbuffer_info, &resources.commandbuffer));
+		VK_CHECK(vkAllocateCommandBuffers(device, &command_buffer_info, &resources.command_buffer));
 		VK_CHECK(vkCreateSemaphore(device, &semaphore_info, nullptr, &resources.image_available));
 		VK_CHECK(vkCreateSemaphore(device, &semaphore_info, nullptr, &resources.render_finished));
 		VK_CHECK(vkCreateFence(device, &fence_info, nullptr, &resources.fence));
@@ -300,139 +297,9 @@ void VulkanContext::InitSwapchain(HWND hwnd) {
 	VK_CHECK(vkGetSwapchainImagesKHR(device, swapchain.handle, &image_count, swapchain.images.data()));
 	swapchain.image_views.resize(image_count);
 	for(uint32_t i = 0; i < image_count; ++i) {
-		VkImageViewCreateInfo image_view_info {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			.image = swapchain.images[i],
-			.viewType = VK_IMAGE_VIEW_TYPE_2D,
-			.format = swapchain.format,
-			.components = VkComponentMapping {
-				.r = VK_COMPONENT_SWIZZLE_R,	
-				.g = VK_COMPONENT_SWIZZLE_G,	
-				.b = VK_COMPONENT_SWIZZLE_B,	
-				.a = VK_COMPONENT_SWIZZLE_A
-			},
-			.subresourceRange = VkImageSubresourceRange {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.levelCount = 1,
-				.layerCount = 1
-			}
-		};
+		VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(
+			swapchain.images[i], swapchain.format);
 		VK_CHECK(vkCreateImageView(device, &image_view_info, nullptr, 
 			&swapchain.image_views[i]));
 	}
-}
-
-void VulkanContext::InitDepthResources() {
-	VkImageCreateInfo image_info {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-		.imageType = VK_IMAGE_TYPE_2D,
-		.format = VK_FORMAT_D32_SFLOAT,
-		.extent = VkExtent3D {
-			.width = swapchain.extent.width,
-			.height = swapchain.extent.height,
-			.depth = 1
-		},
-		.mipLevels = 1,
-		.arrayLayers = 1,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.tiling = VK_IMAGE_TILING_OPTIMAL,
-		.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED	
-	};
-	VmaAllocationCreateInfo image_alloc_info {
-		.usage = VMA_MEMORY_USAGE_GPU_ONLY
-	};
-	vmaCreateImage(allocator, &image_info, &image_alloc_info,
-		&depth_texture.image, &depth_texture.allocation, nullptr);
-
-	VkImageViewCreateInfo image_view_info {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-		.image = depth_texture.image,
-		.viewType = VK_IMAGE_VIEW_TYPE_2D,
-		.format = VK_FORMAT_D32_SFLOAT,
-		.components = VkComponentMapping {
-			.r = VK_COMPONENT_SWIZZLE_R,	
-			.g = VK_COMPONENT_SWIZZLE_G,	
-			.b = VK_COMPONENT_SWIZZLE_B,	
-			.a = VK_COMPONENT_SWIZZLE_A
-		},
-		.subresourceRange = VkImageSubresourceRange {
-			.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-			.levelCount = 1,
-			.layerCount = 1
-		}
-	};
-	VK_CHECK(vkCreateImageView(device, &image_view_info, nullptr,
-		&depth_texture.image_view));
-
-	VkUtils::ExecuteOneTimeCommands(device, graphics_queue, command_pool, 
-		[&](VkCommandBuffer command_buffer) {
-		VkUtils::InsertImageBarrier(command_buffer, depth_texture.image,
-		VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 
-		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 
-		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | 
-		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-	});
-}
-
-void VulkanContext::InitRenderPass() {
-	VkAttachmentDescription color_attachment {
-		.format = swapchain.format,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-	};
-	VkAttachmentReference color_attachment_ref {
-		.attachment = 0,
-		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	};
-	VkAttachmentDescription depth_attachment {
-		.format = VK_FORMAT_D32_SFLOAT,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	};
-	VkAttachmentReference depth_attachment_ref {
-		.attachment = 1,
-		.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	};
-	VkSubpassDescription subpass_desc {
-		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-		.colorAttachmentCount = 1,
-		.pColorAttachments = &color_attachment_ref,
-		.pDepthStencilAttachment = &depth_attachment_ref
-	};
-	VkSubpassDependency subpass_dependency {
-		.srcSubpass = VK_SUBPASS_EXTERNAL,
-		.dstSubpass = 0,
-		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		.srcAccessMask = 0,
-		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-	};
-	std::array<VkAttachmentDescription, 2> attachments {
-		color_attachment, depth_attachment
-	};
-	VkRenderPassCreateInfo render_pass_info {
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		.attachmentCount = static_cast<uint32_t>(attachments.size()),
-		.pAttachments = attachments.data(),
-		.subpassCount = 1,
-		.pSubpasses = &subpass_desc,
-		.dependencyCount = 1,
-		.pDependencies = &subpass_dependency
-	};
-
-	VK_CHECK(vkCreateRenderPass(device, &render_pass_info, nullptr, &render_pass));
 }

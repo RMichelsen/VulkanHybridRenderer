@@ -8,9 +8,12 @@
 
 RenderGraph::RenderGraph(VulkanContext &context) : context(context) {}
 
+// Adds a new graphics render pass. Inputs are allocated in a new descriptor set in the order in which they 
+// appear in the vector. The global descriptor set resides at slot 0, thus user-defined descriptors are allocated
+// in set 1.
 void RenderGraph::AddGraphicsPass(const char *render_pass_name, std::vector<TransientResource> inputs, 
 	std::vector<TransientResource> outputs, std::vector<GraphicsPipelineDescription> pipelines, 
-	std::function<void(RenderPass &render_pass, std::unordered_map<std::string, GraphicsPipeline> &pipelines, VkCommandBuffer &command_buffer)> executor) {
+	RenderPassCallback callback) {
 
 	std::vector<std::string> input_names;
 	for(TransientResource &resource : inputs) {
@@ -34,8 +37,8 @@ void RenderGraph::AddGraphicsPass(const char *render_pass_name, std::vector<Tran
 	layout.render_pass_descriptions[render_pass_name] = RenderPassDescription {
 		.inputs = input_names,
 		.outputs = output_names,
-		.graphics_pipelines = pipelines,
-		.executor = executor
+		.pipeline_descriptions = pipelines,
+		.callback = callback
 	};
 }
 
@@ -57,7 +60,7 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 	for(std::string &pass_name : execution_order) {
 		RenderPassDescription &pass = layout.render_pass_descriptions[pass_name];
 		RenderPass render_pass {
-			.executor = pass.executor
+			.callback = pass.callback
 		};
 
 		std::vector<VkDescriptorSetLayoutBinding> bindings;
@@ -121,12 +124,13 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 				current_layouts[output] = VK_IMAGE_LAYOUT_UNDEFINED;
 			}
 
-			assert(layout.transient_resources[output].type == TransientResourceType::Texture);
-			render_pass.attachments.emplace_back(output);
+			TransientResource &resource = layout.transient_resources[output];
+			assert(resource.type == TransientResourceType::Texture);
+			render_pass.attachments.emplace_back(resource);
 
-			if(VkUtils::IsDepthFormat(layout.transient_resources[output].texture.format)) {
+			if(VkUtils::IsDepthFormat(resource.texture.format)) {
 				VkAttachmentDescription attachment {
-					.format = layout.transient_resources[output].texture.format,
+					.format = resource.texture.format,
 					.samples = VK_SAMPLE_COUNT_1_BIT,
 					.loadOp = current_layouts[output] == VK_IMAGE_LAYOUT_UNDEFINED ?
 						VK_ATTACHMENT_LOAD_OP_CLEAR :
@@ -193,7 +197,7 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 
 		VK_CHECK(vkCreateRenderPass(context.device, &render_pass_info, nullptr, &render_pass.handle));
 
-		for(GraphicsPipelineDescription &pipeline_description : pass.graphics_pipelines) {
+		for(GraphicsPipelineDescription &pipeline_description : pass.pipeline_descriptions) {
 			assert(!graphics_pipelines.contains(pipeline_description.name));
 
 			graphics_pipelines[pipeline_description.name] = VkUtils::CreateGraphicsPipeline(context,
@@ -205,7 +209,8 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 	}
 }
 
-void RenderGraph::Execute(VkCommandBuffer &command_buffer, uint32_t resource_idx, uint32_t image_idx) {
+void RenderGraph::Execute(ResourceManager &resource_manager, VkCommandBuffer &command_buffer, 
+	uint32_t resource_idx, uint32_t image_idx) {
 	for(std::string &pass_name : execution_order) {
 		assert(render_passes.contains(pass_name));
 		RenderPass &render_pass = render_passes[pass_name];
@@ -217,17 +222,17 @@ void RenderGraph::Execute(VkCommandBuffer &command_buffer, uint32_t resource_idx
 			framebuffer = VK_NULL_HANDLE;
 		}
 
-		std::vector<VkImageView> attachments;
+		std::vector<VkImageView> image_views;
 		std::vector<VkClearValue> clear_values;
-		for(std::string &attachment : render_pass.attachments) {
-			if(attachment == "BACKBUFFER") {
-				attachments.emplace_back(context.swapchain.image_views[image_idx]);
+		for(TransientResource &attachment : render_pass.attachments) {
+			if(attachment.name == "BACKBUFFER") {
+				image_views.emplace_back(context.swapchain.image_views[image_idx]);
 			}
 			else {
-				attachments.emplace_back(textures[attachment].image_view);
+				image_views.emplace_back(textures[attachment.name].image_view);
 			}
 
-			if(VkUtils::IsDepthFormat(layout.transient_resources[attachment].texture.format)) {
+			if(VkUtils::IsDepthFormat(attachment.texture.format)) {
 				clear_values.emplace_back(VkClearValue {
 					.depthStencil = { 1.0f, 0 }
 				});
@@ -237,14 +242,13 @@ void RenderGraph::Execute(VkCommandBuffer &command_buffer, uint32_t resource_idx
 					.color = { 0.2f, 0.2f, 0.2f, 1.0f }
 				});
 			}
-
 		}
 
 		VkFramebufferCreateInfo framebuffer_info {
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			.renderPass = render_pass.handle,
-			.attachmentCount = static_cast<uint32_t>(attachments.size()),
-			.pAttachments = attachments.data(),
+			.attachmentCount = static_cast<uint32_t>(image_views.size()),
+			.pAttachments = image_views.data(),
 			.width = context.swapchain.extent.width,
 			.height = context.swapchain.extent.height,
 			.layers = 1
@@ -265,8 +269,21 @@ void RenderGraph::Execute(VkCommandBuffer &command_buffer, uint32_t resource_idx
 		};
 
 		vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-		
-		render_pass.executor(render_pass, graphics_pipelines, command_buffer);
+
+		render_pass.callback(
+			[&](std::string pipeline_name, GraphicsPipelineExecutionCallback execute_pipeline) {
+				GraphicsPipeline &pipeline = graphics_pipelines[pipeline_name];
+				vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
+				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+					pipeline.layout, 0, 1, &resource_manager.texture_array_descriptor_set, 0, nullptr);
+				if(render_pass.descriptor_set != VK_NULL_HANDLE) {
+					vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout,
+						1, 1, &render_pass.descriptor_set, 0, nullptr);
+				}
+				GraphicsPipelineExecutionContext execution_context(command_buffer, resource_manager, render_pass, pipeline);
+				execute_pipeline(execution_context);
+			}
+		);
 
 		vkCmdEndRenderPass(command_buffer);
 	}
@@ -303,4 +320,20 @@ void RenderGraph::ActualizeTransientResource(ResourceManager &resource_manager,
 		textures[resource.name] = resource_manager.CreateTransientTexture(
 			resource.texture.width, resource.texture.height, resource.texture.format);
 	}
+}
+
+void GraphicsPipelineExecutionContext::BindGlobalVertexAndIndexBuffers() {
+	VkDeviceSize offset = 0;
+	vkCmdBindVertexBuffers(command_buffer, 0, 1, &resource_manager.global_vertex_buffer.handle, &offset);
+	vkCmdBindIndexBuffer(command_buffer, resource_manager.global_index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
+}
+
+void GraphicsPipelineExecutionContext::DrawIndexed(uint32_t index_count, uint32_t instance_count, 
+	uint32_t first_index, uint32_t vertex_offset, uint32_t first_instance) {
+	vkCmdDrawIndexed(command_buffer, index_count, instance_count, first_index, vertex_offset, first_instance);
+}
+
+void GraphicsPipelineExecutionContext::Draw(uint32_t vertex_count, uint32_t instance_count, 
+	uint32_t first_vertex, uint32_t first_instance) {
+	vkCmdDraw(command_buffer, vertex_count, instance_count, first_vertex, instance_count);
 }

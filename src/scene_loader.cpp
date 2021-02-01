@@ -4,47 +4,47 @@
 #include "resource_manager.h"
 
 namespace SceneLoader {
-void ParseNode(ResourceManager &resource_manager, cgltf_node *node,
-	Scene &scene, std::unordered_map<const char *, int> &textures) {
+void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, int> &textures, 
+	std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) {
 
-	if(node->camera) {
-		if(node->camera->type == cgltf_camera_type_perspective) {
+	if(node.camera) {
+		if(node.camera->type == cgltf_camera_type_perspective) {
 			scene.camera.perspective = glm::perspective(
-				node->camera->data.perspective.yfov,
-				node->camera->data.perspective.aspect_ratio,
-				node->camera->data.perspective.znear,
-				node->camera->data.perspective.zfar
+				node.camera->data.perspective.yfov,
+				node.camera->data.perspective.aspect_ratio,
+				node.camera->data.perspective.znear,
+				node.camera->data.perspective.zfar
 			);
 		}
-		else if(node->camera->type == cgltf_camera_type_orthographic) {
+		else if(node.camera->type == cgltf_camera_type_orthographic) {
 			scene.camera.perspective = glm::ortho(
-				-node->camera->data.orthographic.xmag,
-				node->camera->data.orthographic.xmag,
-				-node->camera->data.orthographic.ymag,
-				node->camera->data.orthographic.ymag,
-				node->camera->data.orthographic.znear,
-				node->camera->data.orthographic.zfar
+				-node.camera->data.orthographic.xmag,
+				node.camera->data.orthographic.xmag,
+				-node.camera->data.orthographic.ymag,
+				node.camera->data.orthographic.ymag,
+				node.camera->data.orthographic.znear,
+				node.camera->data.orthographic.zfar
 			);
 		}
-		cgltf_node_transform_world(node, glm::value_ptr(scene.camera.view));
+		cgltf_node_transform_world(&node, glm::value_ptr(scene.camera.view));
 		scene.camera.view = glm::inverse(scene.camera.view);
 		return;
 	}
 
-	if(!node->mesh) {
+	if(!node.mesh) {
 		return;
 	}
 
 	glm::mat4 transform;
-	cgltf_node_transform_world(node, glm::value_ptr(transform));
+	cgltf_node_transform_world(&node, glm::value_ptr(transform));
 
 	Mesh mesh;
-	for(int i = 0; i < node->mesh->primitives_count; ++i) {
-		cgltf_primitive *primitive = &node->mesh->primitives[i];
+	for(int i = 0; i < node.mesh->primitives_count; ++i) {
+		cgltf_primitive *primitive = &node.mesh->primitives[i];
 		assert(primitive->type == cgltf_primitive_type_triangles);
 
-		uint32_t vertex_offset = resource_manager.global_vertex_buffer.offset;
-		uint32_t index_offset = resource_manager.global_index_buffer.offset;
+		uint32_t vertex_offset = static_cast<uint32_t>(vertices.size()); 
+		uint32_t index_offset = static_cast<uint32_t>(indices.size()); 
 
 		cgltf_accessor *position_accessor = nullptr;
 		cgltf_accessor *normal_accessor = nullptr;
@@ -92,14 +92,14 @@ void ParseNode(ResourceManager &resource_manager, cgltf_node *node,
 				cgltf_accessor_read_float(uv1_accessor, j, 
 					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.uv1)), 2);
 			}
-			resource_manager.global_vertex_buffer.Insert(v);
+			vertices.emplace_back(v);
 		}
 
 		assert(primitive->indices);
 
 		for(int j = 0; j < primitive->indices->count; ++j) {
 			uint32_t index = static_cast<uint32_t>(cgltf_accessor_read_index(primitive->indices, j));
-			resource_manager.global_index_buffer.Insert(index);
+			indices.emplace_back(index);
 		}
 
 		int texture = -1;
@@ -178,9 +178,14 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 		free(images[i].data);
 	}
 
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
 	for(int i = 0; i < data->nodes_count; ++i) {
-		ParseNode(resource_manager, &data->nodes[i], scene, textures);
+		ParseNode(data->nodes[i], scene, textures, vertices, indices);
 	}
+
+	resource_manager.UploadDataToGPUBuffer(resource_manager.global_vertex_buffer, vertices.data(), vertices.size() * sizeof(Vertex));
+	resource_manager.UploadDataToGPUBuffer(resource_manager.global_index_buffer, indices.data(), indices.size() * sizeof(uint32_t));
 }
 
 Scene LoadScene(ResourceManager &resource_manager, const char *path) {

@@ -7,25 +7,55 @@ struct RenderGraphLayout {
 	std::unordered_map<std::string, RenderPassDescription> render_pass_descriptions;
 };
 
-class VulkanContext;
 class ResourceManager;
+class GraphicsPipelineExecutionContext {
+public:
+	GraphicsPipelineExecutionContext(VkCommandBuffer command_buffer,
+		ResourceManager &resource_manager, RenderPass &render_pass, 
+		GraphicsPipeline &pipeline) :
+		command_buffer(command_buffer),
+		resource_manager(resource_manager),
+		render_pass(render_pass),
+		pipeline(pipeline) {}
+
+	void BindGlobalVertexAndIndexBuffers();
+	void DrawIndexed(uint32_t index_count, uint32_t instance_count, uint32_t first_index, 
+		uint32_t vertex_offset, uint32_t first_instance);
+	void Draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, 
+		uint32_t first_instance);
+
+	template<typename T>
+	void PushConstants(T &push_constants) {
+		assert(sizeof(T) == pipeline.description.push_constants.size);
+		vkCmdPushConstants(command_buffer, pipeline.layout, pipeline.description.push_constants.pipeline_stages, 
+			0, pipeline.description.push_constants.size, &push_constants);
+	}
+
+private:
+	VkCommandBuffer command_buffer;
+	ResourceManager &resource_manager;
+	RenderPass &render_pass;
+	GraphicsPipeline &pipeline;
+};
+
+class VulkanContext;
 class RenderGraph {
 public:
 	RenderGraph(VulkanContext &context);
 
 	void AddGraphicsPass(const char *render_pass_name, std::vector<TransientResource> inputs,
 		std::vector<TransientResource> outputs, std::vector<GraphicsPipelineDescription> pipelines,
-		std::function<void(RenderPass &render_pass, std::unordered_map<std::string, GraphicsPipeline> &pipelines, VkCommandBuffer &command_buffer)> executor);
+		RenderPassCallback callback);
 
 	void Compile(ResourceManager &resource_manager);
-	void Execute(VkCommandBuffer &command_buffer, uint32_t resource_idx, uint32_t image_idx);
+	void Execute(ResourceManager &resource_manager, VkCommandBuffer &command_buffer,
+		uint32_t resource_idx, uint32_t image_idx);
 
 private:
 	void FindExecutionOrder();
 	void ActualizeTransientResource(ResourceManager &resource_manager, TransientResource &resource);
 
 	VulkanContext &context;
-
 	std::vector<std::string> execution_order;
 
 	RenderGraphLayout layout;
@@ -34,5 +64,8 @@ private:
 	std::unordered_map<std::string, RaytracingPipeline> raytracing_pipelines;
 	std::unordered_map<std::string, Texture> textures;
 };
+
+
+
 
 

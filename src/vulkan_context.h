@@ -20,7 +20,7 @@ struct Swapchain {
 
 struct FrameResources {
 	VkFramebuffer framebuffer = VK_NULL_HANDLE;
-	VkCommandBuffer commandbuffer = VK_NULL_HANDLE;
+	VkCommandBuffer command_buffer = VK_NULL_HANDLE;
 	VkSemaphore image_available = VK_NULL_HANDLE;
 	VkSemaphore render_finished = VK_NULL_HANDLE;
 	VkFence fence = VK_NULL_HANDLE;
@@ -38,9 +38,6 @@ public:
 	VkQueue graphics_queue = VK_NULL_HANDLE;
 	VkQueue compute_queue = VK_NULL_HANDLE;
 
-	VkRenderPass render_pass = VK_NULL_HANDLE;
-	Texture depth_texture;
-
 	PhysicalDevice gpu;
 	VmaAllocator allocator;
 	Swapchain swapchain;
@@ -57,7 +54,4 @@ private:
 	void InitAllocator();
 	void InitFrameResources();
 	void InitSwapchain(HWND hwnd);
-
-	void InitDepthResources();
-	void InitRenderPass();
 };

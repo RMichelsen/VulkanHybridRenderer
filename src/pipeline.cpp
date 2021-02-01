@@ -5,11 +5,14 @@
 #include "shader_compiler.h"
 #include "vulkan_context.h"
 #include "vulkan_pipeline_presets.h"
+#include "vulkan_utils.h"
 
 namespace VkUtils {
 GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager &resource_manager, 
 	RenderPass render_pass, GraphicsPipelineDescription description) {
-	GraphicsPipeline pipeline;
+	GraphicsPipeline pipeline {
+		.description = description
+	};
 
 	std::vector<uint32_t> vertex_bytecode =
 		VkUtils::CompileShader(description.vertex_shader, VK_SHADER_STAGE_VERTEX_BIT);
@@ -24,6 +27,7 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	};
 	VK_CHECK(vkCreateShaderModule(context.device, &vertex_shader_module_info,
 		nullptr, &vertex_shader));
+
 	VkShaderModule fragment_shader;
 	VkShaderModuleCreateInfo fragment_shader_module_info {
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -50,11 +54,13 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_state_info {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 1,
-		.pVertexBindingDescriptions = &VERTEX_BINDING_DESCRIPTION,
-		.vertexAttributeDescriptionCount = static_cast<uint32_t>(VERTEX_ATTRIBUTE_DESCRIPTIONS.size()),
-		.pVertexAttributeDescriptions = VERTEX_ATTRIBUTE_DESCRIPTIONS.data()
 	};
+	if(description.vertex_input_state == VertexInputState::Default) {
+		vertex_input_state_info.vertexBindingDescriptionCount = 1;
+		vertex_input_state_info.pVertexBindingDescriptions = &VERTEX_BINDING_DESCRIPTION;
+		vertex_input_state_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(VERTEX_ATTRIBUTE_DESCRIPTIONS.size());
+		vertex_input_state_info.pVertexAttributeDescriptions = VERTEX_ATTRIBUTE_DESCRIPTIONS.data();
+	}
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
 		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
@@ -76,11 +82,17 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		.scissorCount = 1,
 		.pScissors = &scissor
 	};
-	VkPushConstantRange push_constant_range {
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-		.offset = 0,
-		.size = sizeof(PushConstants)
-	};
+
+	std::vector<VkPushConstantRange> push_constants;
+	if(description.push_constants.size > 0) {
+		push_constants.emplace_back(
+			VkPushConstantRange {
+				.stageFlags = description.push_constants.pipeline_stages,
+				.offset = 0,
+				.size = description.push_constants.size
+			}
+		);
+	}
 
 	std::vector<VkDescriptorSetLayout> descriptor_set_layouts { 
 		resource_manager.texture_array_descriptor_set_layout,
@@ -92,9 +104,10 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = static_cast<uint32_t>(descriptor_set_layouts.size()),
 		.pSetLayouts = descriptor_set_layouts.data(),
-		.pushConstantRangeCount = 1,
-		.pPushConstantRanges = &push_constant_range
+		.pushConstantRangeCount = static_cast<uint32_t>(push_constants.size()),
+		.pPushConstantRanges = push_constants.empty() ? nullptr : push_constants.data()
 	};
+
 	VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &pipeline.layout));
 
 	VkGraphicsPipelineCreateInfo pipeline_info {
@@ -114,6 +127,8 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_FILL; break;
 	case RasterizationState::Wireframe:
 		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_WIREFRAME; break;
+	case RasterizationState::FillCullCCW:
+		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_FILL_CULL_CCW; break;
 	}
 	switch(description.multisample_state) {
 	case MultisampleState::Off:
@@ -127,8 +142,11 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	}
 
 	std::vector<VkPipelineColorBlendAttachmentState> color_blend_states;
-	for(ColorBlendState color_blend_state : description.color_blend_states) {
-		if(color_blend_state == ColorBlendState::Off) {
+	for(TransientResource &resource : render_pass.attachments) {
+		if(VkUtils::IsDepthFormat(resource.texture.format)) {
+			continue;
+		}
+		if(!resource.texture.color_blending) {
 			color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_OFF);
 		}
 	}
