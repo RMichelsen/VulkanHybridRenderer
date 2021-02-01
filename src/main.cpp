@@ -76,6 +76,7 @@ int WINAPI wWinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
 			continue;
 		}
 		else {
+			renderer.Update();
 			renderer.Present();
 		}
 	}

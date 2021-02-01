@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "resource_manager.h"
+
 #include "vulkan_context.h"
 #include "vulkan_utils.h"
 
@@ -27,6 +28,19 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	vmaMapMemory(context.allocator, global_index_buffer.allocation, 
 		reinterpret_cast<void **>(&global_index_buffer.mapped_data));
 
+	VkDescriptorPoolSize global_descriptor_pool_size {
+		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = 64
+	};
+	VkDescriptorPoolCreateInfo global_descriptor_pool_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.maxSets = 128,
+		.poolSizeCount = 1,
+		.pPoolSizes = &global_descriptor_pool_size
+	};
+	VK_CHECK(vkCreateDescriptorPool(context.device, &global_descriptor_pool_info, 
+		nullptr, &global_descriptor_pool));
+
 	VkDescriptorPoolSize descriptor_pool_size {
 		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.descriptorCount = MAX_TEXTURES
@@ -38,7 +52,7 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 		.pPoolSizes = &descriptor_pool_size
 	};
 	VK_CHECK(vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr, 
-		&descriptor_pool));
+		&texture_array_descriptor_pool));
 
 	VkDescriptorSetLayoutBinding descriptor_set_layout_binding {
 		.binding = 0,
@@ -61,9 +75,8 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 		.bindingCount = 1,
 		.pBindings = &descriptor_set_layout_binding
 	};
-	VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_info, nullptr,
-		&descriptor_set_layout));
-
+	VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_info, 
+		nullptr, &texture_array_descriptor_set_layout));
 
 	uint32_t alloc_count = MAX_TEXTURES;
 	VkDescriptorSetVariableDescriptorCountAllocateInfo descriptor_set_variable_alloc_info {
@@ -74,11 +87,12 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	VkDescriptorSetAllocateInfo descriptor_set_alloc_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.pNext = &descriptor_set_variable_alloc_info,
-		.descriptorPool = descriptor_pool,
+		.descriptorPool = texture_array_descriptor_pool,
 		.descriptorSetCount = 1,
-		.pSetLayouts = &descriptor_set_layout
+		.pSetLayouts = &texture_array_descriptor_set_layout
 	};
-	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info, &descriptor_set));
+	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info, 
+		&texture_array_descriptor_set));
 
 	VkSamplerCreateInfo sampler_info {
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -103,14 +117,74 @@ ResourceManager::~ResourceManager() {
 		global_index_buffer.allocation);
 }
 
-int ResourceManager::CreateTexture(uint32_t x, uint32_t y, uint8_t *data) {
+Texture ResourceManager::CreateTransientTexture(uint32_t width, uint32_t height, VkFormat format) {
+	VkImageUsageFlags usage = VkUtils::IsDepthFormat(format) ?
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT:
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	VkImageCreateInfo image_info {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.format = format,
+		.extent = VkExtent3D {
+			.width = width,
+			.height = height,
+			.depth = 1
+		},
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.tiling = VK_IMAGE_TILING_OPTIMAL,
+		.usage = usage,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED	
+	};
+	VmaAllocation image_allocation;
+	VmaAllocationCreateInfo image_alloc_info {
+		.usage = VMA_MEMORY_USAGE_GPU_ONLY
+	};
+	VkImage image;
+	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
+		&image, &image_allocation, nullptr);
+
+	// TODO: Make helper for image view creation
+	VkImageView image_view;
+	VkImageAspectFlags aspect_mask = VkUtils::IsDepthFormat(format) ?
+		VK_IMAGE_ASPECT_DEPTH_BIT :
+		VK_IMAGE_ASPECT_COLOR_BIT;
+	VkImageViewCreateInfo image_view_info {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.image = image,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = format,
+		.components = VkComponentMapping {
+			.r = VK_COMPONENT_SWIZZLE_R,	
+			.g = VK_COMPONENT_SWIZZLE_G,	
+			.b = VK_COMPONENT_SWIZZLE_B,	
+			.a = VK_COMPONENT_SWIZZLE_A
+		},
+		.subresourceRange = VkImageSubresourceRange {
+			.aspectMask = aspect_mask,
+			.levelCount = 1,
+			.layerCount = 1
+		}
+	};
+	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &image_view));
+
+	return Texture {
+		.image = image,
+		.image_view = image_view,
+		.allocation = image_allocation
+	};
+}
+
+int ResourceManager::LoadTextureFromData(uint32_t width, uint32_t height, uint8_t *data) {
 	VkImageCreateInfo image_info {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = VK_IMAGE_TYPE_2D,
 		.format = VK_FORMAT_R8G8B8A8_UNORM,
 		.extent = VkExtent3D {
-			.width = x,
-			.height = y,
+			.width = width,
+			.height = height,
 			.depth = 1
 		},
 		.mipLevels = 1,
@@ -131,7 +205,7 @@ int ResourceManager::CreateTexture(uint32_t x, uint32_t y, uint8_t *data) {
 
 	VkBufferCreateInfo buffer_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = x * y * 4, // Assuming RGBA, 8-bit each
+		.size = width * height * 4, // TODO: Assuming RGBA, 8-bit each
 		.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 	};
 	VmaAllocation buffer_allocation;
@@ -145,7 +219,7 @@ int ResourceManager::CreateTexture(uint32_t x, uint32_t y, uint8_t *data) {
 
 	void *mapped_data;
 	vmaMapMemory(context.allocator, buffer_allocation, &mapped_data);
-	memcpy(mapped_data, data, x * y * 4);
+	memcpy(mapped_data, data, width * height * 4);
 
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, 
 		context.command_pool, [&](VkCommandBuffer command_buffer) {
@@ -161,8 +235,8 @@ int ResourceManager::CreateTexture(uint32_t x, uint32_t y, uint8_t *data) {
 				.layerCount = 1
 			},
 			.imageExtent = VkExtent3D {
-				.width = x,
-				.height = y,
+				.width = width,
+				.height = height,
 				.depth = 1
 			}
 		};
@@ -220,7 +294,7 @@ void ResourceManager::UpdateDescriptors() {
 
 	VkWriteDescriptorSet write_descriptor_set {
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = descriptor_set,
+		.dstSet = texture_array_descriptor_set,
 		.dstBinding = 0,
 		.descriptorCount = static_cast<uint32_t>(descriptors.size()),
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,

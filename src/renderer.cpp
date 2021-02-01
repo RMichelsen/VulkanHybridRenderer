@@ -1,5 +1,8 @@
 #include "pch.h"
 #include "renderer.h"
+
+#include "pipeline.h"
+#include "render_graph.h"
 #include "resource_manager.h"
 #include "scene_loader.h"
 #include "shader_compiler.h"
@@ -8,13 +11,19 @@
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
 	context = std::make_unique<VulkanContext>(hinstance, hwnd);
 	resource_manager = std::make_unique<ResourceManager>(*context);
-	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza/glTF/Sponza.gltf");
+	render_graph = std::make_unique<RenderGraph>(*context);
+	//scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza/glTF/Sponza.gltf");
+	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza.glb");
 	CreatePipeline();
 }
 
 Renderer::~Renderer() {
 	resource_manager.reset();
 	context.reset();
+}
+
+void Renderer::Update() {
+
 }
 
 void Renderer::Present() {
@@ -33,7 +42,7 @@ void Renderer::Present() {
 	}
 	VK_CHECK(result);
 
-	Render(resources, image_idx);
+	Render(resources, resource_idx, image_idx);
 
 	VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	VkSubmitInfo submit_info {
@@ -68,12 +77,18 @@ void Renderer::Present() {
 	resource_idx = (resource_idx + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::Render(FrameResources &resources, uint32_t image_idx) {
+void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {
 	VkCommandBufferBeginInfo commandbuffer_begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	};
 	VK_CHECK(vkBeginCommandBuffer(resources.commandbuffer, &commandbuffer_begin_info));
+
+	render_graph->Execute(resources.commandbuffer, resource_idx, image_idx);
+
+	VK_CHECK(vkEndCommandBuffer(resources.commandbuffer));
+
+	return;
 
 	// Delete previous framebuffer
 	if(resources.framebuffer != VK_NULL_HANDLE) {
@@ -121,7 +136,7 @@ void Renderer::Render(FrameResources &resources, uint32_t image_idx) {
 		VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindPipeline(resources.commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		pipeline);
+		pipeline.handle);
 
 	VkDeviceSize offset = 0;
 	vkCmdBindVertexBuffers(resources.commandbuffer, 0, 1, 
@@ -129,19 +144,15 @@ void Renderer::Render(FrameResources &resources, uint32_t image_idx) {
 	vkCmdBindIndexBuffer(resources.commandbuffer, 
 		resource_manager->global_index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdBindDescriptorSets(resources.commandbuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		pipeline_layout, 0, 1, &resource_manager->descriptor_set, 0, nullptr);
-
-	glm::mat4 P = glm::perspective(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
-	glm::mat4 V = glm::lookAt(glm::vec3(4.0f, 2.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3(0.0f, 1.0f, 0.0f));
+		pipeline.layout, 0, 1, &resource_manager->texture_array_descriptor_set, 0, nullptr);
 
 	for(Mesh &mesh : scene.meshes) {
 		for(Primitive &primitive : mesh.primitives) {
 			PushConstants push_constants {
-				.MVP = P * V * primitive.transform,
+				.MVP = scene.camera.perspective * scene.camera.view * primitive.transform,
 				.texture = primitive.texture
 			};
-			vkCmdPushConstants(resources.commandbuffer, pipeline_layout, 
+			vkCmdPushConstants(resources.commandbuffer, pipeline.layout, 
 				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 
 				sizeof(PushConstants), &push_constants);
 
@@ -156,127 +167,191 @@ void Renderer::Render(FrameResources &resources, uint32_t image_idx) {
 }
 
 void Renderer::CreatePipeline() {
-	std::vector<uint32_t> vertex_bytecode = 
-		ShaderCompiler::CompileShader("data/shaders/default.vert", VK_SHADER_STAGE_VERTEX_BIT);
-	std::vector<uint32_t> fragment_bytecode = 
-		ShaderCompiler::CompileShader("data/shaders/default.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	VkShaderModule vertex_shader;
-	VkShaderModuleCreateInfo vertex_shader_module_info {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = vertex_bytecode.size() * sizeof(uint32_t),
-		.pCode = vertex_bytecode.data()
+	GraphicsPipelineDescription pipeline_description {
+		.vertex_shader = "data/shaders/default.vert",
+		.fragment_shader = "data/shaders/default.frag",
+		.rasterization_state = RasterizationState::Fill,
+		.multisample_state = MultisampleState::Off,
+		.depth_stencil_state = DepthStencilState::On,
+		.color_blend_states = { ColorBlendState::Off }
 	};
-	VK_CHECK(vkCreateShaderModule(context->device, &vertex_shader_module_info, 
-		nullptr, &vertex_shader));
-	VkShaderModule fragment_shader;
-	VkShaderModuleCreateInfo fragment_shader_module_info {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = fragment_bytecode.size() * sizeof(uint32_t),
-		.pCode = fragment_bytecode.data()
-	};
-	VK_CHECK(vkCreateShaderModule(context->device, &fragment_shader_module_info, \
-		nullptr, &fragment_shader));
 
-	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stage_infos {
-		VkPipelineShaderStageCreateInfo {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = vertex_shader,
-			.pName = "main",
+	pipeline = VkUtils::CreateGraphicsPipeline(
+		*context, 
+		*resource_manager, 
+		RenderPass {
+			.handle = context->render_pass,
+			.descriptor_set_layout = VK_NULL_HANDLE,
+			.descriptor_set = VK_NULL_HANDLE
 		},
-		VkPipelineShaderStageCreateInfo {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = fragment_shader,
-			.pName = "main",
+		pipeline_description
+	);
+
+	render_graph->AddGraphicsPass("G-Buffer",
+		{},
+		{
+			TransientResource {
+				.name = "Position",
+				.type = TransientResourceType::Texture,
+				.texture = TransientTexture {
+					.format = VK_FORMAT_R8G8B8A8_UNORM,
+					.width = context->swapchain.extent.width,
+					.height = context->swapchain.extent.height
+				}
+			},
+			TransientResource {
+				.name = "Normal",
+				.type = TransientResourceType::Texture,
+				.texture = TransientTexture {
+					.format = VK_FORMAT_R8G8B8A8_UNORM,
+					.width = context->swapchain.extent.width,
+					.height = context->swapchain.extent.height
+				}
+			},
+			TransientResource {
+				.name = "Albedo",
+				.type = TransientResourceType::Texture,
+				.texture = TransientTexture {
+					.format = VK_FORMAT_R8G8B8A8_UNORM,
+					.width = context->swapchain.extent.width,
+					.height = context->swapchain.extent.height
+				}
+			},
+			TransientResource {
+				.name = "Depth",
+				.type = TransientResourceType::Texture,
+				.texture = TransientTexture {
+					.format = VK_FORMAT_D32_SFLOAT,
+					.width = context->swapchain.extent.width,
+					.height = context->swapchain.extent.height
+				}
+			}
+		},
+		{
+			GraphicsPipelineDescription {
+				.name = "G-Buffer Pipeline",
+				.vertex_shader = "data/shaders/gbuf.vert",
+				.fragment_shader = "data/shaders/gbuf.frag",
+				.rasterization_state = RasterizationState::Fill,
+				.multisample_state = MultisampleState::Off,
+				.depth_stencil_state = DepthStencilState::On,
+				.color_blend_states = { 
+					ColorBlendState::Off, 
+					ColorBlendState::Off, 
+					ColorBlendState::Off 
+				}
+			}
+		},
+		[&](RenderPass &render_pass, std::unordered_map<std::string, GraphicsPipeline> &pipelines,
+			VkCommandBuffer &command_buffer) {
+			GraphicsPipeline &pipeline_ = pipelines["G-Buffer Pipeline"];
+			vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.handle);
+
+			VkDeviceSize offset = 0;
+			vkCmdBindVertexBuffers(command_buffer, 0, 1, &resource_manager->global_vertex_buffer.handle, &offset);
+			vkCmdBindIndexBuffer(command_buffer, resource_manager->global_index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.layout, 
+				0, 1, &resource_manager->texture_array_descriptor_set, 0, nullptr);
+
+			for(Mesh &mesh : scene.meshes) {
+				for(Primitive &primitive : mesh.primitives) {
+					PushConstants push_constants {
+						.MVP = scene.camera.perspective * scene.camera.view * primitive.transform,
+						.texture = primitive.texture
+					};
+					vkCmdPushConstants(command_buffer, pipeline_.layout, 
+						VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 
+						sizeof(PushConstants), &push_constants);
+
+					vkCmdDrawIndexed(command_buffer, primitive.index_count,
+						1, primitive.index_offset, primitive.vertex_offset, 0);
+				}
+			}
 		}
-	};
+	);
 
-	VkPipelineVertexInputStateCreateInfo vertex_input_state_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 1,
-		.pVertexBindingDescriptions = &VERTEX_BINDING_DESCRIPTION,
-		.vertexAttributeDescriptionCount = static_cast<uint32_t>(VERTEX_ATTRIBUTE_DESCRIPTIONS.size()),
-		.pVertexAttributeDescriptions = VERTEX_ATTRIBUTE_DESCRIPTIONS.data()
-	};
-	VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
-	};
-	VkViewport viewport {
-		.y = static_cast<float>(context->swapchain.extent.height),
-		.width = static_cast<float>(context->swapchain.extent.width),
-		.height = -static_cast<float>(context->swapchain.extent.height),
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f
-	};
-	VkRect2D scissor {
-		.extent = context->swapchain.extent
-	};
-	VkPipelineViewportStateCreateInfo viewport_state_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount = 1,
-		.pViewports = &viewport,
-		.scissorCount = 1,
-		.pScissors = &scissor
-	};
-	VkPipelineRasterizationStateCreateInfo rasterization_state_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.polygonMode = VK_POLYGON_MODE_FILL,
-		.cullMode = VK_CULL_MODE_FRONT_BIT,
-		.frontFace = VK_FRONT_FACE_CLOCKWISE,
-		.lineWidth = 1.0f
-	};
-	VkPipelineMultisampleStateCreateInfo multisample_state_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT
-	};
-	VkPipelineDepthStencilStateCreateInfo depth_stencil_state_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		.depthTestEnable = VK_TRUE,
-		.depthWriteEnable = VK_TRUE,
-		.depthCompareOp = VK_COMPARE_OP_LESS,
-	};
-	VkPipelineColorBlendAttachmentState color_blend_attachment_state {
-		.blendEnable = VK_FALSE,
-		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-			VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
-	};
-	VkPipelineColorBlendStateCreateInfo color_blend_state_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		.attachmentCount = 1,
-		.pAttachments = &color_blend_attachment_state,
-	};
-	VkPushConstantRange push_constant_range {
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-		.offset = 0,
-		.size = sizeof(PushConstants)
-	};
-	VkPipelineLayoutCreateInfo layout_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 1,
-		.pSetLayouts = &resource_manager->descriptor_set_layout,
-		.pushConstantRangeCount = 1,
-		.pPushConstantRanges = &push_constant_range
-	};
-	VK_CHECK(vkCreatePipelineLayout(context->device, &layout_info, nullptr, &pipeline_layout));
+	render_graph->AddGraphicsPass("Composition Pass",
+		{
+			TransientResource {
+				.name = "Position",
+				.type = TransientResourceType::Texture,
+				.texture = TransientTexture {
+					.format = VK_FORMAT_R8G8B8A8_UNORM,
+					.width = context->swapchain.extent.width,
+					.height = context->swapchain.extent.height
+				}
+			},
+			TransientResource {
+				.name = "Normal",
+				.type = TransientResourceType::Texture,
+				.texture = TransientTexture {
+					.format = VK_FORMAT_R8G8B8A8_UNORM,
+					.width = context->swapchain.extent.width,
+					.height = context->swapchain.extent.height
+				}
+			},
+			TransientResource {
+				.name = "Albedo",
+				.type = TransientResourceType::Texture,
+				.texture = TransientTexture {
+					.format = VK_FORMAT_R8G8B8A8_UNORM,
+					.width = context->swapchain.extent.width,
+					.height = context->swapchain.extent.height
+				}
+			}
+		},
+		{
+			TRANSIENT_BACKBUFFER,
+			TransientResource {
+				.name = "Depth",
+				.type = TransientResourceType::Texture,
+				.texture = TransientTexture {
+					.format = VK_FORMAT_D32_SFLOAT,
+					.width = context->swapchain.extent.width,
+					.height = context->swapchain.extent.height
+				}
+			}
+		},
+		{
+			GraphicsPipelineDescription {
+				.name = "Composition Pipeline",
+				.vertex_shader = "data/shaders/composition.vert",
+				.fragment_shader = "data/shaders/composition.frag",
+				.rasterization_state = RasterizationState::Fill,
+				.multisample_state = MultisampleState::Off,
+				.depth_stencil_state = DepthStencilState::On,
+				.color_blend_states = { ColorBlendState::Off }
+			}
+		},
+		[&](RenderPass &render_pass, std::unordered_map<std::string, GraphicsPipeline> &pipelines,
+			VkCommandBuffer &command_buffer) {
+			GraphicsPipeline &pipeline_ = pipelines["Composition Pipeline"];
+			vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.handle);
 
-	VkGraphicsPipelineCreateInfo pipeline_info {
-		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		.stageCount = static_cast<uint32_t>(shader_stage_infos.size()),
-		.pStages = shader_stage_infos.data(),
-		.pVertexInputState = &vertex_input_state_info,
-		.pInputAssemblyState = &input_assembly_state_info,
-		.pViewportState = &viewport_state_info,
-		.pRasterizationState = &rasterization_state_info,
-		.pMultisampleState = &multisample_state_info,
-		.pDepthStencilState = &depth_stencil_state_info,
-		.pColorBlendState = &color_blend_state_info,
-		.layout = pipeline_layout,
-		.renderPass = context->render_pass,
-		.subpass = 0
-	};
-	VK_CHECK(vkCreateGraphicsPipelines(context->device, VK_NULL_HANDLE, 1, &pipeline_info,
-		nullptr, &pipeline));
+			VkDeviceSize offset = 0;
+			vkCmdBindVertexBuffers(command_buffer, 0, 1, &resource_manager->global_vertex_buffer.handle, &offset);
+			vkCmdBindIndexBuffer(command_buffer, resource_manager->global_index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.layout, 
+				0, 1, &resource_manager->texture_array_descriptor_set, 0, nullptr);
+			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.layout, 
+				1, 1, &render_pass.descriptor_set, 0, nullptr);
+
+			for(Mesh &mesh : scene.meshes) {
+				for(Primitive &primitive : mesh.primitives) {
+					PushConstants push_constants {
+						.MVP = scene.camera.perspective * scene.camera.view * primitive.transform,
+						.texture = primitive.texture
+					};
+					vkCmdPushConstants(command_buffer, pipeline_.layout, 
+						VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 
+						sizeof(PushConstants), &push_constants);
+
+					vkCmdDrawIndexed(command_buffer, primitive.index_count,
+						1, primitive.index_offset, primitive.vertex_offset, 0);
+				}
+			}
+		}
+	);
+
+	render_graph->Compile(*resource_manager);
 }

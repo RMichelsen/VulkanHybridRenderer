@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "shader_compiler.h"
 
-namespace ShaderCompiler {
+namespace VkUtils {
 std::vector<uint32_t> CompileShader(const char *path, VkShaderStageFlags shader_stage) {
 	assert(shader_stage == VK_SHADER_STAGE_VERTEX_BIT || 
 		   shader_stage == VK_SHADER_STAGE_FRAGMENT_BIT || 

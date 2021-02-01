@@ -10,6 +10,7 @@
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <string>
 #include <sstream>
@@ -29,6 +30,7 @@
 #include "vma/vk_mem_alloc.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_RADIANS
 #include "glm/vec3.hpp"
 #include "glm/vec4.hpp"
 #include "glm/mat4x4.hpp"
@@ -40,3 +42,4 @@
 #include "glm/gtx/quaternion.hpp"
  
 #include "vulkan_common.h"
+#include "vulkan_pipeline_presets.h"

@@ -26,7 +26,6 @@ struct FrameResources {
 	VkFence fence = VK_NULL_HANDLE;
 };
 
-#define MAX_FRAMES_IN_FLIGHT 3
 class VulkanContext {
 public:
 	VulkanContext(HINSTANCE hinstance, HWND hwnd);

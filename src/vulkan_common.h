@@ -5,10 +5,17 @@
 	printf("Vulkan error: %s:%i", __FILE__, __LINE__); 	\
 }
 
+#define MAX_FRAMES_IN_FLIGHT 3
+
 struct Texture {
 	VkImage image;
 	VkImageView image_view;
 	VmaAllocation allocation;
+};
+
+struct Camera {
+	glm::mat4 perspective;
+	glm::mat4 view;
 };
 
 struct Primitive {
@@ -24,6 +31,7 @@ struct Mesh {
 };
 
 struct Scene {
+	Camera camera;
 	std::vector<Mesh> meshes;
 };
 
@@ -87,4 +95,86 @@ struct MappedBuffer {
 using VertexBuffer = MappedBuffer<Vertex>;
 using IndexBuffer = MappedBuffer<uint32_t>;
 
+struct GraphicsPipeline {
+	VkPipeline handle;
+	VkPipelineLayout layout;
+};
+
+struct RaytracingPipeline {
+	VkPipeline handle;
+	VkPipelineLayout layout;
+};
+
+enum class TransientResourceType {
+	Texture,
+	Buffer
+};
+
+struct TransientTexture {
+	VkFormat format;
+	uint32_t width;
+	uint32_t height;
+};
+
+struct TransientBuffer {
+	uint32_t stride;
+	uint32_t count;
+};
+
+struct TransientResource {
+	const char *name;
+	TransientResourceType type;
+	union {
+		TransientTexture texture;
+		TransientBuffer buffer;
+	};
+};
+
+inline constexpr TransientResource TRANSIENT_BACKBUFFER {
+	.name = "BACKBUFFER"
+};
+
+enum class RasterizationState {
+	Fill,
+	Wireframe
+};
+enum class MultisampleState {
+	Off
+};
+enum class DepthStencilState {
+	On,
+	Off
+};
+enum class ColorBlendState {
+	Off
+};
+
+struct GraphicsPipelineDescription {
+	const char *name;
+	const char *vertex_shader;
+	const char *fragment_shader;
+	RasterizationState rasterization_state;
+	MultisampleState multisample_state;
+	DepthStencilState depth_stencil_state;
+	std::vector<ColorBlendState> color_blend_states;
+};
+
+struct RaytracingPipelineDescription {
+
+};
+struct RenderPass {
+	VkRenderPass handle;
+	VkDescriptorSetLayout descriptor_set_layout;
+	VkDescriptorSet descriptor_set;
+	std::array<VkFramebuffer, MAX_FRAMES_IN_FLIGHT> framebuffers;
+	std::vector<std::string> attachments;
+	std::function<void(RenderPass &render_pass, std::unordered_map<std::string, GraphicsPipeline> &pipelines, VkCommandBuffer &command_buffer)> executor;
+};
+
+struct RenderPassDescription {
+	std::vector<std::string> inputs;
+	std::vector<std::string> outputs;
+	std::vector<GraphicsPipelineDescription> graphics_pipelines;
+	std::function<void(RenderPass &render_pass, std::unordered_map<std::string, GraphicsPipeline> &pipelines, VkCommandBuffer &command_buffer)> executor;
+};
 

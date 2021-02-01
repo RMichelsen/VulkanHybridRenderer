@@ -6,16 +6,18 @@ public:
 	ResourceManager(VulkanContext &context);
 	~ResourceManager();
 
-	int CreateTexture(uint32_t x, uint32_t y, uint8_t *data);
+	Texture CreateTransientTexture(uint32_t width, uint32_t height, VkFormat format);
+	int LoadTextureFromData(uint32_t width, uint32_t height, uint8_t *data);
 	void UpdateDescriptors();
 
 	VertexBuffer global_vertex_buffer;
 	IndexBuffer global_index_buffer;
 
+	VkDescriptorPool global_descriptor_pool = VK_NULL_HANDLE;
 	std::vector<Texture> textures;
-	VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
-	VkDescriptorSetLayout descriptor_set_layout = VK_NULL_HANDLE;
-	VkDescriptorSet descriptor_set = VK_NULL_HANDLE;
+	VkDescriptorPool texture_array_descriptor_pool = VK_NULL_HANDLE;
+	VkDescriptorSetLayout texture_array_descriptor_set_layout = VK_NULL_HANDLE;
+	VkDescriptorSet texture_array_descriptor_set = VK_NULL_HANDLE;
 
 	VkSampler sampler = VK_NULL_HANDLE;
 
