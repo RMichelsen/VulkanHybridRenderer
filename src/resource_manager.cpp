@@ -4,7 +4,11 @@
 #include "vulkan_context.h"
 #include "vulkan_utils.h"
 
-#define MAX_TEXTURES 1024
+#define MAX_TRANSIENT_TEXTURES 256
+#define MAX_TRANSIENT_SETS 128
+
+#define MAX_GLOBAL_TEXTURES 1024
+#define MAX_PER_FRAME_UBOS MAX_FRAMES_IN_FLIGHT
 
 ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(1024 * 1024 * 128, 
@@ -13,79 +17,22 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	global_index_buffer = VkUtils::CreateGPUBuffer(context.allocator, buffer_info);
 
-	VkDescriptorPoolSize global_descriptor_pool_size {
+	VkDescriptorPoolSize transient_descriptor_pool_size {
 		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = 64
+		.descriptorCount = MAX_TRANSIENT_TEXTURES
 	};
-	VkDescriptorPoolCreateInfo global_descriptor_pool_info {
+	VkDescriptorPoolCreateInfo transient_descriptor_pool_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.maxSets = 128,
+		.maxSets = MAX_TRANSIENT_SETS,
 		.poolSizeCount = 1,
-		.pPoolSizes = &global_descriptor_pool_size
+		.pPoolSizes = &transient_descriptor_pool_size
 	};
-	VK_CHECK(vkCreateDescriptorPool(context.device, &global_descriptor_pool_info, 
-		nullptr, &global_descriptor_pool));
+	VK_CHECK(vkCreateDescriptorPool(context.device, &transient_descriptor_pool_info, 
+		nullptr, &transient_descriptor_pool));
 
-	VkDescriptorPoolSize descriptor_pool_size {
-		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = MAX_TEXTURES
-	};
-	VkDescriptorPoolCreateInfo descriptor_pool_info {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.maxSets = 1,
-		.poolSizeCount = 1,
-		.pPoolSizes = &descriptor_pool_size
-	};
-	VK_CHECK(vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr, 
-		&texture_array_descriptor_pool));
-
-	VkDescriptorSetLayoutBinding descriptor_set_layout_binding {
-		.binding = 0,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = MAX_TEXTURES,
-		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
-	};
-	std::array<VkDescriptorBindingFlags, 1> descriptor_binding_flags {
-		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
-		VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
-	};
-	VkDescriptorSetLayoutBindingFlagsCreateInfo descriptor_set_layout_binding_flags_info {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-		.bindingCount = static_cast<uint32_t>(descriptor_binding_flags.size()),
-		.pBindingFlags = descriptor_binding_flags.data()
-	};
-	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.pNext = &descriptor_set_layout_binding_flags_info,
-		.bindingCount = 1,
-		.pBindings = &descriptor_set_layout_binding
-	};
-	VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_info, 
-		nullptr, &texture_array_descriptor_set_layout));
-
-	uint32_t alloc_count = MAX_TEXTURES;
-	VkDescriptorSetVariableDescriptorCountAllocateInfo descriptor_set_variable_alloc_info {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT,
-		.descriptorSetCount = 1,
-		.pDescriptorCounts = &alloc_count
-	};
-	VkDescriptorSetAllocateInfo descriptor_set_alloc_info {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-		.pNext = &descriptor_set_variable_alloc_info,
-		.descriptorPool = texture_array_descriptor_pool,
-		.descriptorSetCount = 1,
-		.pSetLayouts = &texture_array_descriptor_set_layout
-	};
-	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info, 
-		&texture_array_descriptor_set));
-
-	VkPipelineLayoutCreateInfo pipeline_layout_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 1,
-		.pSetLayouts = &texture_array_descriptor_set_layout
-	};
-	VK_CHECK(vkCreatePipelineLayout(context.device, &pipeline_layout_info, 
-		nullptr, &texture_array_pipeline_layout));
+	CreateGlobalDescriptorSet();
+	CreatePerFrameDescriptorSet();
+	CreatePerFrameUBOs();
 
 	VkSamplerCreateInfo sampler_info {
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -175,17 +122,17 @@ int ResourceManager::LoadTextureFromData(uint32_t width, uint32_t height, uint8_
 
 void ResourceManager::UpdateDescriptors() {
 	std::vector<VkDescriptorImageInfo> descriptors;
-	for(int i = 0; i < textures.size(); ++i) {
+	for(Texture &texture : textures) {
 		descriptors.push_back(VkDescriptorImageInfo {
 			.sampler = sampler,
-			.imageView = textures[i].image_view,
+			.imageView = texture.image_view,
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		});
 	}
 
 	VkWriteDescriptorSet write_descriptor_set {
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = texture_array_descriptor_set,
+		.dstSet = global_descriptor_set,
 		.dstBinding = 0,
 		.descriptorCount = static_cast<uint32_t>(descriptors.size()),
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -211,4 +158,133 @@ void ResourceManager::UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDevi
 	);
 
 	VkUtils::DestroyMappedBuffer(context.allocator, staging_buffer);
+}
+
+void ResourceManager::UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData per_frame_data) {
+	memcpy(per_frame_ubos[resource_idx].mapped_data, &per_frame_data, sizeof(PerFrameData));
+}
+
+void ResourceManager::CreateGlobalDescriptorSet() {
+	VkDescriptorPoolSize descriptor_pool_size {
+		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = MAX_GLOBAL_TEXTURES
+	};
+	VkDescriptorPoolCreateInfo descriptor_pool_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.maxSets = 1,
+		.poolSizeCount = 1,
+		.pPoolSizes = &descriptor_pool_size
+	};
+	VK_CHECK(vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr, 
+		&global_descriptor_pool));
+
+	VkDescriptorSetLayoutBinding descriptor_set_layout_binding {
+		.binding = 0,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = MAX_GLOBAL_TEXTURES,
+		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+	};
+	std::array<VkDescriptorBindingFlags, 1> descriptor_binding_flags {
+		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+		VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
+	};
+	VkDescriptorSetLayoutBindingFlagsCreateInfo descriptor_set_layout_binding_flags_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+		.bindingCount = static_cast<uint32_t>(descriptor_binding_flags.size()),
+		.pBindingFlags = descriptor_binding_flags.data()
+	};
+	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		.pNext = &descriptor_set_layout_binding_flags_info,
+		.bindingCount = 1,
+		.pBindings = &descriptor_set_layout_binding
+	};
+	VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_info, 
+		nullptr, &global_descriptor_set_layout));
+
+	uint32_t alloc_count = MAX_GLOBAL_TEXTURES;
+	VkDescriptorSetVariableDescriptorCountAllocateInfo descriptor_set_variable_alloc_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT,
+		.descriptorSetCount = 1,
+		.pDescriptorCounts = &alloc_count
+	};
+	VkDescriptorSetAllocateInfo descriptor_set_alloc_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		.pNext = &descriptor_set_variable_alloc_info,
+		.descriptorPool = global_descriptor_pool,
+		.descriptorSetCount = 1,
+		.pSetLayouts = &global_descriptor_set_layout
+	};
+	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info, 
+		&global_descriptor_set));
+}
+
+void ResourceManager::CreatePerFrameDescriptorSet() {
+	VkDescriptorPoolSize descriptor_pool_size {
+		.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = MAX_PER_FRAME_UBOS
+	};
+	VkDescriptorPoolCreateInfo descriptor_pool_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.maxSets = 1,
+		.poolSizeCount = 1,
+		.pPoolSizes = &descriptor_pool_size
+	};
+	VK_CHECK(vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr,
+		&per_frame_descriptor_pool));
+
+	VkDescriptorSetLayoutBinding descriptor_set_layout_binding {
+		.binding = 0,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = MAX_PER_FRAME_UBOS,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+	};
+	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		.bindingCount = 1,
+		.pBindings = &descriptor_set_layout_binding
+	};
+	VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_info,
+		nullptr, &per_frame_descriptor_set_layout));
+	VkDescriptorSetAllocateInfo descriptor_set_alloc_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		.descriptorPool = per_frame_descriptor_pool,
+		.descriptorSetCount = 1,
+		.pSetLayouts = &per_frame_descriptor_set_layout
+	};
+	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info,
+		&per_frame_descriptor_set));
+
+	VkPipelineLayoutCreateInfo pipeline_layout_info {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.setLayoutCount = 1,
+		.pSetLayouts = &per_frame_descriptor_set_layout
+	};
+	VK_CHECK(vkCreatePipelineLayout(context.device, &pipeline_layout_info,
+		nullptr, &global_pipeline_layout));
+}
+
+void ResourceManager::CreatePerFrameUBOs() {
+	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(sizeof(PerFrameData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+	std::vector<VkDescriptorBufferInfo> descriptors;
+	for(MappedBuffer &buffer : per_frame_ubos) {
+		buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+
+		descriptors.push_back(VkDescriptorBufferInfo {
+			.buffer = buffer.handle,
+			.offset = 0,
+			.range = sizeof(PerFrameData)
+		});
+	}
+
+	VkWriteDescriptorSet write_descriptor_set {
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet = per_frame_descriptor_set,
+		.dstBinding = 0,
+		.descriptorCount = static_cast<uint32_t>(descriptors.size()),
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.pBufferInfo = descriptors.data()
+	};
+
+	vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
 }

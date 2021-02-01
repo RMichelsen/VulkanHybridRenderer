@@ -95,7 +95,7 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 				nullptr, &render_pass.descriptor_set_layout));
 			VkDescriptorSetAllocateInfo descriptor_set_alloc_info {
 				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-				.descriptorPool = resource_manager.global_descriptor_pool,
+				.descriptorPool = resource_manager.transient_descriptor_pool,
 				.descriptorSetCount = 1,
 				.pSetLayouts = &render_pass.descriptor_set_layout
 			};
@@ -275,10 +275,12 @@ void RenderGraph::Execute(ResourceManager &resource_manager, VkCommandBuffer &co
 				GraphicsPipeline &pipeline = graphics_pipelines[pipeline_name];
 				vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
 				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-					pipeline.layout, 0, 1, &resource_manager.texture_array_descriptor_set, 0, nullptr);
+					pipeline.layout, 0, 1, &resource_manager.global_descriptor_set, 0, nullptr);
+				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+					pipeline.layout, 1, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
 				if(render_pass.descriptor_set != VK_NULL_HANDLE) {
 					vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout,
-						1, 1, &render_pass.descriptor_set, 0, nullptr);
+						2, 1, &render_pass.descriptor_set, 0, nullptr);
 				}
 				GraphicsPipelineExecutionContext execution_context(command_buffer, resource_manager, render_pass, pipeline);
 				execute_pipeline(execution_context);

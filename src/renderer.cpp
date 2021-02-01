@@ -77,6 +77,13 @@ void Renderer::Present() {
 }
 
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {
+	resource_manager->UpdatePerFrameUBO(resource_idx, 
+		PerFrameData {
+			.camera_view = scene.camera.view,
+			.camera_proj = scene.camera.perspective
+		}
+	);
+
 	VkCommandBufferBeginInfo command_buffer_begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
@@ -113,15 +120,13 @@ void Renderer::CreatePipeline() {
 			}
 		},
 		[this](ExecutePipelineCallback execute_pipeline) {
-			execute_pipeline(
-				"G-Buffer Pipeline",
+			execute_pipeline("G-Buffer Pipeline",
 				[this](GraphicsPipelineExecutionContext &context) {
 					context.BindGlobalVertexAndIndexBuffers();
-
 					for(Mesh &mesh : scene.meshes) {
 						for(Primitive &primitive : mesh.primitives) {
 							PushConstants push_constants {
-								.MVP = scene.camera.perspective * scene.camera.view * primitive.transform,
+								.transform = primitive.transform,
 								.texture = primitive.texture
 							};
 							context.PushConstants(push_constants);
@@ -133,7 +138,7 @@ void Renderer::CreatePipeline() {
 		}
 	);
 
-	render_graph->AddGraphicsPass("Composition Pass",
+	render_graph->AddGraphicsPass("Composition Pass", 
 		{
 			CreateTransientTexture("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
 			CreateTransientTexture("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
@@ -156,8 +161,7 @@ void Renderer::CreatePipeline() {
 			}
 		},
 		[](ExecutePipelineCallback execute_pipeline) {
-			execute_pipeline(
-				"Composition Pipeline",
+			execute_pipeline("Composition Pipeline",
 				[](GraphicsPipelineExecutionContext &context) {
 					context.Draw(3, 1, 0, 0);
 				}

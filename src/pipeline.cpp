@@ -95,7 +95,8 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	}
 
 	std::vector<VkDescriptorSetLayout> descriptor_set_layouts { 
-		resource_manager.texture_array_descriptor_set_layout,
+		resource_manager.global_descriptor_set_layout,
+		resource_manager.per_frame_descriptor_set_layout,
 	};
 	if(render_pass.descriptor_set_layout != VK_NULL_HANDLE) {
 		descriptor_set_layouts.emplace_back(render_pass.descriptor_set_layout);

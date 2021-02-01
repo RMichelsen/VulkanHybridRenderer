@@ -35,8 +35,13 @@ struct Scene {
 	std::vector<Mesh> meshes;
 };
 
+struct PerFrameData {
+	glm::mat4 camera_view;
+	glm::mat4 camera_proj;
+};
+
 struct PushConstants {
-	glm::mat4 MVP;
+	glm::mat4 transform;
 	int texture;
 };
 
