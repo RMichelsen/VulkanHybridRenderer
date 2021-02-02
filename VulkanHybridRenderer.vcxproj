@@ -176,7 +176,6 @@
     <ClInclude Include="src\render_graph.h" />
     <ClInclude Include="src\resource_manager.h" />
     <ClInclude Include="src\scene_loader.h" />
-    <ClInclude Include="src\shader_compiler.h" />
     <ClInclude Include="src\vulkan_common.h" />
     <ClInclude Include="src\vulkan_context.h" />
     <ClInclude Include="src\vulkan_pipeline_presets.h" />
@@ -196,13 +195,37 @@
     <ClCompile Include="src\render_graph.cpp" />
     <ClCompile Include="src\resource_manager.cpp" />
     <ClCompile Include="src\scene_loader.cpp" />
-    <ClCompile Include="src\shader_compiler.cpp" />
     <ClCompile Include="src\vulkan_context.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="dependencies\glm\util\glm.natvis" />
+    <Natvis Include="misc\glm.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <GLSLShader Include="data\shaders\composition.frag">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V -o %(Directory)\compiled\%(Filename).%(Extension).spv</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V -o %(Directory)\compiled\%(Filename).%(Extension).spv</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Directory)\compiled\%(Filename).%(Extension).spv</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Directory)\compiled\%(Filename).%(Extension).spv</Outputs>
+    </GLSLShader>
+    <GLSLShader Include="data\shaders\composition.vert">
+      <FileType>Document</FileType>
+    </GLSLShader>
+    <GLSLShader Include="data\shaders\gbuf.frag">
+      <FileType>Document</FileType>
+    </GLSLShader>
+    <GLSLShader Include="data\shaders\gbuf.vert">
+      <FileType>Document</FileType>
+    </GLSLShader>
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="misc\glsl.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="misc\glsl.targets" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="misc\glsl.targets" />
   </ImportGroup>
 </Project>

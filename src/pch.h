@@ -23,7 +23,6 @@
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
-#include <shaderc/shaderc.hpp>
 
 #include "cgltf/cgltf.h"
 #include "stb/stb_image.h"

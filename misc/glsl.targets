@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <PropertyPageSchema Include="$(MSBuildThisFileDirectory)glsl.xml" />
+    <AvailableItemName Include="GLSLShader">
+      <Targets>GLSL</Targets>
+    </AvailableItemName>
+  </ItemGroup>
+
+  <Target
+    Name="GLSL"
+    Condition="'@(GLSLShader)' != ''"
+    BeforeTargets="ClCompile">
+	<MakeDir Directories="$(ProjectDir)data\shaders\compiled"/>
+
+    <Message Importance="High" Text="---------- Compiling shaders ----------" />
+
+    <ItemGroup>
+      <GLSLShader>
+		<Message>Compiling %(Filename)%(Extension)</Message>
+        <Command>
+		  $(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V -o $(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv
+		</Command>
+        <Outputs>$(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv</Outputs>
+      </GLSLShader>
+    </ItemGroup>
+
+    <!-- Compile by forwarding to the Custom Build Tool infrastructure,
+         so it will take care of .tlogs and error/warning parsing -->
+    <CustomBuild
+      Sources="@(GLSLShader)"
+      MinimalRebuildFromTracking="True"
+      TrackerLogDirectory="$(TLogLocation)"
+      />
+  </Target>
+</Project>

@@ -254,14 +254,6 @@ void ResourceManager::CreatePerFrameDescriptorSet() {
 	};
 	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info,
 		&per_frame_descriptor_set));
-
-	VkPipelineLayoutCreateInfo pipeline_layout_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 1,
-		.pSetLayouts = &per_frame_descriptor_set_layout
-	};
-	VK_CHECK(vkCreatePipelineLayout(context.device, &pipeline_layout_info,
-		nullptr, &global_pipeline_layout));
 }
 
 void ResourceManager::CreatePerFrameUBOs() {

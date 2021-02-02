@@ -1,6 +1,23 @@
 #pragma once
 
 namespace VkUtils {
+inline std::vector<uint32_t> LoadShader(const char *path, VkShaderStageFlags shader_stage) {
+	HANDLE file = CreateFileA(path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	assert(file != INVALID_HANDLE_VALUE);
+
+	DWORD file_size = GetFileSize(file, NULL);
+	assert(file_size != INVALID_FILE_SIZE);
+
+	std::vector<uint32_t> bytecode;
+	bytecode.resize(file_size / sizeof(uint32_t));
+
+	DWORD bytes_read;
+	BOOL success = ReadFile(file, bytecode.data(), file_size, &bytes_read, NULL);
+	assert(success);
+
+	return bytecode;
+}
+
 inline void InsertImageBarrier(VkCommandBuffer command_buffer, VkImage image,
 	VkImageAspectFlags aspect_flags, VkImageLayout old_layout, VkImageLayout new_layout,
 	VkPipelineStageFlags src_stage, VkPipelineStageFlags dst_stage,

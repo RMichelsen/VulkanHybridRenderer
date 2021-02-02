@@ -2,7 +2,6 @@
 #include "pipeline.h"
 
 #include "resource_manager.h"
-#include "shader_compiler.h"
 #include "vulkan_context.h"
 #include "vulkan_pipeline_presets.h"
 #include "vulkan_utils.h"
@@ -14,11 +13,16 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		.description = description
 	};
 
+	//std::vector<uint32_t> vertex_bytecode =
+	//	VkUtils::CompileShader(description.vertex_shader, VK_SHADER_STAGE_VERTEX_BIT);
+	//std::vector<uint32_t> fragment_bytecode =
+	//	VkUtils::CompileShader(description.fragment_shader, VK_SHADER_STAGE_FRAGMENT_BIT);
 	std::vector<uint32_t> vertex_bytecode =
-		VkUtils::CompileShader(description.vertex_shader, VK_SHADER_STAGE_VERTEX_BIT);
+		VkUtils::LoadShader(description.vertex_shader, VK_SHADER_STAGE_VERTEX_BIT);
 	std::vector<uint32_t> fragment_bytecode =
-		VkUtils::CompileShader(description.fragment_shader, VK_SHADER_STAGE_FRAGMENT_BIT);
+		VkUtils::LoadShader(description.fragment_shader, VK_SHADER_STAGE_FRAGMENT_BIT);
 
+	printf("test3");
 	VkShaderModule vertex_shader;
 	VkShaderModuleCreateInfo vertex_shader_module_info {
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,

@@ -5,15 +5,22 @@
 #include "render_graph.h"
 #include "resource_manager.h"
 #include "scene_loader.h"
-#include "shader_compiler.h"
 #include "vulkan_context.h"
 
+#include <chrono>
+
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	context = std::make_unique<VulkanContext>(hinstance, hwnd);
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context);
 	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza.glb");
 	CreatePipeline();
+
+	auto t2 = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+	printf("%lld\n", duration);
 }
 
 Renderer::~Renderer() {
@@ -107,8 +114,8 @@ void Renderer::CreatePipeline() {
 		{
 			GraphicsPipelineDescription {
 				.name = "G-Buffer Pipeline",
-				.vertex_shader = "data/shaders/gbuf.vert",
-				.fragment_shader = "data/shaders/gbuf.frag",
+				.vertex_shader = "data/shaders/compiled/gbuf.vert.spv",
+				.fragment_shader = "data/shaders/compiled/gbuf.frag.spv",
 				.vertex_input_state = VertexInputState::Default,
 				.rasterization_state = RasterizationState::Fill,
 				.multisample_state = MultisampleState::Off,
@@ -151,8 +158,8 @@ void Renderer::CreatePipeline() {
 		{
 			GraphicsPipelineDescription {
 				.name = "Composition Pipeline",
-				.vertex_shader = "data/shaders/composition.vert",
-				.fragment_shader = "data/shaders/composition.frag",
+				.vertex_shader = "data/shaders/compiled/composition.vert.spv",
+				.fragment_shader = "data/shaders/compiled/composition.frag.spv",
 				.vertex_input_state = VertexInputState::Empty,
 				.rasterization_state = RasterizationState::FillCullCCW,
 				.multisample_state = MultisampleState::Off,

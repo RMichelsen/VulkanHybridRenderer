@@ -27,9 +27,6 @@
     <ClInclude Include="src\scene_loader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\shader_compiler.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\vulkan_common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -65,9 +62,6 @@
     <ClCompile Include="src\scene_loader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\shader_compiler.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\vulkan_context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -83,5 +77,18 @@
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="dependencies\glm\util\glm.natvis" />
+    <Natvis Include="misc\glm.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <GLSLShader Include="data\shaders\composition.frag" />
+    <GLSLShader Include="data\shaders\composition.vert" />
+    <GLSLShader Include="data\shaders\gbuf.frag" />
+    <GLSLShader Include="data\shaders\gbuf.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="misc\glsl.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="misc\glsl.targets" />
   </ItemGroup>
 </Project>
