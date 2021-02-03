@@ -9,28 +9,12 @@
 
   <Target
     Name="GLSL"
-    Condition="'@(GLSLShader)' != ''"
+    Inputs="@(GLSLShader)"
+	Outputs="@(GLSLShader -> '$(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv')"
     BeforeTargets="ClCompile">
-	<MakeDir Directories="$(ProjectDir)data\shaders\compiled"/>
 
     <Message Importance="High" Text="---------- Compiling shaders ----------" />
-
-    <ItemGroup>
-      <GLSLShader>
-		<Message>Compiling %(Filename)%(Extension)</Message>
-        <Command>
-		  $(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V -o $(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv
-		</Command>
-        <Outputs>$(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv</Outputs>
-      </GLSLShader>
-    </ItemGroup>
-
-    <!-- Compile by forwarding to the Custom Build Tool infrastructure,
-         so it will take care of .tlogs and error/warning parsing -->
-    <CustomBuild
-      Sources="@(GLSLShader)"
-      MinimalRebuildFromTracking="True"
-      TrackerLogDirectory="$(TLogLocation)"
-      />
+	<MakeDir Directories="$(ProjectDir)data\shaders\compiled"/>
+    <Exec Command="@(GLSLShader -> '$(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V -o $(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv', ' &#38; ')" />
   </Target>
 </Project>

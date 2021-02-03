@@ -67,6 +67,7 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 		std::vector<VkDescriptorImageInfo> descriptors;
 		for(uint32_t i = 0; i < pass.inputs.size(); ++i) {
 			std::string &input = pass.inputs[i];
+			// TODO: Add Buffers
 			assert(layout.transient_resources[input].type == TransientResourceType::Texture);
 
 			if(VkUtils::IsDepthFormat(layout.transient_resources[input].texture.format)) {
@@ -77,7 +78,7 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 				.binding = i,
 				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT // TODO: PARAM
+				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT // TODO: PARAM
 			});
 			descriptors.emplace_back(VkDescriptorImageInfo {
 				.sampler = resource_manager.sampler,
@@ -125,6 +126,7 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 			}
 
 			TransientResource &resource = layout.transient_resources[output];
+			// TODO: Add Buffers
 			assert(resource.type == TransientResourceType::Texture);
 			render_pass.attachments.emplace_back(resource);
 

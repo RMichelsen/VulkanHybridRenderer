@@ -10,17 +10,11 @@
 #include <chrono>
 
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
-	auto t1 = std::chrono::high_resolution_clock::now();
-
 	context = std::make_unique<VulkanContext>(hinstance, hwnd);
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context);
 	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza.glb");
 	CreatePipeline();
-
-	auto t2 = std::chrono::high_resolution_clock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-	printf("%lld\n", duration);
 }
 
 Renderer::~Renderer() {
