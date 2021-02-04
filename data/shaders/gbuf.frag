@@ -1,11 +1,14 @@
 #version 460
+#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
-layout(set = 0, binding = 0) uniform sampler2D textures[];
+#include "common.glsl"
+
+layout(set = 0, binding = 2, std430) buffer Primitives { Primitive primitives[]; };
+layout(set = 0, binding = 3) uniform sampler2D textures[];
 
 layout(push_constant) uniform PushConstants {
-	mat4 model;
-	int texture;
+	int object_id;
 } pc;
 
 layout(location = 0) in vec2 in_uv;
@@ -19,5 +22,5 @@ layout(location = 2) out vec4 out_albedo;
 void main() {
 	out_pos = vec4(in_pos, 1.0);
 	out_normal = vec4(in_normal, 1.0);
-	out_albedo = texture(textures[pc.texture], in_uv);
+	out_albedo = texture(textures[primitives[pc.object_id].texture], in_uv);
 }

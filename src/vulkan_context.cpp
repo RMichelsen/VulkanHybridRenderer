@@ -7,20 +7,30 @@
 inline constexpr std::array<const char*, 1> LAYERS { 
 	"VK_LAYER_KHRONOS_validation" 
 };
-inline constexpr std::array<const char*, 3> EXTENSIONS { 
-	VK_KHR_SURFACE_EXTENSION_NAME, 
-	VK_KHR_WIN32_SURFACE_EXTENSION_NAME, 
+inline constexpr std::array<const char*, 3> INSTANCE_EXTENSIONS { 
+	VK_KHR_SURFACE_EXTENSION_NAME,
+	VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+
 	VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 };
 #else
 inline constexpr std::array<const char*, 0> LAYERS {};
-inline constexpr std::array<const char*, 2> EXTENSIONS { 
-	VK_KHR_SURFACE_EXTENSION_NAME, 
+inline constexpr std::array<const char*, 2> INSTANCE_EXTENSIONS { 
+	VK_KHR_SURFACE_EXTENSION_NAME,
 	VK_KHR_WIN32_SURFACE_EXTENSION_NAME
 };
 #endif
-inline constexpr std::array<const char*, 1> DEVICE_EXTENSIONS {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+inline constexpr std::array<const char*, 8> DEVICE_EXTENSIONS {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+	VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+	
+	VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+	VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+
+	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
 };
 
 #define VK_CHECK(x) if((x) != VK_SUCCESS) { 			\
@@ -38,8 +48,8 @@ VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) {
 		.pApplicationInfo = &application_info,
 		.enabledLayerCount = static_cast<uint32_t>(LAYERS.size()),
 		.ppEnabledLayerNames = LAYERS.data(),
-		.enabledExtensionCount = static_cast<uint32_t>(EXTENSIONS.size()),
-		.ppEnabledExtensionNames = EXTENSIONS.data()
+		.enabledExtensionCount = static_cast<uint32_t>(INSTANCE_EXTENSIONS.size()),
+		.ppEnabledExtensionNames = INSTANCE_EXTENSIONS.data()
 	};
     VK_CHECK(vkCreateInstance(&instance_info, nullptr, &instance));
 
@@ -96,10 +106,10 @@ void VulkanContext::InitDebugMessenger() {
 	};
 
 	// Because we are using an extension function we need to load it ourselves.
-	auto debug_utils_messenger_func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+	PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessegnerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
 		vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
-	if(debug_utils_messenger_func != nullptr) {
-		VK_CHECK(debug_utils_messenger_func(instance, &debug_utils_messenger_info, 
+	if(vkCreateDebugUtilsMessegnerEXT != nullptr) {
+		VK_CHECK(vkCreateDebugUtilsMessegnerEXT(instance, &debug_utils_messenger_info,
 			nullptr, &debug_messenger));
 	}
 }
@@ -178,12 +188,24 @@ void VulkanContext::InitLogicalDevice() {
 		}
 	};
 
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR device_as_features {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+		.accelerationStructure = VK_TRUE
+	};
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR device_rt_pipeline_features {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+		.pNext = &device_as_features,
+		.rayTracingPipeline = VK_TRUE
+	};
 	VkPhysicalDeviceVulkan12Features device_vk12_features {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+		.pNext = &device_rt_pipeline_features,
+		.descriptorIndexing = VK_TRUE,
 		.shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
 		.descriptorBindingPartiallyBound = VK_TRUE,
 		.descriptorBindingVariableDescriptorCount = VK_TRUE,
-		.runtimeDescriptorArray = VK_TRUE
+		.runtimeDescriptorArray = VK_TRUE,
+		.bufferDeviceAddress = VK_TRUE
 	};
 	VkPhysicalDeviceFeatures2 device_features {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
@@ -212,6 +234,7 @@ void VulkanContext::InitLogicalDevice() {
 
 void VulkanContext::InitAllocator() {
 	VmaAllocatorCreateInfo allocator_info {
+		.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
 		.physicalDevice = gpu.handle,
 		.device = device,
 		.instance = instance,

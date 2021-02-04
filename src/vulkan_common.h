@@ -5,7 +5,7 @@
 	printf("Vulkan error: %s:%i", __FILE__, __LINE__); 	\
 }
 
-#define MAX_FRAMES_IN_FLIGHT 3
+inline constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 
 struct Texture {
 	VkImage image;
@@ -41,8 +41,7 @@ struct PerFrameData {
 };
 
 struct PushConstants {
-	glm::mat4 transform;
-	int texture;
+	int object_id;
 };
 
 struct Vertex {

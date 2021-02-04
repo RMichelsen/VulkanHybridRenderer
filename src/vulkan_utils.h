@@ -184,6 +184,32 @@ inline GPUBuffer CreateGPUBuffer(VmaAllocator allocator, VkBufferCreateInfo buff
 	return buffer;
 }
 
+inline VkDeviceOrHostAddressConstKHR GetDeviceAddressConst(VkDevice device, GPUBuffer buffer) {
+	PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR = 
+		reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(
+			vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
+	VkBufferDeviceAddressInfoKHR buffer_device_address_info {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR,
+		.buffer = buffer.handle
+	};
+	return VkDeviceOrHostAddressConstKHR {
+		.deviceAddress = vkGetBufferDeviceAddressKHR(device, &buffer_device_address_info)
+	};
+}
+
+inline VkDeviceOrHostAddressKHR GetDeviceAddress(VkDevice device, GPUBuffer buffer) {
+	PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR =
+		reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(
+			vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
+	VkBufferDeviceAddressInfoKHR buffer_device_address_info {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR,
+		.buffer = buffer.handle
+	};
+	return VkDeviceOrHostAddressKHR {
+		.deviceAddress = vkGetBufferDeviceAddressKHR(device, &buffer_device_address_info)
+	};
+}
+
 inline void DestroyMappedBuffer(VmaAllocator allocator, MappedBuffer buffer) {
 	vmaUnmapMemory(allocator, buffer.allocation);
 	vmaDestroyBuffer(allocator, buffer.handle, buffer.allocation);

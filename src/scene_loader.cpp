@@ -184,8 +184,7 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 		ParseNode(data->nodes[i], scene, textures, vertices, indices);
 	}
 
-	resource_manager.UploadDataToGPUBuffer(resource_manager.global_vertex_buffer, vertices.data(), vertices.size() * sizeof(Vertex));
-	resource_manager.UploadDataToGPUBuffer(resource_manager.global_index_buffer, indices.data(), indices.size() * sizeof(uint32_t));
+	resource_manager.UpdateGeometry(vertices, indices, scene);
 }
 
 Scene LoadScene(ResourceManager &resource_manager, const char *path) {

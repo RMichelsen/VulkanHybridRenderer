@@ -7,8 +7,6 @@
 #include "scene_loader.h"
 #include "vulkan_context.h"
 
-#include <chrono>
-
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
 	context = std::make_unique<VulkanContext>(hinstance, hwnd);
 	resource_manager = std::make_unique<ResourceManager>(*context);
@@ -102,7 +100,7 @@ void Renderer::CreatePipeline() {
 		{
 			CreateTransientTexture("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
 			CreateTransientTexture("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientTexture("Albedo", VK_FORMAT_R8G8B8A8_UNORM),
+			CreateTransientTexture("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
 			CreateTransientTexture("Depth", VK_FORMAT_D32_SFLOAT)
 		},
 		{
@@ -125,13 +123,13 @@ void Renderer::CreatePipeline() {
 				[this](GraphicsPipelineExecutionContext &context) {
 					context.BindGlobalVertexAndIndexBuffers();
 					for(Mesh &mesh : scene.meshes) {
-						for(Primitive &primitive : mesh.primitives) {
+						for(int i = 0; i < mesh.primitives.size(); ++i) {
 							PushConstants push_constants {
-								.transform = primitive.transform,
-								.texture = primitive.texture
+								.object_id = i
 							};
 							context.PushConstants(push_constants);
-							context.DrawIndexed(primitive.index_count, 1, primitive.index_offset, primitive.vertex_offset, 0);
+							context.DrawIndexed(mesh.primitives[i].index_count, 1, 
+								mesh.primitives[i].index_offset, mesh.primitives[i].vertex_offset, 0);
 						}
 					}
 				}
@@ -143,7 +141,7 @@ void Renderer::CreatePipeline() {
 		{
 			CreateTransientTexture("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
 			CreateTransientTexture("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientTexture("Albedo", VK_FORMAT_R8G8B8A8_UNORM)
+			CreateTransientTexture("Albedo", VK_FORMAT_B8G8R8A8_UNORM)
 		},
 		{
 			TRANSIENT_BACKBUFFER,

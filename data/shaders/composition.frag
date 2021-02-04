@@ -1,5 +1,4 @@
 #version 460
-#extension GL_EXT_nonuniform_qualifier : require
 
 layout(set = 2, binding = 0) uniform sampler2D position;
 layout(set = 2, binding = 1) uniform sampler2D normal;
