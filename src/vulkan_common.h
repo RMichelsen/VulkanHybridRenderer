@@ -49,7 +49,6 @@ struct Vertex {
 	glm::vec3 normal;
 	glm::vec2 uv0;
 	glm::vec2 uv1;
-
 };
 
 constexpr VkVertexInputBindingDescription VERTEX_BINDING_DESCRIPTION {

@@ -161,14 +161,13 @@ void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<
 	UploadDataToGPUBuffer(global_vertex_buffer, vertices.data(), vertices.size() * sizeof(Vertex));
 	UploadDataToGPUBuffer(global_index_buffer, indices.data(), indices.size() * sizeof(uint32_t));
 
-	UpdateBLAS(static_cast<uint32_t>(vertices.size()), static_cast<uint32_t>(indices.size()) / 3);
-
 	// TODO: Support multiple meshes
 	assert(scene.meshes.size() == 1);
 	for(Mesh &mesh : scene.meshes) {
 		UploadDataToGPUBuffer(global_obj_data_buffer, mesh.primitives.data(), 
 			mesh.primitives.size() * sizeof(Primitive));
 
+		UpdateBLAS(static_cast<uint32_t>(vertices.size()), mesh.primitives);
 		UpdateTLAS(mesh.primitives);
 	}
 
@@ -387,33 +386,53 @@ void ResourceManager::CreatePerFrameUBOs() {
 	vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
 }
 
-void ResourceManager::UpdateBLAS(uint32_t vertex_count, uint32_t primitive_count) {
-	// TODO: Allow update of global_transform_buffer (single transform matrix)
+void ResourceManager::UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &primitives) {
+	// TODO: Cleanup...
+	std::vector<VkAccelerationStructureGeometryKHR> acceleration_structure_geometries;
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR> acceleration_structure_build_range_infos;
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR *> acceleration_structure_build_range_pinfos;
+	std::vector<uint32_t> max_primitives;
 
-	VkAccelerationStructureGeometryKHR acceleration_structure_geometry {
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-		.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-		.geometry = VkAccelerationStructureGeometryDataKHR {
-			.triangles = VkAccelerationStructureGeometryTrianglesDataKHR {
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-				.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-				.vertexData = VkUtils::GetDeviceAddressConst(context.device, global_vertex_buffer),
-				.vertexStride = sizeof(Vertex),
-				.maxVertex = vertex_count,
-				.indexType = VK_INDEX_TYPE_UINT32,
-				.indexData = VkUtils::GetDeviceAddressConst(context.device, global_index_buffer),
-				.transformData = VkUtils::GetDeviceAddressConst(context.device, global_transform_buffer)
-			}
-		},
-		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR
-	};
-	
+	acceleration_structure_build_range_infos.reserve(primitives.size());
+	acceleration_structure_build_range_pinfos.reserve(primitives.size());
+	for(Primitive &primitive : primitives) {
+		acceleration_structure_geometries.emplace_back(VkAccelerationStructureGeometryKHR {
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+			.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+			.geometry = VkAccelerationStructureGeometryDataKHR {
+				.triangles = VkAccelerationStructureGeometryTrianglesDataKHR {
+					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+					.vertexData = VkUtils::GetDeviceAddressConst(context.device, global_vertex_buffer),
+					.vertexStride = sizeof(Vertex),
+					.maxVertex = vertex_count,
+					.indexType = VK_INDEX_TYPE_UINT32,
+					.indexData = VkUtils::GetDeviceAddressConst(context.device, global_index_buffer),
+					.transformData = VkUtils::GetDeviceAddressConst(context.device, 
+						global_transform_buffer)
+				}
+			},
+			.flags = VK_GEOMETRY_OPAQUE_BIT_KHR
+		});
+
+		acceleration_structure_build_range_infos.emplace_back(VkAccelerationStructureBuildRangeInfoKHR {
+			.primitiveCount = primitive.index_count / 3,
+			.primitiveOffset = primitive.index_offset * sizeof(uint32_t),
+			.firstVertex = primitive.vertex_offset,
+			.transformOffset = 0
+		});
+		acceleration_structure_build_range_pinfos.emplace_back(
+			&acceleration_structure_build_range_infos.back());
+
+		max_primitives.emplace_back(primitive.index_count / 3);
+	}
+
 	VkAccelerationStructureBuildGeometryInfoKHR acceleration_structure_build_geometry_info {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-		.geometryCount = 1,
-		.pGeometries = &acceleration_structure_geometry
+		.geometryCount = static_cast<uint32_t>(acceleration_structure_geometries.size()),
+		.pGeometries = acceleration_structure_geometries.data()
 	};
 
 	uint32_t max_primitive_counts = 1;
@@ -421,8 +440,11 @@ void ResourceManager::UpdateBLAS(uint32_t vertex_count, uint32_t primitive_count
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
 	};
 	vkGetAccelerationStructureBuildSizesKHR(context.device,
-		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &acceleration_structure_build_geometry_info,
-		&max_primitive_counts, &acceleration_structure_build_sizes_info);
+		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, 
+		&acceleration_structure_build_geometry_info,
+		max_primitives.data(), 
+		&acceleration_structure_build_sizes_info
+	);
 
 	VkAccelerationStructureCreateInfoKHR acceleration_structure_info {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
@@ -433,27 +455,17 @@ void ResourceManager::UpdateBLAS(uint32_t vertex_count, uint32_t primitive_count
 	VK_CHECK(vkCreateAccelerationStructureKHR(context.device, &acceleration_structure_info, nullptr,
 		&global_blas));
 
-	// TODO: Split? NECESSARY....
-	VkAccelerationStructureBuildRangeInfoKHR acceleration_structure_build_range_info {
-		.primitiveCount = primitive_count,
-		.primitiveOffset = 0,
-		.firstVertex = 0,
-		.transformOffset = 0
-	};
-
 	acceleration_structure_build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 	acceleration_structure_build_geometry_info.dstAccelerationStructure = global_blas;
 	acceleration_structure_build_geometry_info.scratchData = VkUtils::GetDeviceAddress(context.device,
 		global_scratch_buffer);
 
-	std::array<VkAccelerationStructureBuildRangeInfoKHR *, 1> acceleration_structure_build_range_infos {
-		&acceleration_structure_build_range_info
-	};
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, context.command_pool,
 		[&](VkCommandBuffer command_buffer) {
-			vkCmdBuildAccelerationStructuresKHR(command_buffer, 1,
+			vkCmdBuildAccelerationStructuresKHR(command_buffer,
+				1,
 				&acceleration_structure_build_geometry_info,
-				acceleration_structure_build_range_infos.data()
+				acceleration_structure_build_range_pinfos.data()
 			);
 		}
 	);
@@ -461,9 +473,9 @@ void ResourceManager::UpdateBLAS(uint32_t vertex_count, uint32_t primitive_count
 
 void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 	std::vector<VkAccelerationStructureInstanceKHR> acceleration_structure_instances;
-	uint64_t blas_device_address =
-		VkUtils::GetDeviceAddress(context.device, global_blas_buffer).deviceAddress;
-	for(int i = 0; i < primitives.size(); ++i) {
+	uint64_t blas_device_address = 
+		VkUtils::GetAccelerationStructureAddress(context.device, global_blas).deviceAddress;
+	for(uint32_t i = 0; i < primitives.size(); ++i) {
 		glm::vec4 row1 = glm::row(primitives[i].transform, 0);
 		glm::vec4 row2 = glm::row(primitives[i].transform, 1);
 		glm::vec4 row3 = glm::row(primitives[i].transform, 2);
@@ -483,9 +495,10 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(acceleration_structure_instances.size() *
 		sizeof(VkAccelerationStructureInstanceKHR),
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	global_instances_buffer = VkUtils::CreateGPUBuffer(context.allocator, buffer_info);
 	UploadDataToGPUBuffer(global_instances_buffer, acceleration_structure_instances.data(),
-		acceleration_structure_instances.size() * sizeof(VkAccelerationStructureBuildGeometryInfoKHR));
+		acceleration_structure_instances.size() * sizeof(VkAccelerationStructureInstanceKHR));
 
 	VkAccelerationStructureGeometryKHR acceleration_structure_geometry {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -521,19 +534,35 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
 		.buffer = global_tlas_buffer.handle,
 		.size = acceleration_structure_build_sizes_info.accelerationStructureSize,
-		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR
 	};
 	VK_CHECK(vkCreateAccelerationStructureKHR(context.device, &acceleration_structure_info, nullptr,
-		&global_blas));
+		&global_tlas));
 
-	// TODO: Split?
+	acceleration_structure_build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+	acceleration_structure_build_geometry_info.dstAccelerationStructure = global_tlas;
+	acceleration_structure_build_geometry_info.scratchData = VkUtils::GetDeviceAddress(context.device,
+		global_scratch_buffer);
+
 	VkAccelerationStructureBuildRangeInfoKHR acceleration_structure_build_range_info {
-		.primitiveCount = primitive_count,
+		.primitiveCount = static_cast<uint32_t>(primitives.size()),
 		.primitiveOffset = 0,
 		.firstVertex = 0,
 		.transformOffset = 0
 	};
 
+	std::array<VkAccelerationStructureBuildRangeInfoKHR *, 1> acceleration_structure_build_range_pinfos {
+		&acceleration_structure_build_range_info
+	};
+	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, context.command_pool,
+		[&](VkCommandBuffer command_buffer) {
+			vkCmdBuildAccelerationStructuresKHR(command_buffer,
+				1,
+				&acceleration_structure_build_geometry_info,
+				acceleration_structure_build_range_pinfos.data()
+			);
+		}
+	);
 }
 
 void ResourceManager::UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDeviceSize size) {
@@ -541,6 +570,8 @@ void ResourceManager::UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDevi
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 	MappedBuffer staging_buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
 	memcpy(staging_buffer.mapped_data, data, size);
+
+	uint32_t *ptr = reinterpret_cast<uint32_t *>(staging_buffer.mapped_data);
 
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, context.command_pool,
 		[=](VkCommandBuffer command_buffer) {

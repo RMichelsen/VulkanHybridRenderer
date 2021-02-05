@@ -43,7 +43,7 @@ private:
 	void CreateGlobalDescriptorSet();
 	void CreatePerFrameDescriptorSet();
 	void CreatePerFrameUBOs();
-	void UpdateBLAS(uint32_t vertex_count, uint32_t primitive_count);
+	void UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &primitives);
 	void UpdateTLAS(std::vector<Primitive> &primitives);
 	void UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDeviceSize size);
 

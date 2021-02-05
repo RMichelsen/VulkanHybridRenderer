@@ -210,6 +210,19 @@ inline VkDeviceOrHostAddressKHR GetDeviceAddress(VkDevice device, GPUBuffer buff
 	};
 }
 
+inline VkDeviceOrHostAddressKHR GetAccelerationStructureAddress(VkDevice device, VkAccelerationStructureKHR acceleration_structure) {
+	PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR = 
+		reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(
+			vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
+	VkAccelerationStructureDeviceAddressInfoKHR acceleration_structure_address_info {
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+		.accelerationStructure = acceleration_structure
+	};
+	return VkDeviceOrHostAddressKHR {
+		.deviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &acceleration_structure_address_info)
+	};
+}
+
 inline void DestroyMappedBuffer(VmaAllocator allocator, MappedBuffer buffer) {
 	vmaUnmapMemory(allocator, buffer.allocation);
 	vmaDestroyBuffer(allocator, buffer.handle, buffer.allocation);
