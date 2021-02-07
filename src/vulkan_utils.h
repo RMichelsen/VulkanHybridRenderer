@@ -258,4 +258,23 @@ inline void DestroyMappedBuffer(VmaAllocator allocator, MappedBuffer buffer) {
 inline void DestroyGPUBuffer(VmaAllocator allocator, GPUBuffer buffer) {
 	vmaDestroyBuffer(allocator, buffer.handle, buffer.allocation);
 }
+
+inline VkImageLayout GetImageLayoutFromResourceType(TransientImageType type, VkFormat format) {
+	switch(type) {
+	case TransientImageType::AttachmentImage: {
+		return VkUtils::IsDepthFormat(format) ? 
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL :
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	}
+	case TransientImageType::SampledImage: {
+		return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	}
+	case TransientImageType::StorageImage: {
+		return VK_IMAGE_LAYOUT_GENERAL;
+	}
+	}
+
+	return VK_IMAGE_LAYOUT_UNDEFINED;
+}
+
 }

@@ -91,7 +91,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessengerCallback(
 		const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* /*user_data*/) {
 
 	printf("%s\n", callback_data->pMessage);
-	return VK_ATTACHMENT_LOAD_OP_CLEAR;
+	return VK_FALSE;
 }
 
 void VulkanContext::InitDebugMessenger() {

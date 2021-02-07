@@ -146,7 +146,7 @@ void Renderer::CreatePipeline() {
 	render_graph->AddRaytracingPass("Raytracing Pass",
 		{},
 		{
-			CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM)
+			CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 0)
 		},
 		RaytracingPipelineDescription {
 			.name = "Raytracing Pipeline",
@@ -166,10 +166,10 @@ void Renderer::CreatePipeline() {
 
 	render_graph->AddGraphicsPass("Composition Pass", 
 		{
-			CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientSampledImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
-			CreateTransientSampledImage("Rays", VK_FORMAT_B8G8R8A8_UNORM),
+			CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			CreateTransientSampledImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
+			CreateTransientSampledImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 3)
 		},
 		{
 			TRANSIENT_BACKBUFFER,
@@ -201,13 +201,16 @@ void Renderer::CreatePipeline() {
 
 TransientResource Renderer::CreateTransientAttachmentImage(const char *name, VkFormat format) {
 	return TransientResource {
+		.type = TransientResourceType::Image,
 		.name = name,
-		.type = TransientResourceType::AttachmentImage,
-		.attachment_image = TransientAttachmentImage {
-			.format = format,
+		.image = TransientImage {
+			.type = TransientImageType::AttachmentImage,
 			.width = context->swapchain.extent.width,
 			.height = context->swapchain.extent.height,
-			.color_blending = false
+			.format = format,
+			.attachment_image = TransientAttachmentImage {
+				.color_blending = false
+			}
 		}
 	};
 }
@@ -215,63 +218,86 @@ TransientResource Renderer::CreateTransientAttachmentImage(const char *name, VkF
 TransientResource Renderer::CreateTransientAttachmentImage(const char *name, uint32_t width, uint32_t height, 
 	VkFormat format) {
 	return TransientResource {
+		.type = TransientResourceType::Image,
 		.name = name,
-		.type = TransientResourceType::AttachmentImage,
-		.attachment_image = TransientAttachmentImage {
-			.format = format,
+		.image = TransientImage {
+			.type = TransientImageType::AttachmentImage,
 			.width = width,
 			.height = height,
-			.color_blending = false
+			.format = format,
+			.attachment_image = TransientAttachmentImage {
+				.color_blending = false
+			}
 		}
 	};
 }
 
-TransientResource Renderer::CreateTransientSampledImage(const char *name, VkFormat format) {
+TransientResource Renderer::CreateTransientSampledImage(const char *name, VkFormat format,
+	uint32_t binding) {
 	return TransientResource {
+		.type = TransientResourceType::Image,
 		.name = name,
-		.type = TransientResourceType::SampledImage,
-		.sampled_image = TransientSampledImage {
-			.format = format,
+		.image = TransientImage {
+			.type = TransientImageType::SampledImage,
 			.width = context->swapchain.extent.width,
 			.height = context->swapchain.extent.height,
+			.format = format,
+			.sampled_image = TransientSampledImage {
+				.binding = binding,
+				.sampler = resource_manager->sampler
+			}
 		}
 	};
 }
 
 TransientResource Renderer::CreateTransientSampledImage(const char *name, uint32_t width,
-	uint32_t height, VkFormat format) {
+	uint32_t height, VkFormat format, uint32_t binding) {
 	return TransientResource {
+		.type = TransientResourceType::Image,
 		.name = name,
-		.type = TransientResourceType::SampledImage,
-		.sampled_image = TransientSampledImage {
-			.format = format,
+		.image = TransientImage {
+			.type = TransientImageType::SampledImage,
 			.width = width,
-			.height = height
+			.height = height,
+			.format = format,
+			.sampled_image = TransientSampledImage {
+				.binding = binding,
+				.sampler = resource_manager->sampler
+			}
 		}
 	};
 }
 
-TransientResource Renderer::CreateTransientStorageImage(const char *name, VkFormat format) {	
+TransientResource Renderer::CreateTransientStorageImage(const char *name, VkFormat format, 
+	uint32_t binding) {
 	return TransientResource {
+		.type = TransientResourceType::Image,
 		.name = name,
-		.type = TransientResourceType::StorageImage,
-		.storage_image = TransientStorageImage {
-			.format = format,
+		.image = TransientImage {
+			.type = TransientImageType::StorageImage,
 			.width = context->swapchain.extent.width,
-			.height = context->swapchain.extent.height
+			.height = context->swapchain.extent.height,
+			.format = format,
+			.storage_image = TransientStorageImage {
+				.binding = binding
+			}
 		}
 	};
 }
 
 TransientResource Renderer::CreateTransientStorageImage(const char *name, uint32_t width,
-	uint32_t height, VkFormat format) {
+	uint32_t height, VkFormat format, uint32_t binding) {
 	return TransientResource {
+		.type = TransientResourceType::Image,
 		.name = name,
-		.type = TransientResourceType::StorageImage,
-		.storage_image = TransientStorageImage {
+		.image = TransientImage {
+			.type = TransientImageType::StorageImage,
+			.width = width,
+			.height = height,
 			.format = format,
-			.width = context->swapchain.extent.width,
-			.height = context->swapchain.extent.height,
+			.storage_image = TransientStorageImage {
+				.binding = binding
+			}
 		}
 	};
 }

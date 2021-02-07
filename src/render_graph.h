@@ -62,10 +62,10 @@ class RenderGraph {
 public:
 	RenderGraph(VulkanContext &context);
 
-	void AddGraphicsPass(const char *render_pass_name, std::vector<TransientResource> inputs,
+	void AddGraphicsPass(const char *render_pass_name, std::vector<TransientResource> dependencies,
 		std::vector<TransientResource> outputs, std::vector<GraphicsPipelineDescription> pipelines,
 		GraphicsPassCallback callback);
-	void AddRaytracingPass(const char *render_pass_name, std::vector<TransientResource> inputs,
+	void AddRaytracingPass(const char *render_pass_name, std::vector<TransientResource> dependencies,
 		std::vector<TransientResource> outputs, RaytracingPipelineDescription pipeline,
 		RaytracingPassCallback callback);
 
@@ -83,6 +83,12 @@ private:
 		uint32_t resource_idx, uint32_t image_idx, RenderPass &render_pass);
 	void ExecuteRaytracingPass(ResourceManager &resource_manager, VkCommandBuffer command_buffer,
 		RenderPass &render_pass);
+	void AddSampledOrStorageImage(TransientResource &resource, RenderPass &render_pass, std::unordered_map<std::string, ImageAccess> &previous_access,
+		std::vector<VkDescriptorSetLayoutBinding> &bindings, std::vector<VkDescriptorImageInfo> &descriptors, VkAccessFlags access_flags);
+	void AddAttachmentImage(TransientResource &resource, GraphicsPass &graphics_pass, 
+		std::unordered_map<std::string, ImageAccess> &previous_access, std::vector<VkAttachmentDescription> &attachments, 
+		std::vector<VkAttachmentReference> &color_attachment_refs, VkAttachmentReference &depth_attachment_ref, 
+		VkSubpassDescription &subpass_description);
 
 	VulkanContext &context;
 	std::vector<std::string> execution_order;

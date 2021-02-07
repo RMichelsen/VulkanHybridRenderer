@@ -11,7 +11,6 @@ inline constexpr uint32_t MAX_GLOBAL_TEXTURES = 1024;
 inline constexpr uint32_t MAX_PER_FRAME_UBOS = MAX_FRAMES_IN_FLIGHT;
 
 inline constexpr uint32_t MAX_VERTEX_AND_INDEX_BUFSIZE = 128 * 1024 * 1024; // 128MB
-inline constexpr uint32_t MAX_BLAS_AND_SCRATCH_BUFSIZE = 256 * 1024 * 1024; // 256MB
 
 ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(
@@ -117,7 +116,7 @@ Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat f
 			[&](VkCommandBuffer command_buffer) {
 				VkUtils::InsertImageBarrier(command_buffer, image.handle,
 					aspect_flags, VK_IMAGE_LAYOUT_UNDEFINED, initial_layout,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 					0, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT);
 			}
 		);

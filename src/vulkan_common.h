@@ -103,29 +103,27 @@ struct AccelerationStructure {
 };
 
 enum class TransientResourceType {
-	AttachmentImage,
-	SampledImage,
-	StorageImage,
+	Image,
 	Buffer
 };
 
+enum class TransientImageType {
+	AttachmentImage,
+	SampledImage,
+	StorageImage
+};
+
 struct TransientAttachmentImage {
-	VkFormat format;
-	uint32_t width;
-	uint32_t height;
 	bool color_blending;
 };
 
 struct TransientSampledImage {
-	VkFormat format;
-	uint32_t width;
-	uint32_t height;
+	uint32_t binding;
+	VkSampler sampler;
 };
 
 struct TransientStorageImage {
-	VkFormat format;
-	uint32_t width;
-	uint32_t height;
+	uint32_t binding;
 };
 
 struct TransientBuffer {
@@ -133,13 +131,25 @@ struct TransientBuffer {
 	uint32_t count;
 };
 
-struct TransientResource {
-	const char *name;
-	TransientResourceType type;
+struct TransientImage {
+	TransientImageType type;
+	uint32_t width;
+	uint32_t height;
+	VkFormat format;
+
 	union {
 		TransientAttachmentImage attachment_image;
 		TransientSampledImage sampled_image;
 		TransientStorageImage storage_image;
+	};
+};
+
+struct TransientResource {
+	TransientResourceType type;
+	const char *name;
+
+	union {
+		TransientImage image;
 		TransientBuffer buffer;
 	};
 };
@@ -254,6 +264,7 @@ struct RenderPass {
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkDescriptorSet descriptor_set;
 	std::vector<ImageLayoutTransition> preparation_transitions;
+
 	std::variant<GraphicsPass, RaytracingPass> pass;
 };
 
@@ -268,7 +279,7 @@ struct RaytracingPassDescription {
 };
 
 struct RenderPassDescription {
-	std::vector<TransientResource> inputs;
+	std::vector<TransientResource> dependencies;
 	std::vector<TransientResource> outputs;
 
 	std::variant<GraphicsPassDescription, RaytracingPassDescription> description;
