@@ -13,6 +13,9 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
 	render_graph = std::make_unique<RenderGraph>(*context);
 	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza.glb");
 	CreatePipeline();
+
+	vkGetQueueCheckpointDataNV = reinterpret_cast<PFN_vkGetQueueCheckpointDataNV>(
+		vkGetDeviceProcAddr(context->device, "vkGetQueueCheckpointDataNV"));
 }
 
 Renderer::~Renderer() {
@@ -79,7 +82,9 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	resource_manager->UpdatePerFrameUBO(resource_idx, 
 		PerFrameData {
 			.camera_view = scene.camera.view,
-			.camera_proj = scene.camera.perspective
+			.camera_proj = scene.camera.perspective,
+			.camera_view_inverse = glm::inverse(scene.camera.view),
+			.camera_proj_inverse = glm::inverse(scene.camera.perspective)
 		}
 	);
 
@@ -88,13 +93,14 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	};
 	VK_CHECK(vkBeginCommandBuffer(resources.command_buffer, &command_buffer_begin_info));
-
+	
 	render_graph->Execute(*resource_manager, resources.command_buffer, resource_idx, image_idx);
 
 	VK_CHECK(vkEndCommandBuffer(resources.command_buffer));
 }
 
 void Renderer::CreatePipeline() {
+
 	render_graph->AddGraphicsPass("G-Buffer",
 		{},
 		{
@@ -118,20 +124,41 @@ void Renderer::CreatePipeline() {
 				}
 			}
 		},
-		[this](ExecutePipelineCallback execute_pipeline) {
+		[this](ExecuteGraphicsPipelineCallback execute_pipeline) {
 			execute_pipeline("G-Buffer Pipeline",
-				[this](GraphicsPipelineExecutionContext &context) {
-					context.BindGlobalVertexAndIndexBuffers();
+				[this](GraphicsPipelineExecutionContext &execution_context) {
+					execution_context.BindGlobalVertexAndIndexBuffers();
 					for(Mesh &mesh : scene.meshes) {
 						for(int i = 0; i < mesh.primitives.size(); ++i) {
 							PushConstants push_constants {
 								.object_id = i
 							};
-							context.PushConstants(push_constants);
-							context.DrawIndexed(mesh.primitives[i].index_count, 1, 
+							execution_context.PushConstants(push_constants);
+							execution_context.DrawIndexed(mesh.primitives[i].index_count, 1,
 								mesh.primitives[i].index_offset, mesh.primitives[i].vertex_offset, 0);
 						}
 					}
+				}
+			);
+		}
+	);
+
+	render_graph->AddRaytracingPass("Raytracing Pass",
+		{},
+		{
+			CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM)
+		},
+		RaytracingPipelineDescription {
+			.name = "Raytracing Pipeline",
+			.raygen_shader = "data/shaders/compiled/raygen.rgen.spv",
+			.hit_shader = "data/shaders/compiled/closesthit.rchit.spv",
+			.miss_shader = "data/shaders/compiled/miss.rmiss.spv"
+		},
+		[this](ExecuteRaytracingPipelineCallback execute_pipeline) {
+			execute_pipeline("Raytracing Pipeline",
+				[this](RaytracingPipelineExecutionContext &execution_context) {
+					execution_context.TraceRays(context->swapchain.extent.width, 
+						context->swapchain.extent.height);
 				}
 			);
 		}
@@ -141,7 +168,8 @@ void Renderer::CreatePipeline() {
 		{
 			CreateTransientTexture("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
 			CreateTransientTexture("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientTexture("Albedo", VK_FORMAT_B8G8R8A8_UNORM)
+			CreateTransientTexture("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
+			CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM),
 		},
 		{
 			TRANSIENT_BACKBUFFER,
@@ -159,10 +187,10 @@ void Renderer::CreatePipeline() {
 				.push_constants = PUSHCONSTANTS_NONE
 			}
 		},
-		[](ExecutePipelineCallback execute_pipeline) {
+		[](ExecuteGraphicsPipelineCallback execute_pipeline) {
 			execute_pipeline("Composition Pipeline",
-				[](GraphicsPipelineExecutionContext &context) {
-					context.Draw(3, 1, 0, 0);
+				[](GraphicsPipelineExecutionContext &execution_context) {
+					execution_context.Draw(3, 1, 0, 0);
 				}
 			);
 		}
@@ -184,7 +212,8 @@ TransientResource Renderer::CreateTransientTexture(const char *name, VkFormat fo
 	};
 }
 
-TransientResource Renderer::CreateTransientTexture(const char *name, uint32_t width, uint32_t height, VkFormat format) {
+TransientResource Renderer::CreateTransientTexture(const char *name, uint32_t width, 
+	uint32_t height, VkFormat format) {
 	return TransientResource {
 		.name = name,
 		.type = TransientResourceType::Texture,
@@ -193,6 +222,31 @@ TransientResource Renderer::CreateTransientTexture(const char *name, uint32_t wi
 			.width = width,
 			.height = height,
 			.color_blending = false
+		}
+	};
+}
+
+TransientResource Renderer::CreateTransientStorageImage(const char *name, VkFormat format) {	
+	return TransientResource {
+		.name = name,
+		.type = TransientResourceType::StorageImage,
+		.storage_image = TransientStorageImage {
+			.format = format,
+			.width = context->swapchain.extent.width,
+			.height = context->swapchain.extent.height
+		}
+	};
+}
+
+TransientResource Renderer::CreateTransientStorageImage(const char *name, uint32_t width,
+	uint32_t height, VkFormat format) {
+	return TransientResource {
+		.name = name,
+		.type = TransientResourceType::StorageImage,
+		.storage_image = TransientStorageImage {
+			.format = format,
+			.width = context->swapchain.extent.width,
+			.height = context->swapchain.extent.height,
 		}
 	};
 }

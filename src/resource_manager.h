@@ -6,7 +6,8 @@ public:
 	ResourceManager(VulkanContext &context);
 	~ResourceManager();
 
-	Texture CreateTransientTexture(uint32_t width, uint32_t height, VkFormat format);
+	Image CreateTransientTexture(uint32_t width, uint32_t height, VkFormat format);
+	Image CreateTransientStorageImage(uint32_t width, uint32_t height, VkFormat format);
 	int LoadTextureFromData(uint32_t width, uint32_t height, uint8_t *data);
 
 	void UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
@@ -14,16 +15,23 @@ public:
 	void UpdateDescriptors();
 	void UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData per_frame_data);
 
-	GPUBuffer global_vertex_buffer;		  // Layout(set = 0, binding = 0)
-	GPUBuffer global_index_buffer;	      // Layout(set = 0, binding = 1)
-	GPUBuffer global_obj_data_buffer;     // Layout(set = 0, binding = 2)
-	std::vector<Texture> textures;		  // Layout(set = 0, binding = 3)
+	// The global descriptor set (set = 0) is laid out as follows
+	// Layout(set = 0, binding = 0) global_vertex_buffer
+	// Layout(set = 0, binding = 1) global_index_buffer
+	// Layout(set = 0, binding = 2) global_obj_data_buffer
+	// Layout(set = 0, binding = 3) global_tlas
+	// Layout(set = 0, binding = 4) textures
+
+	GPUBuffer global_vertex_buffer;
+	GPUBuffer global_index_buffer;
+	GPUBuffer global_obj_data_buffer;
+	std::vector<Image> textures;
 	
 	GPUBuffer global_scratch_buffer;
 	GPUBuffer global_blas_buffer;
 	GPUBuffer global_tlas_buffer;
-	VkAccelerationStructureKHR global_blas;
-	VkAccelerationStructureKHR global_tlas;
+	VkAccelerationStructureKHR global_blas = VK_NULL_HANDLE;
+	VkAccelerationStructureKHR global_tlas = VK_NULL_HANDLE;
 	GPUBuffer global_transform_buffer;
 	GPUBuffer global_instances_buffer;
 
@@ -53,6 +61,6 @@ private:
 	PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
 	PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
 
-	//PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessegnerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-	//	vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+	friend class RaytracingPipelineExecutionContext;
+	PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
 };

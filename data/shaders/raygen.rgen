@@ -1,0 +1,29 @@
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(set = 0, binding = 3) uniform accelerationStructureEXT TLAS;
+layout(set = 1, binding = 0) uniform PerFrameData {
+	mat4 camera_view;
+	mat4 camera_proj;
+	mat4 camera_view_inverse;
+	mat4 camera_proj_inverse;
+} pfd;
+layout(set = 2, binding = 0, rgba8) uniform image2D output_image;
+
+layout(location = 0) rayPayloadEXT vec4 payload;
+
+void main() {
+	vec2 pixel_center = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+	vec2 uv_ = pixel_center / vec2(gl_LaunchSizeEXT.xy);
+	vec2 uv = uv_ * 2.0 - 1.0;
+
+	vec4 origin = pfd.camera_view_inverse * vec4(0, 0, 0, 1);
+	vec4 target = pfd.camera_proj_inverse * vec4(uv.x, uv.y, 1, 1);
+	vec4 direction = pfd.camera_view_inverse * vec4(normalize(target.xyz), 0);
+
+	payload = vec4(0.0);
+	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, origin.xyz, 0.0001, direction.xyz,
+		1000.0, 0);
+	
+	imageStore(output_image, ivec2(gl_LaunchIDEXT.xy), payload);
+}

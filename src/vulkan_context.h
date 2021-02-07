@@ -3,7 +3,7 @@
 struct PhysicalDevice {
 	VkPhysicalDevice handle = VK_NULL_HANDLE;
 	VkPhysicalDeviceProperties2 properties;
-	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_properties;
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR raytracing_properties;
 	VkSurfaceCapabilitiesKHR surface_capabilities;
 	uint32_t graphics_family_idx = UINT32_MAX;
 	uint32_t compute_family_idx = UINT32_MAX;

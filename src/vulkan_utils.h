@@ -1,6 +1,10 @@
 #pragma once
 
 namespace VkUtils {
+inline uint32_t AlignUp(uint32_t value, uint32_t alignment) {
+	return (value + (alignment - 1)) & ~(alignment - 1);
+}
+
 inline std::vector<uint32_t> LoadShader(const char *path, VkShaderStageFlags shader_stage) {
 	HANDLE file = CreateFileA(path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	assert(file != INVALID_HANDLE_VALUE);
@@ -16,6 +20,29 @@ inline std::vector<uint32_t> LoadShader(const char *path, VkShaderStageFlags sha
 	assert(success);
 
 	return bytecode;
+}
+
+inline VkShaderModule CreateShaderModule(VkDevice device, const char *path, 
+	VkShaderStageFlags shader_stage) {
+	std::vector<uint32_t> shader_bytecode = VkUtils::LoadShader(path, shader_stage);
+	VkShaderModule shader;
+	VkShaderModuleCreateInfo shader_module_info {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = shader_bytecode.size() * sizeof(uint32_t),
+		.pCode = shader_bytecode.data()
+	};
+	VK_CHECK(vkCreateShaderModule(device, &shader_module_info, nullptr, &shader));
+	return shader;
+}
+
+inline VkPipelineShaderStageCreateInfo PipelineShaderStageCreateInfo(VkDevice device, const char *path,
+	VkShaderStageFlagBits shader_stage) {
+	return VkPipelineShaderStageCreateInfo {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage = shader_stage,
+		.module = VkUtils::CreateShaderModule(device, path, shader_stage),
+		.pName = "main"
+	};
 }
 
 inline void InsertImageBarrier(VkCommandBuffer command_buffer, VkImage image,
@@ -184,26 +211,26 @@ inline GPUBuffer CreateGPUBuffer(VmaAllocator allocator, VkBufferCreateInfo buff
 	return buffer;
 }
 
-inline VkDeviceOrHostAddressConstKHR GetDeviceAddressConst(VkDevice device, GPUBuffer buffer) {
+inline VkDeviceOrHostAddressConstKHR GetDeviceAddressConst(VkDevice device, VkBuffer buffer) {
 	PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR = 
 		reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(
 			vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
 	VkBufferDeviceAddressInfoKHR buffer_device_address_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR,
-		.buffer = buffer.handle
+		.buffer = buffer
 	};
 	return VkDeviceOrHostAddressConstKHR {
 		.deviceAddress = vkGetBufferDeviceAddressKHR(device, &buffer_device_address_info)
 	};
 }
 
-inline VkDeviceOrHostAddressKHR GetDeviceAddress(VkDevice device, GPUBuffer buffer) {
+inline VkDeviceOrHostAddressKHR GetDeviceAddress(VkDevice device, VkBuffer buffer) {
 	PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR =
 		reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(
 			vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
 	VkBufferDeviceAddressInfoKHR buffer_device_address_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR,
-		.buffer = buffer.handle
+		.buffer = buffer
 	};
 	return VkDeviceOrHostAddressKHR {
 		.deviceAddress = vkGetBufferDeviceAddressKHR(device, &buffer_device_address_info)

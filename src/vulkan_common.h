@@ -7,9 +7,9 @@
 
 inline constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 
-struct Texture {
-	VkImage image;
-	VkImageView image_view;
+struct Image {
+	VkImage handle;
+	VkImageView view;
 	VmaAllocation allocation;
 };
 
@@ -38,6 +38,8 @@ struct Scene {
 struct PerFrameData {
 	glm::mat4 camera_view;
 	glm::mat4 camera_proj;
+	glm::mat4 camera_view_inverse;
+	glm::mat4 camera_proj_inverse;
 };
 
 struct PushConstants {
@@ -94,13 +96,9 @@ struct GPUBuffer {
 	VmaAllocation allocation;
 };
 
-struct RaytracingPipeline {
-	VkPipeline handle;
-	VkPipelineLayout layout;
-};
-
 enum class TransientResourceType {
 	Texture,
+	StorageImage,
 	Buffer
 };
 
@@ -109,6 +107,12 @@ struct TransientTexture {
 	uint32_t width;
 	uint32_t height;
 	bool color_blending;
+};
+
+struct TransientStorageImage {
+	VkFormat format;
+	uint32_t width;
+	uint32_t height;
 };
 
 struct TransientBuffer {
@@ -121,6 +125,7 @@ struct TransientResource {
 	TransientResourceType type;
 	union {
 		TransientTexture texture;
+		TransientStorageImage storage_image;
 		TransientBuffer buffer;
 	};
 };
@@ -176,28 +181,72 @@ struct GraphicsPipeline {
 };
 
 struct RaytracingPipelineDescription {
+	const char *name;
+	const char *raygen_shader;
+	const char *hit_shader;
+	const char *miss_shader;
+};
 
+struct RaytracingPipeline {
+	RaytracingPipelineDescription description;
+	std::array<VkRayTracingShaderGroupCreateInfoKHR, 3> shader_groups;
+	uint32_t shader_group_size;
+	MappedBuffer shader_binding_table;
+	VkDeviceAddress shader_binding_table_address;
+	VkPipeline handle;
+	VkPipelineLayout layout;
 };
 
 class GraphicsPipelineExecutionContext;
 using GraphicsPipelineExecutionCallback = std::function<void(GraphicsPipelineExecutionContext &)>;
-using ExecutePipelineCallback = std::function<void(std::string, GraphicsPipelineExecutionCallback)>;
-using RenderPassCallback = std::function<void(ExecutePipelineCallback)>;
+using ExecuteGraphicsPipelineCallback = std::function<void(std::string, GraphicsPipelineExecutionCallback)>;
+using GraphicsPassCallback = std::function<void(ExecuteGraphicsPipelineCallback)>;
+
+class RaytracingPipelineExecutionContext;
+using RaytracingPipelineExecutionCallback = std::function<void(RaytracingPipelineExecutionContext &)>;
+using ExecuteRaytracingPipelineCallback = std::function<void(std::string, RaytracingPipelineExecutionCallback)>;
+using RaytracingPassCallback = std::function<void(ExecuteRaytracingPipelineCallback)>;
+
+struct GraphicsPass {
+	VkRenderPass handle;
+	std::vector<TransientResource> attachments;
+	std::array<VkFramebuffer, MAX_FRAMES_IN_FLIGHT> framebuffers;
+	GraphicsPassCallback callback;
+};
+
+struct ImageLayoutTransition {
+	TransientResource resource;
+	VkImageLayout src_layout;
+	VkImageLayout dst_layout;
+};
+
+struct RaytracingPass {
+	std::vector<ImageLayoutTransition> preparation_transitions;
+	RaytracingPassCallback callback;
+};
 
 struct RenderPass {
-	VkRenderPass handle;
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkDescriptorSet descriptor_set;
-	std::array<VkFramebuffer, MAX_FRAMES_IN_FLIGHT> framebuffers;
-	std::vector<TransientResource> attachments;
-	RenderPassCallback callback;
+
+	std::variant<GraphicsPass, RaytracingPass> pass;
+};
+
+struct GraphicsPassDescription {
+	std::vector<GraphicsPipelineDescription> pipeline_descriptions;
+	GraphicsPassCallback callback;
+};
+
+struct RaytracingPassDescription {
+	RaytracingPipelineDescription pipeline_description;
+	RaytracingPassCallback callback;
 };
 
 struct RenderPassDescription {
 	std::vector<std::string> inputs;
 	std::vector<std::string> outputs;
-	std::vector<GraphicsPipelineDescription> pipeline_descriptions;
-	RenderPassCallback callback;
+
+	std::variant<GraphicsPassDescription, RaytracingPassDescription> description;
 };
 
 

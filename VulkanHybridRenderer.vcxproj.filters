@@ -83,6 +83,9 @@
     <GLSLShader Include="data\shaders\composition.vert" />
     <GLSLShader Include="data\shaders\gbuf.frag" />
     <GLSLShader Include="data\shaders\gbuf.vert" />
+    <GLSLShader Include="data\shaders\miss.rmiss" />
+    <GLSLShader Include="data\shaders\closesthit.rchit" />
+    <GLSLShader Include="data\shaders\raygen.rgen" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />

@@ -15,6 +15,6 @@
 
     <Message Importance="High" Text="---------- Compiling shaders ----------" />
 	<MakeDir Directories="$(ProjectDir)data\shaders\compiled"/>
-    <Exec Command="@(GLSLShader -> '$(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V -o $(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv', ' &#38; ')" />
+    <Exec Command="@(GLSLShader -> '$(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V --target-env vulkan1.2 -o $(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv', ' &#38; ')" />
   </Target>
 </Project>

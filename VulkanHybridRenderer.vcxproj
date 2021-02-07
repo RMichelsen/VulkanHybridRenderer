@@ -204,6 +204,7 @@
     <Natvis Include="misc\glm.natvis" />
   </ItemGroup>
   <ItemGroup>
+    <GLSLShader Include="data\shaders\closesthit.rchit" />
     <GLSLShader Include="data\shaders\composition.frag">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V -o %(Directory)\compiled\%(Filename).%(Extension).spv</Command>
@@ -220,6 +221,8 @@
     <GLSLShader Include="data\shaders\gbuf.vert">
       <FileType>Document</FileType>
     </GLSLShader>
+    <GLSLShader Include="data\shaders\miss.rmiss" />
+    <GLSLShader Include="data\shaders\raygen.rgen" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />

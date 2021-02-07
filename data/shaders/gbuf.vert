@@ -8,6 +8,8 @@ layout(set = 0, binding = 2, std430) buffer Primitives { Primitive primitives[];
 layout(set = 1, binding = 0) uniform PerFrameData {
 	mat4 camera_view;
 	mat4 camera_proj;
+	mat4 camera_view_inverse;
+	mat4 camera_proj_inverse;
 } pfd;
 
 layout(push_constant) uniform PushConstants {

@@ -5,7 +5,7 @@
 #include "common.glsl"
 
 layout(set = 0, binding = 2, std430) buffer Primitives { Primitive primitives[]; };
-layout(set = 0, binding = 3) uniform sampler2D textures[];
+layout(set = 0, binding = 4) uniform sampler2D textures[];
 
 layout(push_constant) uniform PushConstants {
 	int object_id;

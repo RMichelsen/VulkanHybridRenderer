@@ -4,7 +4,7 @@
 #include "vulkan_context.h"
 #include "vulkan_utils.h"
 
-inline constexpr uint32_t MAX_TRANSIENT_TEXTURES = 256;
+inline constexpr uint32_t MAX_TRANSIENT_DESCRIPTORS_PER_TYPE = 256;
 inline constexpr uint32_t MAX_TRANSIENT_SETS = 128;
 
 inline constexpr uint32_t MAX_GLOBAL_TEXTURES = 1024;
@@ -20,6 +20,8 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 		vkGetDeviceProcAddr(context.device, "vkCmdBuildAccelerationStructuresKHR"));
 	vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(
 		vkGetDeviceProcAddr(context.device, "vkGetAccelerationStructureBuildSizesKHR"));
+	vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(
+		vkGetDeviceProcAddr(context.device, "vkCmdTraceRaysKHR"));
 
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(MAX_VERTEX_AND_INDEX_BUFSIZE, 
 		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -54,15 +56,25 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	global_transform_buffer = VkUtils::CreateGPUBuffer(context.allocator, buffer_info);
 	UploadDataToGPUBuffer(global_transform_buffer, &blas_transform, sizeof(VkTransformMatrixKHR));
 	
-	VkDescriptorPoolSize transient_descriptor_pool_size {
-		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = MAX_TRANSIENT_TEXTURES
+	std::array<VkDescriptorPoolSize, 3> transient_descriptor_pool_sizes {
+		VkDescriptorPoolSize {
+			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = MAX_TRANSIENT_DESCRIPTORS_PER_TYPE
+		},
+		VkDescriptorPoolSize {
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.descriptorCount = MAX_TRANSIENT_DESCRIPTORS_PER_TYPE
+		},
+		VkDescriptorPoolSize {
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = MAX_TRANSIENT_DESCRIPTORS_PER_TYPE
+		}
 	};
 	VkDescriptorPoolCreateInfo transient_descriptor_pool_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		.maxSets = MAX_TRANSIENT_SETS,
-		.poolSizeCount = 1,
-		.pPoolSizes = &transient_descriptor_pool_size
+		.poolSizeCount = static_cast<uint32_t>(transient_descriptor_pool_sizes.size()),
+		.pPoolSizes = transient_descriptor_pool_sizes.data()
 	};
 	VK_CHECK(vkCreateDescriptorPool(context.device, &transient_descriptor_pool_info, 
 		nullptr, &transient_descriptor_pool));
@@ -90,8 +102,8 @@ ResourceManager::~ResourceManager() {
 	VkUtils::DestroyGPUBuffer(context.allocator, global_index_buffer);
 }
 
-Texture ResourceManager::CreateTransientTexture(uint32_t width, uint32_t height, VkFormat format) {
-	Texture texture;
+Image ResourceManager::CreateTransientTexture(uint32_t width, uint32_t height, VkFormat format) {
+	Image image;
 
 	VkImageUsageFlags usage = VkUtils::IsDepthFormat(format) ?
 		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT :
@@ -102,16 +114,43 @@ Texture ResourceManager::CreateTransientTexture(uint32_t width, uint32_t height,
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY
 	};
 	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
-		&texture.image, &texture.allocation, nullptr);
+		&image.handle, &image.allocation, nullptr);
 
-	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(texture.image, format);
-	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.image_view));
+	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(image.handle, format);
+	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &image.view));
 
-	return texture;
+	return image;
+}
+
+Image ResourceManager::CreateTransientStorageImage(uint32_t width, uint32_t height, VkFormat format) {
+	Image image;
+
+	VkImageUsageFlags usage = VK_IMAGE_USAGE_STORAGE_BIT;
+	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, format, usage);
+
+	VmaAllocationCreateInfo image_alloc_info {
+		.usage = VMA_MEMORY_USAGE_GPU_ONLY
+	};
+	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
+		&image.handle, &image.allocation, nullptr);
+
+	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(image.handle, format);
+	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &image.view));
+
+	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, context.command_pool,
+		[&](VkCommandBuffer command_buffer) {
+			VkUtils::InsertImageBarrier(command_buffer, image.handle,
+				VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+				0, VK_ACCESS_SHADER_WRITE_BIT);
+		}
+	);
+
+	return image;
 }
 
 int ResourceManager::LoadTextureFromData(uint32_t width, uint32_t height, uint8_t *data) {
-	Texture texture;
+	Image texture;
 
 	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, 
 		VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
@@ -119,7 +158,7 @@ int ResourceManager::LoadTextureFromData(uint32_t width, uint32_t height, uint8_
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY
 	};
 	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
-		&texture.image, &texture.allocation, nullptr);
+		&texture.handle, &texture.allocation, nullptr);
 
 	// TODO: Assuming RGBA, 8-bit each
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(static_cast<VkDeviceSize>(width) * 
@@ -131,16 +170,16 @@ int ResourceManager::LoadTextureFromData(uint32_t width, uint32_t height, uint8_
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, 
 		context.command_pool, [&](VkCommandBuffer command_buffer) {
 
-		VkUtils::InsertImageBarrier(command_buffer, texture.image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VkUtils::InsertImageBarrier(command_buffer, texture.handle, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			0, VK_ACCESS_TRANSFER_WRITE_BIT);	
 
 		VkBufferImageCopy buffer_image_copy = VkUtils::BufferImageCopy2D(width, height);
-		vkCmdCopyBufferToImage(command_buffer, buffer.handle, texture.image, 
+		vkCmdCopyBufferToImage(command_buffer, buffer.handle, texture.handle, 
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
 
-		VkUtils::InsertImageBarrier(command_buffer, texture.image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VkUtils::InsertImageBarrier(command_buffer, texture.handle, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);	
@@ -148,9 +187,9 @@ int ResourceManager::LoadTextureFromData(uint32_t width, uint32_t height, uint8_
 
 	VkUtils::DestroyMappedBuffer(context.allocator, buffer);
 
-	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(texture.image, 
+	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(texture.handle, 
 		VK_FORMAT_R8G8B8A8_UNORM);
-	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.image_view));
+	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.view));
 
 	textures.push_back(texture);
 	return static_cast<int>(textures.size()) - 1;
@@ -175,10 +214,10 @@ void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<
 
 void ResourceManager::UpdateDescriptors() {
 	std::vector<VkDescriptorImageInfo> descriptors;
-	for(Texture &texture : textures) {
+	for(Image &texture : textures) {
 		descriptors.push_back(VkDescriptorImageInfo {
 			.sampler = sampler,
-			.imageView = texture.image_view,
+			.imageView = texture.view,
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		});
 	}
@@ -195,8 +234,13 @@ void ResourceManager::UpdateDescriptors() {
 		.buffer = global_obj_data_buffer.handle,
 		.range = VK_WHOLE_SIZE
 	};
+	VkWriteDescriptorSetAccelerationStructureKHR write_descriptor_set_acceleration_structure {
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+		.accelerationStructureCount = 1,
+		.pAccelerationStructures = &global_tlas
+	};
 
-	std::array<VkWriteDescriptorSet, 4> write_descriptor_sets {
+	std::array<VkWriteDescriptorSet, 5> write_descriptor_sets {
 		VkWriteDescriptorSet {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			.dstSet = global_descriptor_set,
@@ -223,8 +267,16 @@ void ResourceManager::UpdateDescriptors() {
 		},
 		VkWriteDescriptorSet {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.pNext = &write_descriptor_set_acceleration_structure,
 			.dstSet = global_descriptor_set,
 			.dstBinding = 3,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
+		},
+		VkWriteDescriptorSet {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = global_descriptor_set,
+			.dstBinding = 4,
 			.descriptorCount = static_cast<uint32_t>(descriptors.size()),
 			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.pImageInfo = descriptors.data()
@@ -240,14 +292,18 @@ void ResourceManager::UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData per_
 }
 
 void ResourceManager::CreateGlobalDescriptorSet() {
-	std::array<VkDescriptorPoolSize, 2> descriptor_pool_sizes {
-		VkDescriptorPoolSize {
-			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.descriptorCount = MAX_GLOBAL_TEXTURES
-		},
+	std::array<VkDescriptorPoolSize, 3> descriptor_pool_sizes {
 		VkDescriptorPoolSize {
 			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = 3
+		},
+		VkDescriptorPoolSize {
+			.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			.descriptorCount = 1
+		},
+		VkDescriptorPoolSize {
+			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = MAX_GLOBAL_TEXTURES
 		}
 	};
 	VkDescriptorPoolCreateInfo descriptor_pool_info {
@@ -259,7 +315,7 @@ void ResourceManager::CreateGlobalDescriptorSet() {
 	VK_CHECK(vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr, 
 		&global_descriptor_pool));
 
-	std::array<VkDescriptorSetLayoutBinding, 4> descriptor_set_layout_bindings {
+	std::array<VkDescriptorSetLayoutBinding, 5> descriptor_set_layout_bindings {
 		VkDescriptorSetLayoutBinding {
 			.binding = 0,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -280,12 +336,19 @@ void ResourceManager::CreateGlobalDescriptorSet() {
 		},
 		VkDescriptorSetLayoutBinding {
 			.binding = 3,
+			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR
+		},
+		VkDescriptorSetLayoutBinding {
+			.binding = 4,
 			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.descriptorCount = MAX_GLOBAL_TEXTURES,
 			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT
-		},
+		}
 	};
-	std::array<VkDescriptorBindingFlags, 4> descriptor_binding_flags {
+	std::array<VkDescriptorBindingFlags, 5> descriptor_binding_flags {
+		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
 		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
 		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
 		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
@@ -341,7 +404,8 @@ void ResourceManager::CreatePerFrameDescriptorSet() {
 		.binding = 0,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = MAX_PER_FRAME_UBOS,
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | 
+			VK_SHADER_STAGE_RAYGEN_BIT_KHR
 	};
 	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -403,13 +467,13 @@ void ResourceManager::UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &
 				.triangles = VkAccelerationStructureGeometryTrianglesDataKHR {
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
 					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-					.vertexData = VkUtils::GetDeviceAddressConst(context.device, global_vertex_buffer),
+					.vertexData = VkUtils::GetDeviceAddressConst(context.device, global_vertex_buffer.handle),
 					.vertexStride = sizeof(Vertex),
 					.maxVertex = vertex_count,
 					.indexType = VK_INDEX_TYPE_UINT32,
-					.indexData = VkUtils::GetDeviceAddressConst(context.device, global_index_buffer),
+					.indexData = VkUtils::GetDeviceAddressConst(context.device, global_index_buffer.handle),
 					.transformData = VkUtils::GetDeviceAddressConst(context.device, 
-						global_transform_buffer)
+						global_transform_buffer.handle)
 				}
 			},
 			.flags = VK_GEOMETRY_OPAQUE_BIT_KHR
@@ -458,7 +522,7 @@ void ResourceManager::UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &
 	acceleration_structure_build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 	acceleration_structure_build_geometry_info.dstAccelerationStructure = global_blas;
 	acceleration_structure_build_geometry_info.scratchData = VkUtils::GetDeviceAddress(context.device,
-		global_scratch_buffer);
+		global_scratch_buffer.handle);
 
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, context.command_pool,
 		[&](VkCommandBuffer command_buffer) {
@@ -507,7 +571,7 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 			.instances = VkAccelerationStructureGeometryInstancesDataKHR {
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
 				.arrayOfPointers = VK_FALSE,
-				.data = VkUtils::GetDeviceAddressConst(context.device, global_instances_buffer)
+				.data = VkUtils::GetDeviceAddressConst(context.device, global_instances_buffer.handle)
 			}
 		},
 		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR
@@ -519,7 +583,7 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
 		.geometryCount = 1,
 		.pGeometries = &acceleration_structure_geometry,
-		.scratchData = VkUtils::GetDeviceAddress(context.device, global_scratch_buffer)
+		.scratchData = VkUtils::GetDeviceAddress(context.device, global_scratch_buffer.handle)
 	};
 
 	uint32_t max_primitive_counts = 1;
@@ -542,7 +606,7 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 	acceleration_structure_build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 	acceleration_structure_build_geometry_info.dstAccelerationStructure = global_tlas;
 	acceleration_structure_build_geometry_info.scratchData = VkUtils::GetDeviceAddress(context.device,
-		global_scratch_buffer);
+		global_scratch_buffer.handle);
 
 	VkAccelerationStructureBuildRangeInfoKHR acceleration_structure_build_range_info {
 		.primitiveCount = static_cast<uint32_t>(primitives.size()),

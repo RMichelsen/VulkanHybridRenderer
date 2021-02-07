@@ -22,4 +22,8 @@ private:
 	void CreatePipeline();
 	TransientResource CreateTransientTexture(const char *name, VkFormat format);
 	TransientResource CreateTransientTexture(const char *name, uint32_t width, uint32_t height, VkFormat format);
+	TransientResource CreateTransientStorageImage(const char *name, VkFormat format);
+	TransientResource CreateTransientStorageImage(const char *name, uint32_t width, uint32_t height, VkFormat format);
+
+	PFN_vkGetQueueCheckpointDataNV vkGetQueueCheckpointDataNV;
 };

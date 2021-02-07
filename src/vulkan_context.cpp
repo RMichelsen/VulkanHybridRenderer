@@ -133,12 +133,12 @@ void VulkanContext::InitPhysicalDevice() {
 		gpu.handle = dev;
 	}
 
-	gpu.rt_properties = {
+	gpu.raytracing_properties = {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR
 	};
 	gpu.properties = {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-		.pNext = &gpu.rt_properties
+		.pNext = &gpu.raytracing_properties
 	};
 	vkGetPhysicalDeviceProperties2(gpu.handle, &gpu.properties);
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu.handle, surface, 
