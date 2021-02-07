@@ -114,10 +114,10 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 
 	std::vector<VkPipelineColorBlendAttachmentState> color_blend_states;
 	for(TransientResource &resource : graphics_pass.attachments) {
-		if(VkUtils::IsDepthFormat(resource.texture.format)) {
+		if(VkUtils::IsDepthFormat(resource.attachment_image.format)) {
 			continue;
 		}
-		if(!resource.texture.color_blending) {
+		if(!resource.attachment_image.color_blending) {
 			color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_OFF);
 		}
 	}

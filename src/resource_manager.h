@@ -6,8 +6,8 @@ public:
 	ResourceManager(VulkanContext &context);
 	~ResourceManager();
 
-	Image CreateTransientTexture(uint32_t width, uint32_t height, VkFormat format);
-	Image CreateTransientStorageImage(uint32_t width, uint32_t height, VkFormat format);
+	Image Create2DImage(uint32_t width, uint32_t height, VkFormat format, 
+		VkImageUsageFlags usage, VkImageLayout initial_layout);
 	int LoadTextureFromData(uint32_t width, uint32_t height, uint8_t *data);
 
 	void UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
@@ -27,12 +27,10 @@ public:
 	GPUBuffer global_obj_data_buffer;
 	std::vector<Image> textures;
 	
-	GPUBuffer global_scratch_buffer;
-	GPUBuffer global_blas_buffer;
-	GPUBuffer global_tlas_buffer;
-	VkAccelerationStructureKHR global_blas = VK_NULL_HANDLE;
-	VkAccelerationStructureKHR global_tlas = VK_NULL_HANDLE;
-	GPUBuffer global_transform_buffer;
+	GPUBuffer identity_transform_buffer;
+
+	std::vector<AccelerationStructure> BLAS;
+	AccelerationStructure global_TLAS;
 	GPUBuffer global_instances_buffer;
 
 	VkDescriptorPool global_descriptor_pool = VK_NULL_HANDLE;

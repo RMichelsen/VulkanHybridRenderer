@@ -104,10 +104,10 @@ void Renderer::CreatePipeline() {
 	render_graph->AddGraphicsPass("G-Buffer",
 		{},
 		{
-			CreateTransientTexture("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientTexture("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientTexture("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
-			CreateTransientTexture("Depth", VK_FORMAT_D32_SFLOAT)
+			CreateTransientAttachmentImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
+			CreateTransientAttachmentImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
+			CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
+			CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT)
 		},
 		{
 			GraphicsPipelineDescription {
@@ -166,14 +166,14 @@ void Renderer::CreatePipeline() {
 
 	render_graph->AddGraphicsPass("Composition Pass", 
 		{
-			CreateTransientTexture("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientTexture("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientTexture("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
-			CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM),
+			CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
+			CreateTransientSampledImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
+			CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
+			CreateTransientSampledImage("Rays", VK_FORMAT_B8G8R8A8_UNORM),
 		},
 		{
 			TRANSIENT_BACKBUFFER,
-			CreateTransientTexture("Depth", VK_FORMAT_D32_SFLOAT)
+			CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT)
 		},
 		{
 			GraphicsPipelineDescription {
@@ -199,11 +199,11 @@ void Renderer::CreatePipeline() {
 	render_graph->Compile(*resource_manager);
 }
 
-TransientResource Renderer::CreateTransientTexture(const char *name, VkFormat format) {
+TransientResource Renderer::CreateTransientAttachmentImage(const char *name, VkFormat format) {
 	return TransientResource {
 		.name = name,
-		.type = TransientResourceType::Texture,
-		.texture = TransientTexture {
+		.type = TransientResourceType::AttachmentImage,
+		.attachment_image = TransientAttachmentImage {
 			.format = format,
 			.width = context->swapchain.extent.width,
 			.height = context->swapchain.extent.height,
@@ -212,16 +212,41 @@ TransientResource Renderer::CreateTransientTexture(const char *name, VkFormat fo
 	};
 }
 
-TransientResource Renderer::CreateTransientTexture(const char *name, uint32_t width, 
-	uint32_t height, VkFormat format) {
+TransientResource Renderer::CreateTransientAttachmentImage(const char *name, uint32_t width, uint32_t height, 
+	VkFormat format) {
 	return TransientResource {
 		.name = name,
-		.type = TransientResourceType::Texture,
-		.texture = TransientTexture {
+		.type = TransientResourceType::AttachmentImage,
+		.attachment_image = TransientAttachmentImage {
 			.format = format,
 			.width = width,
 			.height = height,
 			.color_blending = false
+		}
+	};
+}
+
+TransientResource Renderer::CreateTransientSampledImage(const char *name, VkFormat format) {
+	return TransientResource {
+		.name = name,
+		.type = TransientResourceType::SampledImage,
+		.sampled_image = TransientSampledImage {
+			.format = format,
+			.width = context->swapchain.extent.width,
+			.height = context->swapchain.extent.height,
+		}
+	};
+}
+
+TransientResource Renderer::CreateTransientSampledImage(const char *name, uint32_t width,
+	uint32_t height, VkFormat format) {
+	return TransientResource {
+		.name = name,
+		.type = TransientResourceType::SampledImage,
+		.sampled_image = TransientSampledImage {
+			.format = format,
+			.width = width,
+			.height = height
 		}
 	};
 }

@@ -14,26 +14,26 @@ void RenderGraph::AddGraphicsPass(const char *render_pass_name, std::vector<Tran
 
 	std::vector<std::string> input_names;
 	for(TransientResource &resource : inputs) {
-		input_names.emplace_back(resource.name);
-		if(!layout.transient_resources.contains(resource.name)) {
-			layout.transient_resources[resource.name] = resource;
-		}
+		//input_names.emplace_back(resource.name);
+		//if(!layout.transient_resources.contains(resource.name)) {
+		//	layout.transient_resources[resource.name] = resource;
+		//}
 		layout.readers[resource.name].emplace_back(render_pass_name);
 	}
 
 	std::vector<std::string> output_names;
 	for(TransientResource &resource : outputs) {
-		output_names.emplace_back(resource.name);
-		if(!layout.transient_resources.contains(resource.name)) {
-			layout.transient_resources[resource.name] = resource;
-		}
+		//output_names.emplace_back(resource.name);
+		//if(!layout.transient_resources.contains(resource.name)) {
+		//	layout.transient_resources[resource.name] = resource;
+		//}
 		layout.writers[resource.name].emplace_back(render_pass_name);
 	}
 
 	assert(!layout.render_pass_descriptions.contains(render_pass_name));
 	layout.render_pass_descriptions[render_pass_name] = RenderPassDescription {
-		.inputs = input_names,
-		.outputs = output_names,
+		.inputs = inputs,
+		.outputs = outputs,
 		.description = GraphicsPassDescription {
 			.pipeline_descriptions = pipelines,
 			.callback = callback
@@ -47,26 +47,26 @@ void RenderGraph::AddRaytracingPass(const char *render_pass_name, std::vector<Tr
 
 	std::vector<std::string> input_names;
 	for(TransientResource &resource : inputs) {
-		input_names.emplace_back(resource.name);
-		if(!layout.transient_resources.contains(resource.name)) {
-			layout.transient_resources[resource.name] = resource;
-		}
+		//input_names.emplace_back(resource.name);
+		//if(!layout.transient_resources.contains(resource.name)) {
+		//	layout.transient_resources[resource.name] = resource;
+		//}
 		layout.readers[resource.name].emplace_back(render_pass_name);
 	}
 
 	std::vector<std::string> output_names;
 	for(TransientResource &resource : outputs) {
-		output_names.emplace_back(resource.name);
-		if(!layout.transient_resources.contains(resource.name)) {
-			layout.transient_resources[resource.name] = resource;
-		}
+		//output_names.emplace_back(resource.name);
+		//if(!layout.transient_resources.contains(resource.name)) {
+		//	layout.transient_resources[resource.name] = resource;
+		//}
 		layout.writers[resource.name].emplace_back(render_pass_name);
 	}
 
 	assert(!layout.render_pass_descriptions.contains(render_pass_name));
 	layout.render_pass_descriptions[render_pass_name] = RenderPassDescription {
-		.inputs = input_names,
-		.outputs = output_names,
+		.inputs = inputs,
+		.outputs = outputs,
 		.description = RaytracingPassDescription {
 			.pipeline_description = pipeline,
 			.callback = callback
@@ -77,31 +77,124 @@ void RenderGraph::AddRaytracingPass(const char *render_pass_name, std::vector<Tr
 void RenderGraph::Compile(ResourceManager &resource_manager) {
 	FindExecutionOrder();
 
+	std::unordered_map<std::string, std::vector<TransientResource>> images_to_actualize;
 	for(std::string &pass_name : execution_order) {
 		RenderPassDescription &pass = layout.render_pass_descriptions[pass_name];
-		for(std::string &input : pass.inputs) {
-			ActualizeTransientResource(resource_manager, layout.transient_resources[input]);
+		for(TransientResource &input : pass.inputs) {
+			assert(input.type != TransientResourceType::Buffer);
+			images_to_actualize[input.name].emplace_back(input);
 		}
-		for(std::string &output : pass.outputs) {
-			ActualizeTransientResource(resource_manager, layout.transient_resources[output]);
+		for(TransientResource &output : pass.outputs) {
+			assert(output.type != TransientResourceType::Buffer);
+			images_to_actualize[output.name].emplace_back(output);
 		}
 	}
 
-	std::unordered_map<std::string, VkImageLayout> previous_layouts;
+	for(auto &[name, resources] : images_to_actualize) {
+		assert(!resources.empty());
+		if(name == "BACKBUFFER") continue;
+		if(images.contains(name)) continue;
+
+		if(resources[0].type == TransientResourceType::Buffer) {
+			// TODO: Buffers
+			assert(false);
+		}
+		else {
+			uint32_t width = 0;
+			uint32_t height = 0;
+			VkFormat format = VK_FORMAT_UNDEFINED;
+			VkImageUsageFlags usage = 0;
+			VkImageLayout layout;
+			switch(resources[0].type) {
+			case TransientResourceType::AttachmentImage: {
+				layout = VK_IMAGE_LAYOUT_UNDEFINED;
+			} break;
+			case TransientResourceType::SampledImage: {
+				layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			} break;
+			case TransientResourceType::StorageImage: {
+				layout = VK_IMAGE_LAYOUT_GENERAL;
+			} break;
+			}
+
+			for(int i = 0; i < resources.size(); ++i) {
+				if(i > 0) {
+					switch(resources[i].type) {
+					case TransientResourceType::AttachmentImage: {
+						assert(resources[i].attachment_image.width == width);
+						assert(resources[i].attachment_image.height == height);
+						assert(resources[i].attachment_image.format == format);
+					} break;
+					case TransientResourceType::SampledImage: {
+						assert(resources[i].sampled_image.width == width);
+						assert(resources[i].sampled_image.height == height);
+						assert(resources[i].sampled_image.format == format);
+					} break;
+					case TransientResourceType::StorageImage: {
+						assert(resources[i].storage_image.width == width);
+						assert(resources[i].storage_image.height == height);
+						assert(resources[i].storage_image.format == format);
+					} break;
+					}
+				}
+				switch(resources[i].type) {
+				case TransientResourceType::AttachmentImage: {
+					width = resources[i].attachment_image.width;
+					height = resources[i].attachment_image.height;
+					format = resources[i].attachment_image.format;
+					usage |= VkUtils::IsDepthFormat(resources[i].attachment_image.format) ?
+						VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT :
+						VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+				} break;
+				case TransientResourceType::SampledImage: {
+					width = resources[i].sampled_image.width;
+					height = resources[i].sampled_image.height;
+					format = resources[i].sampled_image.format;
+					usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+				} break;
+				case TransientResourceType::StorageImage: {
+					width = resources[i].storage_image.width;
+					height = resources[i].storage_image.height;
+					format = resources[i].storage_image.format;
+					usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+				} break;
+				}
+			}
+
+			images[name] = resource_manager.Create2DImage(width, height, format, usage, layout);
+		}
+	}
+
+	std::unordered_map<std::string, ImageAccess> previous_access;
 
 	for(std::string &pass_name : execution_order) {
 		RenderPassDescription &pass_description = layout.render_pass_descriptions[pass_name];
 		if(std::holds_alternative<GraphicsPassDescription>(pass_description.description)) {
-			RenderPass render_pass = CompileGraphicsPass(resource_manager, previous_layouts,
+			RenderPass render_pass = CompileGraphicsPass(resource_manager, previous_access,
 				pass_description);
 			assert(!render_passes.contains(pass_name));
 			render_passes[pass_name] = render_pass;
 		}
 		else if(std::holds_alternative<RaytracingPassDescription>(pass_description.description)) {
-			RenderPass render_pass = CompileRaytracingPass(resource_manager, previous_layouts,
+			RenderPass render_pass = CompileRaytracingPass(resource_manager, previous_access,
 				pass_description);
 			assert(!render_passes.contains(pass_name));
 			render_passes[pass_name] = render_pass;
+		}
+	}
+
+	for(auto &[name, access] : previous_access) {
+		if(initial_image_access[name].layout != access.layout) {
+			finalize_transitions.emplace_back(ImageLayoutTransition {
+				.image_name = name,
+				.format = access.format,
+				.src_layout = access.layout,
+				.dst_layout = initial_image_access[name].layout,
+				.src_access = access.access_flags,
+				.dst_access = initial_image_access[name].access_flags,
+				.src_stage = access.stage_flags,
+				.dst_stage = initial_image_access[name].stage_flags
+			});
 		}
 	}
 }
@@ -119,7 +212,15 @@ void RenderGraph::Execute(ResourceManager &resource_manager, VkCommandBuffer com
 		else if(std::holds_alternative<RaytracingPass>(render_pass.pass)) {
 			ExecuteRaytracingPass(resource_manager, command_buffer, render_pass);
 		}
+	}
 
+	for(ImageLayoutTransition &transition : finalize_transitions) {
+		VkImageAspectFlags aspect_flags = VkUtils::IsDepthFormat(transition.format) ?
+			VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
+		VkUtils::InsertImageBarrier(command_buffer, images[transition.image_name].handle,
+			aspect_flags, transition.src_layout, transition.dst_layout, transition.src_stage, 
+			transition.dst_stage, transition.src_access, transition.dst_access);
 	}
 }
 
@@ -132,8 +233,8 @@ void RenderGraph::FindExecutionOrder() {
 		RenderPassDescription &pass = layout.render_pass_descriptions[stack.front()];
 		stack.pop_front();
 
-		for(std::string &input : pass.inputs) {
-			for(std::string &writer : layout.writers[input]) {
+		for(TransientResource &input : pass.inputs) {
+			for(std::string &writer : layout.writers[input.name]) {
 				if(std::find(execution_order.begin(), execution_order.end(), writer) == execution_order.end()) {
 					execution_order.push_back(writer);
 					stack.push_back(writer);
@@ -145,33 +246,8 @@ void RenderGraph::FindExecutionOrder() {
 	std::reverse(execution_order.begin(), execution_order.end());
 }
 
-void RenderGraph::ActualizeTransientResource(ResourceManager &resource_manager, 
-	TransientResource &resource) {
-
-	switch(resource.type) {
-	case TransientResourceType::Texture: {
-		if(!images.contains(resource.name) && resource.name != "BACKBUFFER") {
-			images[resource.name] = resource_manager.CreateTransientTexture(
-				resource.texture.width, resource.texture.height, resource.texture.format);
-		}
-	} break;
-	case TransientResourceType::StorageImage: {
-		assert(resource.name != "BACKBUFFER");
-		if(!images.contains(resource.name)) {
-			images[resource.name] = resource_manager.CreateTransientStorageImage(
-				resource.texture.width, resource.texture.height, resource.texture.format);
-		}
-	} break;
-	case TransientResourceType::Buffer: {
-		// TODO: Add Buffers
-		assert(false);
-	} break;
-	}
-
-}
-
 RenderPass RenderGraph::CompileGraphicsPass(ResourceManager &resource_manager, 
-	std::unordered_map<std::string, VkImageLayout> &previous_layouts, RenderPassDescription &pass_description) {
+	std::unordered_map<std::string, ImageAccess> &previous_access, RenderPassDescription &pass_description) {
 	GraphicsPassDescription &graphics_pass_description = 
 		std::get<GraphicsPassDescription>(pass_description.description);
 	RenderPass render_pass {
@@ -184,24 +260,77 @@ RenderPass RenderGraph::CompileGraphicsPass(ResourceManager &resource_manager,
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	std::vector<VkDescriptorImageInfo> descriptors;
 	uint32_t binding = 0;
-	for(std::string &input : pass_description.inputs) {
+	for(TransientResource &input : pass_description.inputs) {
 		VkDescriptorType descriptor_type;
-		switch(layout.transient_resources[input].type) {
-		case TransientResourceType::Texture: {
-			if(VkUtils::IsDepthFormat(layout.transient_resources[input].texture.format)) {
-				continue;
+		switch(input.type) {
+		case TransientResourceType::AttachmentImage: {
+			assert(false && "Attachment images must be outputs");
+		} break;
+		case TransientResourceType::SampledImage: {
+			ImageAccess access = {
+				.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.format = input.sampled_image.format,
+				.access_flags = VK_ACCESS_SHADER_READ_BIT,
+				.stage_flags = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
+			};
+
+			if(previous_access.contains(input.name)) {
+				if(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL != previous_access[input.name].layout) {
+					render_pass.preparation_transitions.emplace_back(ImageLayoutTransition {
+						.image_name = input.name,
+						.format = input.sampled_image.format,
+						.src_layout = previous_access[input.name].layout,
+						.dst_layout = access.layout,
+						.src_access = previous_access[input.name].access_flags,
+						.dst_access = access.access_flags,
+						.src_stage = previous_access[input.name].stage_flags,
+						.dst_stage = access.stage_flags
+					});
+				}
 			}
+			else {
+				initial_image_access[input.name] = access;
+			}
+			previous_access[input.name] = access;
+
 			descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptors.emplace_back(VkDescriptorImageInfo {
 				.sampler = resource_manager.sampler,
-				.imageView = images[input].view,
+				.imageView = images[input.name].view,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			});
 		} break;
 		case TransientResourceType::StorageImage: {
+			ImageAccess access {
+				.layout = VK_IMAGE_LAYOUT_GENERAL,
+				.format = input.storage_image.format,
+				.access_flags = VK_ACCESS_SHADER_READ_BIT,
+				.stage_flags = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT
+			};
+
+			if(previous_access.contains(input.name)) {
+				if(VK_IMAGE_LAYOUT_GENERAL != previous_access[input.name].layout) {
+					render_pass.preparation_transitions.emplace_back(ImageLayoutTransition {
+						.image_name = input.name,
+						.format = input.storage_image.format,
+						.src_layout = previous_access[input.name].layout,
+						.dst_layout = access.layout,
+						.src_access = previous_access[input.name].access_flags,
+						.dst_access = access.access_flags,
+						.src_stage = previous_access[input.name].stage_flags,
+						.dst_stage = access.stage_flags
+					});
+				}
+			}
+			else {
+				initial_image_access[input.name] = access;
+			}
+			previous_access[input.name] = access;
+
+
 			descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 			descriptors.emplace_back(VkDescriptorImageInfo {
-				.imageView = images[input].view,
+				.imageView = images[input.name].view,
 				.imageLayout = VK_IMAGE_LAYOUT_GENERAL
 			});
 		} break;
@@ -258,63 +387,83 @@ RenderPass RenderGraph::CompileGraphicsPass(ResourceManager &resource_manager,
 	};
 	std::vector<VkAttachmentDescription> attachments;
 	std::vector<VkAttachmentReference> color_attachment_refs;
-	for(std::string &output : pass_description.outputs) {
-		bool is_backbuffer = output == "BACKBUFFER";
+	for(TransientResource &output : pass_description.outputs) {
+		bool is_backbuffer = output.name == "BACKBUFFER";
 
-		if(!previous_layouts.contains(output)) {
-			previous_layouts[output] = VK_IMAGE_LAYOUT_UNDEFINED;
-		}
-
-		TransientResource &resource = layout.transient_resources[output];
-		// TODO: Add Buffers
-		assert(resource.type == TransientResourceType::Texture);
-		graphics_pass.attachments.emplace_back(resource);
-
-		if(VkUtils::IsDepthFormat(resource.texture.format)) {
-			VkAttachmentDescription attachment {
-				.format = resource.texture.format,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = previous_layouts[output] == VK_IMAGE_LAYOUT_UNDEFINED ?
-					VK_ATTACHMENT_LOAD_OP_CLEAR :
-					VK_ATTACHMENT_LOAD_OP_LOAD,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = previous_layouts[output],
-				.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-			};
-			VkAttachmentReference attachment_ref {
-				.attachment = static_cast<uint32_t>(attachments.size()),
-				.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-			};
-			attachments.emplace_back(attachment);
-			subpass_description.pDepthStencilAttachment = &attachment_ref;
-			previous_layouts[output] = attachment.finalLayout;
-		}
-		else {
-			VkAttachmentDescription attachment {
-				.format = is_backbuffer ?
-					context.swapchain.format :
-					layout.transient_resources[output].texture.format,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = previous_layouts[output] == VK_IMAGE_LAYOUT_UNDEFINED ?
-					VK_ATTACHMENT_LOAD_OP_CLEAR :
-					VK_ATTACHMENT_LOAD_OP_LOAD,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = previous_layouts[output],
-				.finalLayout = is_backbuffer ?
-					VK_IMAGE_LAYOUT_PRESENT_SRC_KHR :
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			};
-			VkAttachmentReference attachment_ref {
-				.attachment = static_cast<uint32_t>(attachments.size()),
-				.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-			};
-			attachments.emplace_back(attachment);
-			color_attachment_refs.emplace_back(attachment_ref);
-			previous_layouts[output] = attachment.finalLayout;
+		if(output.type == TransientResourceType::AttachmentImage) {
+			graphics_pass.attachments.emplace_back(output);
+			if(VkUtils::IsDepthFormat(output.attachment_image.format)) {
+				VkAttachmentDescription attachment {
+					.format = output.attachment_image.format,
+					.samples = VK_SAMPLE_COUNT_1_BIT,
+					.loadOp = previous_access.contains(output.name) ? // TODO: PARAM
+						VK_ATTACHMENT_LOAD_OP_LOAD :
+						VK_ATTACHMENT_LOAD_OP_CLEAR,
+					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					.initialLayout = previous_access.contains(output.name) ?
+						previous_access[output.name].layout :
+						VK_IMAGE_LAYOUT_UNDEFINED,
+					.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+				};
+				VkAttachmentReference attachment_ref {
+					.attachment = static_cast<uint32_t>(attachments.size()),
+					.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+				};
+				attachments.emplace_back(attachment);
+				subpass_description.pDepthStencilAttachment = &attachment_ref;
+				if(!is_backbuffer) {
+					ImageAccess access {
+						.layout = attachment.finalLayout,
+						.format = attachment.format,
+						.access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+						.stage_flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+					};
+					if(!previous_access.contains(output.name)) {
+						initial_image_access[output.name] = access;
+					}
+					previous_access[output.name] = access;
+				}
+			}
+			else {
+				VkAttachmentDescription attachment {
+					.format = is_backbuffer ?
+						context.swapchain.format :
+						output.attachment_image.format,
+					.samples = VK_SAMPLE_COUNT_1_BIT,
+					.loadOp = previous_access.contains(output.name) ? // TODO: PARAM
+						VK_ATTACHMENT_LOAD_OP_LOAD :
+						VK_ATTACHMENT_LOAD_OP_CLEAR,
+					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					.initialLayout = previous_access.contains(output.name) ? 
+						previous_access[output.name].layout :
+						VK_IMAGE_LAYOUT_UNDEFINED,
+					.finalLayout = is_backbuffer ?
+						VK_IMAGE_LAYOUT_PRESENT_SRC_KHR :
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				};
+				VkAttachmentReference attachment_ref {
+					.attachment = static_cast<uint32_t>(attachments.size()),
+					.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				};
+				attachments.emplace_back(attachment);
+				color_attachment_refs.emplace_back(attachment_ref);
+				if(!is_backbuffer) {
+					ImageAccess access {
+						.layout = attachment.finalLayout,
+						.format = attachment.format,
+						.access_flags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+						.stage_flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+					};
+					if(!previous_access.contains(output.name)) {
+						initial_image_access[output.name] = access;
+					}
+					previous_access[output.name] = access;
+				}
+			}
 		}
 	}
 
@@ -352,7 +501,7 @@ RenderPass RenderGraph::CompileGraphicsPass(ResourceManager &resource_manager,
 }
 
 RenderPass RenderGraph::CompileRaytracingPass(ResourceManager &resource_manager,
-	std::unordered_map<std::string, VkImageLayout> &previous_layouts, RenderPassDescription &pass_description) {
+	std::unordered_map<std::string, ImageAccess> &previous_access, RenderPassDescription &pass_description) {
 	RaytracingPassDescription &raytracing_pass_description = 
 		std::get<RaytracingPassDescription>(pass_description.description);
 	RenderPass render_pass {
@@ -364,34 +513,76 @@ RenderPass RenderGraph::CompileRaytracingPass(ResourceManager &resource_manager,
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	std::vector<VkDescriptorImageInfo> descriptors;
 	uint32_t binding = 0;
-	for(std::string &input : pass_description.inputs) {
-		if(!previous_layouts.contains(input)) {
-			previous_layouts[input] = VK_IMAGE_LAYOUT_UNDEFINED;
-		}
-		if(previous_layouts[input] != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-			std::get<RaytracingPass>(render_pass.pass).preparation_transitions.emplace_back(
-				ImageLayoutTransition {
-					.resource = layout.transient_resources[input],
-					.src_layout = previous_layouts[input],
-					.dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-				}
-			);
-		}
-
+	for(TransientResource &input : pass_description.inputs) {
 		VkDescriptorType descriptor_type;
-		switch(layout.transient_resources[input].type) {
-		case TransientResourceType::Texture: {
+		switch(input.type) {
+		case TransientResourceType::AttachmentImage: {
+			assert(false && "Attachment images are not allowd in raytracing passes");
+		}
+		case TransientResourceType::SampledImage: {
+			ImageAccess access {
+				.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.format = input.sampled_image.format,
+				.access_flags = VK_ACCESS_SHADER_READ_BIT,
+				.stage_flags = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR
+			};
+
+			if(previous_access.contains(input.name)) {
+				if(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL != previous_access[input.name].layout) {
+					render_pass.preparation_transitions.emplace_back(ImageLayoutTransition {
+						.image_name = input.name,
+						.format = input.sampled_image.format,
+						.src_layout = previous_access[input.name].layout,
+						.dst_layout = access.layout,
+						.src_access = previous_access[input.name].access_flags,
+						.dst_access = access.access_flags,
+						.src_stage = previous_access[input.name].stage_flags,
+						.dst_stage = access.stage_flags
+					});
+				}
+			}
+			else {
+				initial_image_access[input.name] = access;
+			}
+			previous_access[input.name] = access;
+
 			descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptors.emplace_back(VkDescriptorImageInfo {
 				.sampler = resource_manager.sampler,
-				.imageView = images[input].view,
+				.imageView = images[input.name].view,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				});
 		} break;
 		case TransientResourceType::StorageImage: {
+			ImageAccess access {
+				.layout = VK_IMAGE_LAYOUT_GENERAL,
+				.format = input.storage_image.format,
+				.access_flags = VK_ACCESS_SHADER_READ_BIT,
+				.stage_flags = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR
+			};
+
+			if(previous_access.contains(input.name)) {
+				if(VK_IMAGE_LAYOUT_GENERAL != previous_access[input.name].layout) {
+					render_pass.preparation_transitions.emplace_back(ImageLayoutTransition {
+						.image_name = input.name,
+						.format = input.storage_image.format,
+						.src_layout = previous_access[input.name].layout,
+						.dst_layout = access.layout,
+						.src_access = previous_access[input.name].access_flags,
+						.dst_access = access.access_flags,
+						.src_stage = previous_access[input.name].stage_flags,
+						.dst_stage = access.stage_flags
+					});
+				}
+			}
+			else {
+				initial_image_access[input.name] = access;
+			}
+			previous_access[input.name] = access;
+
 			descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 			descriptors.emplace_back(VkDescriptorImageInfo {
-				.imageView = images[input].view,
+				.imageView = images[input.name].view,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				});
 		} break;
@@ -409,29 +600,45 @@ RenderPass RenderGraph::CompileRaytracingPass(ResourceManager &resource_manager,
 				VK_SHADER_STAGE_MISS_BIT_KHR // TODO: PARAM
 		});
 	}
-	for(std::string &output : pass_description.outputs) {
-		if(!previous_layouts.contains(output)) {
-			previous_layouts[output] = VK_IMAGE_LAYOUT_UNDEFINED;
-		}
-		if(previous_layouts[output] != VK_IMAGE_LAYOUT_GENERAL) {
-			std::get<RaytracingPass>(render_pass.pass).preparation_transitions.emplace_back(
-				ImageLayoutTransition {
-					.resource = layout.transient_resources[output],
-					.src_layout = previous_layouts[output],
-					.dst_layout = VK_IMAGE_LAYOUT_GENERAL
-				}
-			);
-		}
-
+	for(TransientResource &output : pass_description.outputs) {
 		VkDescriptorType descriptor_type;
-		switch(layout.transient_resources[output].type) {
-		case TransientResourceType::Texture: {
-			assert(false);
+		switch(output.type) {
+		case TransientResourceType::AttachmentImage: {
+			assert(false && "Attachment images are not allowd in raytracing passes");
+		}
+		case TransientResourceType::SampledImage: {
+			// TODO: Implement
+			assert(false && "Not implemented");
 		} break;
 		case TransientResourceType::StorageImage: {
+			ImageAccess access {
+				.layout = VK_IMAGE_LAYOUT_GENERAL,
+				.format = output.storage_image.format,
+				.access_flags = VK_ACCESS_SHADER_WRITE_BIT,
+				.stage_flags = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR
+			};
+			if(previous_access.contains(output.name)) {
+				if(VK_IMAGE_LAYOUT_GENERAL != previous_access[output.name].layout) {
+					render_pass.preparation_transitions.emplace_back(ImageLayoutTransition {
+						.image_name = output.name,
+						.format = output.storage_image.format,
+						.src_layout = previous_access[output.name].layout,
+						.dst_layout = access.layout,
+						.src_access = previous_access[output.name].access_flags,
+						.dst_access = access.access_flags,
+						.src_stage = previous_access[output.name].stage_flags,
+						.dst_stage = access.stage_flags
+					});
+				}
+			}
+			else {
+				initial_image_access[output.name] = access;
+			}
+			previous_access[output.name] = access;
+
 			descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 			descriptors.emplace_back(VkDescriptorImageInfo {
-				.imageView = images[output].view,
+				.imageView = images[output.name].view,
 				.imageLayout = VK_IMAGE_LAYOUT_GENERAL
 			});
 		} break;
@@ -514,15 +721,15 @@ void RenderGraph::ExecuteGraphicsPass(ResourceManager &resource_manager, VkComma
 			image_views.emplace_back(images[attachment.name].view);
 		}
 
-		if(VkUtils::IsDepthFormat(attachment.texture.format)) {
+		if(VkUtils::IsDepthFormat(attachment.attachment_image.format)) {
 			clear_values.emplace_back(VkClearValue {
 				.depthStencil = { 1.0f, 0 }
-				});
+			});
 		}
 		else {
 			clear_values.emplace_back(VkClearValue {
 				.color = { 0.2f, 0.2f, 0.2f, 1.0f }
-				});
+			});
 		}
 	}
 
@@ -549,6 +756,15 @@ void RenderGraph::ExecuteGraphicsPass(ResourceManager &resource_manager, VkComma
 		.clearValueCount = static_cast<uint32_t>(clear_values.size()),
 		.pClearValues = clear_values.data()
 	};
+
+	for(ImageLayoutTransition &transition : render_pass.preparation_transitions) {
+		VkImageAspectFlags aspect_flags = VkUtils::IsDepthFormat(transition.format) ?
+			VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
+		VkUtils::InsertImageBarrier(command_buffer, images[transition.image_name].handle,
+			aspect_flags, transition.src_layout, transition.dst_layout, transition.src_stage, 
+			transition.dst_stage, transition.src_access, transition.dst_access);
+	}
 
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 

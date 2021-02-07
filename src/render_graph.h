@@ -3,7 +3,6 @@
 struct RenderGraphLayout {
 	std::unordered_map<std::string, std::vector<std::string>> readers;
 	std::unordered_map<std::string, std::vector<std::string>> writers;
-	std::unordered_map<std::string, TransientResource> transient_resources;
 	std::unordered_map<std::string, RenderPassDescription> render_pass_descriptions;
 };
 
@@ -76,11 +75,10 @@ public:
 
 private:
 	void FindExecutionOrder();
-	void ActualizeTransientResource(ResourceManager &resource_manager, TransientResource &resource);
 	RenderPass CompileGraphicsPass(ResourceManager &resource_manager, 
-		std::unordered_map<std::string, VkImageLayout> &previous_layouts, RenderPassDescription &pass_description);
+		std::unordered_map<std::string, ImageAccess> &previous_access, RenderPassDescription &pass_description);
 	RenderPass CompileRaytracingPass(ResourceManager &resource_manager,
-		std::unordered_map<std::string, VkImageLayout> &previous_layouts, RenderPassDescription &pass_description);
+		std::unordered_map<std::string, ImageAccess> &previous_access, RenderPassDescription &pass_description);
 	void ExecuteGraphicsPass(ResourceManager &resource_manager, VkCommandBuffer command_buffer,
 		uint32_t resource_idx, uint32_t image_idx, RenderPass &render_pass);
 	void ExecuteRaytracingPass(ResourceManager &resource_manager, VkCommandBuffer command_buffer,
@@ -88,12 +86,15 @@ private:
 
 	VulkanContext &context;
 	std::vector<std::string> execution_order;
+	std::unordered_map<std::string, ImageAccess> initial_image_access;
+	std::vector<ImageLayoutTransition> finalize_transitions;
 
 	RenderGraphLayout layout;
 	std::unordered_map<std::string, RenderPass> render_passes;
 	std::unordered_map<std::string, GraphicsPipeline> graphics_pipelines;
 	std::unordered_map<std::string, RaytracingPipeline> raytracing_pipelines;
 	std::unordered_map<std::string, Image> images;
+
 };
 
 

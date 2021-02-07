@@ -96,17 +96,30 @@ struct GPUBuffer {
 	VmaAllocation allocation;
 };
 
+struct AccelerationStructure {
+	VkAccelerationStructureKHR handle;
+	GPUBuffer buffer;
+	GPUBuffer scratch;
+};
+
 enum class TransientResourceType {
-	Texture,
+	AttachmentImage,
+	SampledImage,
 	StorageImage,
 	Buffer
 };
 
-struct TransientTexture {
+struct TransientAttachmentImage {
 	VkFormat format;
 	uint32_t width;
 	uint32_t height;
 	bool color_blending;
+};
+
+struct TransientSampledImage {
+	VkFormat format;
+	uint32_t width;
+	uint32_t height;
 };
 
 struct TransientStorageImage {
@@ -124,7 +137,8 @@ struct TransientResource {
 	const char *name;
 	TransientResourceType type;
 	union {
-		TransientTexture texture;
+		TransientAttachmentImage attachment_image;
+		TransientSampledImage sampled_image;
 		TransientStorageImage storage_image;
 		TransientBuffer buffer;
 	};
@@ -214,21 +228,32 @@ struct GraphicsPass {
 	GraphicsPassCallback callback;
 };
 
+struct ImageAccess {
+	VkImageLayout layout;
+	VkFormat format;
+	VkAccessFlags access_flags;
+	VkPipelineStageFlags stage_flags;
+};
+
 struct ImageLayoutTransition {
-	TransientResource resource;
+	std::string image_name;
+	VkFormat format;
 	VkImageLayout src_layout;
 	VkImageLayout dst_layout;
+	VkAccessFlags src_access;
+	VkAccessFlags dst_access;
+	VkPipelineStageFlags src_stage;
+	VkPipelineStageFlags dst_stage;
 };
 
 struct RaytracingPass {
-	std::vector<ImageLayoutTransition> preparation_transitions;
 	RaytracingPassCallback callback;
 };
 
 struct RenderPass {
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkDescriptorSet descriptor_set;
-
+	std::vector<ImageLayoutTransition> preparation_transitions;
 	std::variant<GraphicsPass, RaytracingPass> pass;
 };
 
@@ -243,8 +268,8 @@ struct RaytracingPassDescription {
 };
 
 struct RenderPassDescription {
-	std::vector<std::string> inputs;
-	std::vector<std::string> outputs;
+	std::vector<TransientResource> inputs;
+	std::vector<TransientResource> outputs;
 
 	std::variant<GraphicsPassDescription, RaytracingPassDescription> description;
 };
