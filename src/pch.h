@@ -23,11 +23,12 @@
 #include <windows.h>
 
 #define VK_USE_PLATFORM_WIN32_KHR
-#include <vulkan/vulkan.h>
+#define VK_NO_PROTOTYPES
 
 #include "cgltf/cgltf.h"
 #include "stb/stb_image.h"
 #include "vma/vk_mem_alloc.h"
+#include "volk/volk.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS

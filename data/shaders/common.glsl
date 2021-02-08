@@ -1,3 +1,9 @@
+struct Vertex {
+	vec3 pos;
+	vec3 normal;
+	vec2 uv0;
+	vec2 uv1;
+};
 
 struct Primitive {
 	mat4 transform;

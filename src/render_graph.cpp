@@ -687,6 +687,6 @@ void RaytracingPipelineExecutionContext::TraceRays(uint32_t width, uint32_t heig
 	VkStridedDeviceAddressRegionKHR callable_sbt {};
 
 	// TODO: Move callback out of resource manager?
-	resource_manager.vkCmdTraceRaysKHR(command_buffer, &raygen_sbt, &miss_sbt, &hit_sbt, 
+	vkCmdTraceRaysKHR(command_buffer, &raygen_sbt, &miss_sbt, &hit_sbt, 
 		&callable_sbt, width, height, 1);
 }

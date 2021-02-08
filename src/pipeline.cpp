@@ -201,10 +201,6 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 		.layout = pipeline.layout
 	};
 
-	PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR =
-		reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(
-			vkGetDeviceProcAddr(context.device, "vkCreateRayTracingPipelinesKHR"));
-
 	VK_CHECK(vkCreateRayTracingPipelinesKHR(context.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1,
 		&raytracing_pipeline_info, nullptr, &pipeline.handle));
 
@@ -213,10 +209,6 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 	uint32_t group_size_aligned = VkUtils::AlignUp(group_handle_size, 
 		raytracing_properties.shaderGroupBaseAlignment);
 	uint32_t shader_binding_table_size = group_size_aligned * group_count;
-
-	PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR =
-		reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(
-			vkGetDeviceProcAddr(context.device, "vkGetRayTracingShaderGroupHandlesKHR"));
 
 	std::vector<uint8_t> shader_group_handles(shader_binding_table_size);
 	VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(context.device, pipeline.handle, 0,

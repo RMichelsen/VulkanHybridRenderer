@@ -39,6 +39,8 @@ inline constexpr std::array<const char*, 8> DEVICE_EXTENSIONS {
 }
 
 VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) {
+	VK_CHECK(volkInitialize());
+
 	VkApplicationInfo application_info {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		.apiVersion = VK_API_VERSION_1_2
@@ -52,6 +54,7 @@ VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) {
 		.ppEnabledExtensionNames = INSTANCE_EXTENSIONS.data()
 	};
     VK_CHECK(vkCreateInstance(&instance_info, nullptr, &instance));
+	volkLoadInstance(instance);
 
 #ifndef NDEBUG
 	InitDebugMessenger();
@@ -66,6 +69,8 @@ VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) {
 
 	InitPhysicalDevice();
 	InitLogicalDevice();
+	volkLoadDevice(device);
+
 	InitAllocator();
 
 	VkCommandPoolCreateInfo command_pool_info {
@@ -105,13 +110,8 @@ void VulkanContext::InitDebugMessenger() {
 		.pfnUserCallback = DebugMessengerCallback
 	};
 
-	// Because we are using an extension function we need to load it ourselves.
-	PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessegnerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-		vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
-	if(vkCreateDebugUtilsMessegnerEXT != nullptr) {
-		VK_CHECK(vkCreateDebugUtilsMessegnerEXT(instance, &debug_utils_messenger_info,
-			nullptr, &debug_messenger));
-	}
+	VK_CHECK(vkCreateDebugUtilsMessengerEXT(instance, &debug_utils_messenger_info,
+		nullptr, &debug_messenger));
 }
 #endif
 

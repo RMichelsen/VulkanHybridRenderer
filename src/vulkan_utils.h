@@ -212,9 +212,6 @@ inline GPUBuffer CreateGPUBuffer(VmaAllocator allocator, VkBufferCreateInfo buff
 }
 
 inline VkDeviceOrHostAddressConstKHR GetDeviceAddressConst(VkDevice device, VkBuffer buffer) {
-	PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR = 
-		reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(
-			vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
 	VkBufferDeviceAddressInfoKHR buffer_device_address_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR,
 		.buffer = buffer
@@ -225,9 +222,6 @@ inline VkDeviceOrHostAddressConstKHR GetDeviceAddressConst(VkDevice device, VkBu
 }
 
 inline VkDeviceOrHostAddressKHR GetDeviceAddress(VkDevice device, VkBuffer buffer) {
-	PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR =
-		reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(
-			vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
 	VkBufferDeviceAddressInfoKHR buffer_device_address_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR,
 		.buffer = buffer
@@ -238,9 +232,6 @@ inline VkDeviceOrHostAddressKHR GetDeviceAddress(VkDevice device, VkBuffer buffe
 }
 
 inline VkDeviceOrHostAddressKHR GetAccelerationStructureAddress(VkDevice device, VkAccelerationStructureKHR acceleration_structure) {
-	PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR = 
-		reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(
-			vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
 	VkAccelerationStructureDeviceAddressInfoKHR acceleration_structure_address_info {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
 		.accelerationStructure = acceleration_structure

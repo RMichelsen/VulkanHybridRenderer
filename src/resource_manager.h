@@ -29,7 +29,7 @@ public:
 	
 	GPUBuffer identity_transform_buffer;
 
-	std::vector<AccelerationStructure> BLAS;
+	AccelerationStructure global_BLAS;
 	AccelerationStructure global_TLAS;
 	GPUBuffer global_instances_buffer;
 
@@ -54,11 +54,4 @@ private:
 	void UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDeviceSize size);
 
 	VulkanContext &context;
-
-	PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
-	PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
-	PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
-
-	friend class RaytracingPipelineExecutionContext;
-	PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
 };

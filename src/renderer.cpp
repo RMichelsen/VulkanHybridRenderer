@@ -13,9 +13,6 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
 	render_graph = std::make_unique<RenderGraph>(*context);
 	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza.glb");
 	CreatePipeline();
-
-	vkGetQueueCheckpointDataNV = reinterpret_cast<PFN_vkGetQueueCheckpointDataNV>(
-		vkGetDeviceProcAddr(context->device, "vkGetQueueCheckpointDataNV"));
 }
 
 Renderer::~Renderer() {

@@ -29,6 +29,4 @@ private:
 	TransientResource CreateTransientStorageImage(const char *name, VkFormat format, uint32_t binding);
 	TransientResource CreateTransientStorageImage(const char *name, uint32_t width, uint32_t height, 
 		VkFormat format, uint32_t binding);
-
-	PFN_vkGetQueueCheckpointDataNV vkGetQueueCheckpointDataNV;
 };
