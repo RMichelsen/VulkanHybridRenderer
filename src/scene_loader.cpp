@@ -174,7 +174,7 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 
 	for(int i = 0; i < data->textures_count; ++i) {
 		textures[data->textures[i].image->name] = 
-			resource_manager.LoadTextureFromData(images[i].x, images[i].y, images[i].data);
+			resource_manager.UploadTextureFromData(images[i].x, images[i].y, images[i].data);
 		free(images[i].data);
 	}
 
@@ -200,7 +200,6 @@ Scene LoadScene(ResourceManager &resource_manager, const char *path) {
 		printf("Error Parsing glTF 2.0 File\n");
 	}
 
-	resource_manager.UpdateDescriptors();
 	return scene;
 }
 

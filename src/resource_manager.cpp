@@ -7,7 +7,6 @@
 inline constexpr uint32_t MAX_TRANSIENT_DESCRIPTORS_PER_TYPE = 256;
 inline constexpr uint32_t MAX_TRANSIENT_SETS = 128;
 
-inline constexpr uint32_t MAX_GLOBAL_TEXTURES = 1024;
 inline constexpr uint32_t MAX_PER_FRAME_UBOS = MAX_FRAMES_IN_FLIGHT;
 
 inline constexpr uint32_t MAX_VERTEX_AND_INDEX_BUFSIZE = 128 * 1024 * 1024; // 128MB
@@ -116,7 +115,7 @@ Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat f
 	return image;
 }
 
-int ResourceManager::LoadTextureFromData(uint32_t width, uint32_t height, uint8_t *data) {
+uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data) {
 	Image texture;
 
 	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, 
@@ -158,8 +157,34 @@ int ResourceManager::LoadTextureFromData(uint32_t width, uint32_t height, uint8_
 		VK_FORMAT_R8G8B8A8_UNORM);
 	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.view));
 
-	textures.push_back(texture);
-	return static_cast<int>(textures.size()) - 1;
+	// TODO: OPTIMIZE
+	for(uint32_t i = 0; i < MAX_GLOBAL_TEXTURES; ++i) {
+		if(textures[i].handle == VK_NULL_HANDLE) {
+			textures[i] = texture;
+
+			VkDescriptorImageInfo descriptor {
+				.sampler = sampler,
+				.imageView = texture.view,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			};
+
+			VkWriteDescriptorSet write_descriptor_set {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = global_descriptor_set,
+				.dstBinding = 4,
+				.dstArrayElement = i,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.pImageInfo = &descriptor
+			};
+
+			vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
+			return i;
+		}
+	}
+
+	assert(false && "No free texture slots left!");
+	return static_cast<uint32_t>(-1);
 }
 
 void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
@@ -176,18 +201,6 @@ void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<
 	UploadDataToGPUBuffer(global_obj_data_buffer, primitives.data(), primitives.size() * sizeof(Primitive));
 	UpdateBLAS(static_cast<uint32_t>(vertices.size()), primitives);
 	UpdateTLAS(primitives);
-
-}
-
-void ResourceManager::UpdateDescriptors() {
-	std::vector<VkDescriptorImageInfo> descriptors;
-	for(Image &texture : textures) {
-		descriptors.push_back(VkDescriptorImageInfo {
-			.sampler = sampler,
-			.imageView = texture.view,
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		});
-	}
 
 	VkDescriptorBufferInfo vertex_buffer_info {
 		.buffer = global_vertex_buffer.handle,
@@ -241,18 +254,8 @@ void ResourceManager::UpdateDescriptors() {
 			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
 		}
 	};
-	if(!descriptors.empty()) {
-		write_descriptor_sets.emplace_back(VkWriteDescriptorSet {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = global_descriptor_set,
-			.dstBinding = 4,
-			.descriptorCount = static_cast<uint32_t>(descriptors.size()),
-			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.pImageInfo = descriptors.data()
-		});
-	}
 
-	vkUpdateDescriptorSets(context.device, static_cast<uint32_t>(write_descriptor_sets.size()), 
+	vkUpdateDescriptorSets(context.device, static_cast<uint32_t>(write_descriptor_sets.size()),
 		write_descriptor_sets.data(), 0, nullptr);
 }
 
@@ -610,15 +613,14 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 		.transformOffset = 0
 	};
 
-	std::array<VkAccelerationStructureBuildRangeInfoKHR *, 1> acceleration_structure_build_range_pinfos {
-		&acceleration_structure_build_range_info
-	};
+	VkAccelerationStructureBuildRangeInfoKHR *acceleration_structure_build_range_pinfo =
+		&acceleration_structure_build_range_info;
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, context.command_pool,
 		[&](VkCommandBuffer command_buffer) {
 			vkCmdBuildAccelerationStructuresKHR(command_buffer,
 				1,
 				&acceleration_structure_build_geometry_info,
-				acceleration_structure_build_range_pinfos.data()
+				&acceleration_structure_build_range_pinfo
 			);
 		}
 	);

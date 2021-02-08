@@ -1,11 +1,5 @@
 #pragma once
 
-struct RenderGraphLayout {
-	std::unordered_map<std::string, std::vector<std::string>> readers;
-	std::unordered_map<std::string, std::vector<std::string>> writers;
-	std::unordered_map<std::string, RenderPassDescription> render_pass_descriptions;
-};
-
 class ResourceManager;
 class GraphicsPipelineExecutionContext {
 public:
@@ -18,6 +12,10 @@ public:
 		pipeline(pipeline) {}
 
 	void BindGlobalVertexAndIndexBuffers();
+	void BindVertexBuffer(VkBuffer buffer, VkDeviceSize offset);
+	void BindIndexBuffer(VkBuffer buffer, VkDeviceSize offset, VkIndexType type);
+	void SetScissor(VkRect2D scissor);
+	void SetViewport(VkViewport viewport);
 	void DrawIndexed(uint32_t index_count, uint32_t instance_count, uint32_t first_index, 
 		uint32_t vertex_offset, uint32_t first_instance);
 	void Draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, 
@@ -26,7 +24,7 @@ public:
 	template<typename T>
 	void PushConstants(T &push_constants) {
 		assert(sizeof(T) == pipeline.description.push_constants.size);
-		vkCmdPushConstants(command_buffer, pipeline.layout, pipeline.description.push_constants.pipeline_stages, 
+		vkCmdPushConstants(command_buffer, pipeline.layout, pipeline.description.push_constants.pipeline_stage, 
 			0, pipeline.description.push_constants.size, &push_constants);
 	}
 
@@ -83,9 +81,9 @@ private:
 		uint32_t resource_idx, uint32_t image_idx, RenderPass &render_pass);
 	void ExecuteRaytracingPass(ResourceManager &resource_manager, VkCommandBuffer command_buffer,
 		RenderPass &render_pass);
-	void AddSampledOrStorageImage(TransientResource &resource, RenderPass &render_pass, std::unordered_map<std::string, ImageAccess> &previous_access,
+	void AddSampledOrStorageImageToPass(TransientResource &resource, RenderPass &render_pass, std::unordered_map<std::string, ImageAccess> &previous_access,
 		std::vector<VkDescriptorSetLayoutBinding> &bindings, std::vector<VkDescriptorImageInfo> &descriptors, VkAccessFlags access_flags);
-	void AddAttachmentImage(TransientResource &resource, GraphicsPass &graphics_pass, 
+	void AddAttachmentImageToPass(TransientResource &resource, GraphicsPass &graphics_pass, 
 		std::unordered_map<std::string, ImageAccess> &previous_access, std::vector<VkAttachmentDescription> &attachments, 
 		std::vector<VkAttachmentReference> &color_attachment_refs, VkAttachmentReference &depth_attachment_ref, 
 		VkSubpassDescription &subpass_description);
@@ -95,8 +93,10 @@ private:
 	std::unordered_map<std::string, ImageAccess> initial_image_access;
 	std::vector<ImageLayoutTransition> finalize_transitions;
 
-	RenderGraphLayout layout;
-	std::unordered_map<std::string, RenderPass> render_passes;
+	std::unordered_map<std::string, std::vector<std::string>> readers;
+	std::unordered_map<std::string, std::vector<std::string>> writers;
+	std::unordered_map<std::string, RenderPassDescription> pass_descriptions;
+	std::unordered_map<std::string, RenderPass> passes;
 	std::unordered_map<std::string, GraphicsPipeline> graphics_pipelines;
 	std::unordered_map<std::string, RaytracingPipeline> raytracing_pipelines;
 	std::unordered_map<std::string, Image> images;

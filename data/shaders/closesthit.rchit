@@ -27,5 +27,5 @@ void main() {
 
 	const vec3 barycentrics = vec3(1.0 - hit_attribs.x - hit_attribs.y, hit_attribs.x, hit_attribs.y);
 	vec2 uv = v0.uv0 * barycentrics.x + v1.uv0 * barycentrics.y + v2.uv0 * barycentrics.z;
-	payload = texture(textures[primitive.texture], uv);
+	payload = texture(textures[primitive.texture_idx], uv);
 }

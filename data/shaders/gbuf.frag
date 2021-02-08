@@ -1,10 +1,11 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_scalar_block_layout : require
 
 #include "common.glsl"
 
-layout(set = 0, binding = 2, std430) buffer Primitives { Primitive primitives[]; };
+layout(set = 0, binding = 2, scalar) buffer Primitives { Primitive primitives[]; };
 layout(set = 0, binding = 4) uniform sampler2D textures[];
 
 layout(push_constant) uniform PushConstants {
@@ -22,5 +23,5 @@ layout(location = 2) out vec4 out_albedo;
 void main() {
 	out_pos = vec4(in_pos, 1.0);
 	out_normal = vec4(in_normal, 1.0);
-	out_albedo = texture(textures[primitives[pc.object_id].texture], in_uv);
+	out_albedo = texture(textures[primitives[pc.object_id].texture_idx], in_uv);
 }

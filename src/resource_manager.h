@@ -1,5 +1,8 @@
 #pragma once
 
+inline constexpr uint32_t MAX_GLOBAL_TEXTURES = 1024;
+
+
 class VulkanContext;
 class ResourceManager {
 public:
@@ -8,12 +11,15 @@ public:
 
 	Image Create2DImage(uint32_t width, uint32_t height, VkFormat format, 
 		VkImageUsageFlags usage, VkImageLayout initial_layout);
-	int LoadTextureFromData(uint32_t width, uint32_t height, uint8_t *data);
 
+	uint32_t UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data);
 	void UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
 		Scene &scene);
-	void UpdateDescriptors();
+
+	//void UpdateDescriptors();
 	void UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData per_frame_data);
+
+
 
 	// The global descriptor set (set = 0) is laid out as follows
 	// Layout(set = 0, binding = 0) global_vertex_buffer
@@ -25,7 +31,7 @@ public:
 	GPUBuffer global_vertex_buffer;
 	GPUBuffer global_index_buffer;
 	GPUBuffer global_obj_data_buffer;
-	std::vector<Image> textures;
+	std::array<Image, MAX_GLOBAL_TEXTURES> textures;
 	
 	GPUBuffer identity_transform_buffer;
 

@@ -10,5 +10,5 @@ struct Primitive {
 	int vertex_offset;
 	int index_offset;
 	int index_count;
-	int texture;
+	int texture_idx;
 };

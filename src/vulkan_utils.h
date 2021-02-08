@@ -19,6 +19,7 @@ inline std::vector<uint32_t> LoadShader(const char *path, VkShaderStageFlags sha
 	BOOL success = ReadFile(file, bytecode.data(), file_size, &bytes_read, NULL);
 	assert(success);
 
+	CloseHandle(file);
 	return bytecode;
 }
 

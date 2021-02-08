@@ -5,13 +5,16 @@
 #include "render_graph.h"
 #include "resource_manager.h"
 #include "scene_loader.h"
+#include "user_interface.h"
 #include "vulkan_context.h"
 
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
 	context = std::make_unique<VulkanContext>(hinstance, hwnd);
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context);
+	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
 	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza.glb");
+
 	CreatePipeline();
 }
 
@@ -21,7 +24,7 @@ Renderer::~Renderer() {
 }
 
 void Renderer::Update() {
-
+	user_interface->Update();
 }
 
 void Renderer::Present() {
@@ -98,7 +101,7 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 
 void Renderer::CreatePipeline() {
 
-	render_graph->AddGraphicsPass("G-Buffer",
+	render_graph->AddGraphicsPass("G-Buffer Pass",
 		{},
 		{
 			CreateTransientAttachmentImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
@@ -115,9 +118,10 @@ void Renderer::CreatePipeline() {
 				.rasterization_state = RasterizationState::Fill,
 				.multisample_state = MultisampleState::Off,
 				.depth_stencil_state = DepthStencilState::On,
+				.dynamic_state = DynamicState::None,
 				.push_constants = PushConstantDescription {
 					.size = sizeof(PushConstants),
-					.pipeline_stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+					.pipeline_stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
 				}
 			}
 		},
@@ -169,7 +173,7 @@ void Renderer::CreatePipeline() {
 			CreateTransientSampledImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 3)
 		},
 		{
-			TRANSIENT_BACKBUFFER,
+			CreateTransientBackbuffer(ColorBlendState::ImGui),
 			CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT)
 		},
 		{
@@ -181,13 +185,20 @@ void Renderer::CreatePipeline() {
 				.rasterization_state = RasterizationState::FillCullCCW,
 				.multisample_state = MultisampleState::Off,
 				.depth_stencil_state = DepthStencilState::On,
+				.dynamic_state = DynamicState::None,
 				.push_constants = PUSHCONSTANTS_NONE
-			}
+			},
+			IMGUI_PIPELINE_DESCRIPTION
 		},
-		[](ExecuteGraphicsPipelineCallback execute_pipeline) {
+		[this](ExecuteGraphicsPipelineCallback execute_pipeline) {
 			execute_pipeline("Composition Pipeline",
-				[](GraphicsPipelineExecutionContext &execution_context) {
+				[this](GraphicsPipelineExecutionContext &execution_context) {
 					execution_context.Draw(3, 1, 0, 0);
+				}
+			);
+			execute_pipeline("ImGui Pipeline",
+				[this](GraphicsPipelineExecutionContext &execution_context) {
+					user_interface->Draw(execution_context);
 				}
 			);
 		}
@@ -196,7 +207,24 @@ void Renderer::CreatePipeline() {
 	render_graph->Compile(*resource_manager);
 }
 
-TransientResource Renderer::CreateTransientAttachmentImage(const char *name, VkFormat format) {
+TransientResource Renderer::CreateTransientBackbuffer(ColorBlendState color_blend_state) {
+	return TransientResource {
+		.type = TransientResourceType::Image,
+		.name = "BACKBUFFER",
+		.image = TransientImage {
+			.type = TransientImageType::AttachmentImage,
+			.width = context->swapchain.extent.width,
+			.height = context->swapchain.extent.height,
+			.format = VK_FORMAT_UNDEFINED,
+			.attachment_image = TransientAttachmentImage {
+				.color_blend_state = color_blend_state
+			}
+		}
+	};
+}
+
+TransientResource Renderer::CreateTransientAttachmentImage(const char *name, VkFormat format,
+	ColorBlendState color_blend_state) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = name,
@@ -206,14 +234,14 @@ TransientResource Renderer::CreateTransientAttachmentImage(const char *name, VkF
 			.height = context->swapchain.extent.height,
 			.format = format,
 			.attachment_image = TransientAttachmentImage {
-				.color_blending = false
+				.color_blend_state = color_blend_state
 			}
 		}
 	};
 }
 
 TransientResource Renderer::CreateTransientAttachmentImage(const char *name, uint32_t width, uint32_t height, 
-	VkFormat format) {
+	VkFormat format, ColorBlendState color_blend_state) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = name,
@@ -223,7 +251,7 @@ TransientResource Renderer::CreateTransientAttachmentImage(const char *name, uin
 			.height = height,
 			.format = format,
 			.attachment_image = TransientAttachmentImage {
-				.color_blending = false
+				.color_blend_state = color_blend_state
 			}
 		}
 	};

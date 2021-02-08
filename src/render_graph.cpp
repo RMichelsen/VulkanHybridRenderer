@@ -13,14 +13,15 @@ void RenderGraph::AddGraphicsPass(const char *render_pass_name, std::vector<Tran
 	GraphicsPassCallback callback) {
 
 	for(TransientResource &resource : dependencies) {
-		layout.readers[resource.name].emplace_back(render_pass_name);
+		readers[resource.name].emplace_back(render_pass_name);
 	}
 	for(TransientResource &resource : outputs) {
-		layout.writers[resource.name].emplace_back(render_pass_name);
+		writers[resource.name].emplace_back(render_pass_name);
 	}
 
-	assert(!layout.render_pass_descriptions.contains(render_pass_name));
-	layout.render_pass_descriptions[render_pass_name] = RenderPassDescription {
+	assert(!pass_descriptions.contains(render_pass_name));
+	pass_descriptions[render_pass_name] = RenderPassDescription {
+		.name = render_pass_name,
 		.dependencies = dependencies,
 		.outputs = outputs,
 		.description = GraphicsPassDescription {
@@ -35,14 +36,15 @@ void RenderGraph::AddRaytracingPass(const char *render_pass_name, std::vector<Tr
 	RaytracingPassCallback callback) {
 
 	for(TransientResource &resource : dependencies) {
-		layout.readers[resource.name].emplace_back(render_pass_name);
+		readers[resource.name].emplace_back(render_pass_name);
 	}
 	for(TransientResource &resource : outputs) {
-		layout.writers[resource.name].emplace_back(render_pass_name);
+		writers[resource.name].emplace_back(render_pass_name);
 	}
 
-	assert(!layout.render_pass_descriptions.contains(render_pass_name));
-	layout.render_pass_descriptions[render_pass_name] = RenderPassDescription {
+	assert(!pass_descriptions.contains(render_pass_name));
+	pass_descriptions[render_pass_name] = RenderPassDescription {
+		.name = render_pass_name,
 		.dependencies = dependencies,
 		.outputs = outputs,
 		.description = RaytracingPassDescription {
@@ -57,7 +59,7 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 
 	std::unordered_map<std::string, std::vector<TransientResource>> resources_to_actualize;
 	for(std::string &pass_name : execution_order) {
-		RenderPassDescription &pass = layout.render_pass_descriptions[pass_name];
+		RenderPassDescription &pass = pass_descriptions[pass_name];
 		for(TransientResource &dependency : pass.dependencies) {
 			assert(dependency.type != TransientResourceType::Buffer);
 			resources_to_actualize[dependency.name].emplace_back(dependency);
@@ -125,18 +127,18 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 	std::unordered_map<std::string, ImageAccess> previous_access;
 
 	for(std::string &pass_name : execution_order) {
-		RenderPassDescription &pass_description = layout.render_pass_descriptions[pass_name];
+		RenderPassDescription &pass_description = pass_descriptions[pass_name];
 		if(std::holds_alternative<GraphicsPassDescription>(pass_description.description)) {
 			RenderPass render_pass = CompileGraphicsPass(resource_manager, previous_access,
 				pass_description);
-			assert(!render_passes.contains(pass_name));
-			render_passes[pass_name] = render_pass;
+			assert(!passes.contains(pass_name));
+			passes[pass_name] = render_pass;
 		}
 		else if(std::holds_alternative<RaytracingPassDescription>(pass_description.description)) {
 			RenderPass render_pass = CompileRaytracingPass(resource_manager, previous_access,
 				pass_description);
-			assert(!render_passes.contains(pass_name));
-			render_passes[pass_name] = render_pass;
+			assert(!passes.contains(pass_name));
+			passes[pass_name] = render_pass;
 		}
 	}
 
@@ -159,8 +161,8 @@ void RenderGraph::Compile(ResourceManager &resource_manager) {
 void RenderGraph::Execute(ResourceManager &resource_manager, VkCommandBuffer command_buffer, 
 	uint32_t resource_idx, uint32_t image_idx) {
 	for(std::string &pass_name : execution_order) {
-		assert(render_passes.contains(pass_name));
-		RenderPass &render_pass = render_passes[pass_name];
+		assert(passes.contains(pass_name));
+		RenderPass &render_pass = passes[pass_name];
 
 		if(std::holds_alternative<GraphicsPass>(render_pass.pass)) {
 			ExecuteGraphicsPass(resource_manager, command_buffer, resource_idx,
@@ -171,6 +173,13 @@ void RenderGraph::Execute(ResourceManager &resource_manager, VkCommandBuffer com
 		}
 	}
 
+	VkDebugUtilsLabelEXT finalize_label {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+		.pLabelName = "Final Image Transitions",
+		.color = { 0.953f, 0.915f, 0.1f, 1.0f }
+	};
+	vkCmdBeginDebugUtilsLabelEXT(command_buffer, &finalize_label);
+
 	for(ImageLayoutTransition &transition : finalize_transitions) {
 		VkImageAspectFlags aspect_flags = VkUtils::IsDepthFormat(transition.format) ?
 			VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
@@ -179,19 +188,21 @@ void RenderGraph::Execute(ResourceManager &resource_manager, VkCommandBuffer com
 			aspect_flags, transition.src_layout, transition.dst_layout, transition.src_stage, 
 			transition.dst_stage, transition.src_access, transition.dst_access);
 	}
+
+	vkCmdEndDebugUtilsLabelEXT(command_buffer);
 }
 
 void RenderGraph::FindExecutionOrder() {
-	assert(layout.writers["BACKBUFFER"].size() == 1);
+	assert(writers["BACKBUFFER"].size() == 1);
 
-	execution_order = { layout.writers["BACKBUFFER"][0] };
-	std::deque<std::string> stack { layout.writers["BACKBUFFER"][0] };
+	execution_order = { writers["BACKBUFFER"][0] };
+	std::deque<std::string> stack { writers["BACKBUFFER"][0] };
 	while(!stack.empty()) {
-		RenderPassDescription &pass = layout.render_pass_descriptions[stack.front()];
+		RenderPassDescription &pass = pass_descriptions[stack.front()];
 		stack.pop_front();
 
 		for(TransientResource &dependency : pass.dependencies) {
-			for(std::string &writer : layout.writers[dependency.name]) {
+			for(std::string &writer : writers[dependency.name]) {
 				if(std::find(execution_order.begin(), execution_order.end(), writer) == execution_order.end()) {
 					execution_order.push_back(writer);
 					stack.push_back(writer);
@@ -208,6 +219,7 @@ RenderPass RenderGraph::CompileGraphicsPass(ResourceManager &resource_manager,
 	GraphicsPassDescription &graphics_pass_description = 
 		std::get<GraphicsPassDescription>(pass_description.description);
 	RenderPass render_pass {
+		.name = pass_description.name,
 		.pass = GraphicsPass {
 			.callback = graphics_pass_description.callback
 		}
@@ -227,7 +239,7 @@ RenderPass RenderGraph::CompileGraphicsPass(ResourceManager &resource_manager,
 		case TransientResourceType::Image: {
 			assert(dependency.image.type != TransientImageType::AttachmentImage &&
 				"Attachment images must be outputs");
-			AddSampledOrStorageImage(dependency, render_pass, previous_access, bindings,
+			AddSampledOrStorageImageToPass(dependency, render_pass, previous_access, bindings,
 				descriptors, VK_ACCESS_SHADER_READ_BIT);
 		} break;
 		case TransientResourceType::Buffer: {
@@ -241,12 +253,12 @@ RenderPass RenderGraph::CompileGraphicsPass(ResourceManager &resource_manager,
 		case TransientResourceType::Image: {
 			switch(output.image.type) {
 			case TransientImageType::AttachmentImage: {
-				AddAttachmentImage(output, graphics_pass, previous_access, attachments,
+				AddAttachmentImageToPass(output, graphics_pass, previous_access, attachments,
 					color_attachment_refs, depth_attachment_ref, subpass_description);
 			} break;
 			case TransientImageType::SampledImage:
 			case TransientImageType::StorageImage: {
-				AddSampledOrStorageImage(output, render_pass, previous_access, bindings,
+				AddSampledOrStorageImageToPass(output, render_pass, previous_access, bindings,
 					descriptors, VK_ACCESS_SHADER_WRITE_BIT);
 			} break;
 			}
@@ -332,6 +344,7 @@ RenderPass RenderGraph::CompileRaytracingPass(ResourceManager &resource_manager,
 	RaytracingPassDescription &raytracing_pass_description = 
 		std::get<RaytracingPassDescription>(pass_description.description);
 	RenderPass render_pass {
+		.name = pass_description.name,
 		.pass = RaytracingPass {
 			.callback = raytracing_pass_description.callback
 		}
@@ -344,7 +357,7 @@ RenderPass RenderGraph::CompileRaytracingPass(ResourceManager &resource_manager,
 		case TransientResourceType::Image: {
 			assert(dependency.image.type != TransientImageType::AttachmentImage &&
 				"Attachment images are not allowed in raytracing passes");
-			AddSampledOrStorageImage(dependency, render_pass, previous_access, bindings,
+			AddSampledOrStorageImageToPass(dependency, render_pass, previous_access, bindings,
 				descriptors, VK_ACCESS_SHADER_READ_BIT);
 		} break;
 		case TransientResourceType::Buffer: {
@@ -358,7 +371,7 @@ RenderPass RenderGraph::CompileRaytracingPass(ResourceManager &resource_manager,
 		case TransientResourceType::Image: {
 			assert(output.image.type != TransientImageType::AttachmentImage &&
 				"Attachment images are not allowed in raytracing passes");
-			AddSampledOrStorageImage(output, render_pass, previous_access, bindings,
+			AddSampledOrStorageImageToPass(output, render_pass, previous_access, bindings,
 				descriptors, VK_ACCESS_SHADER_WRITE_BIT);
 		} break;
 		case TransientResourceType::Buffer: {
@@ -415,6 +428,13 @@ void RenderGraph::ExecuteGraphicsPass(ResourceManager &resource_manager, VkComma
 	uint32_t resource_idx, uint32_t image_idx, RenderPass &render_pass) {
 	GraphicsPass &graphics_pass = std::get<GraphicsPass>(render_pass.pass);
 	VkFramebuffer &framebuffer = graphics_pass.framebuffers[resource_idx];
+
+	VkDebugUtilsLabelEXT pass_label {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+		.pLabelName = render_pass.name,
+		.color = { 0.862f, 0.078f, 0.235f, 1.0f }
+	};
+	vkCmdBeginDebugUtilsLabelEXT(command_buffer, &pass_label);
 
 	// Delete previous framebuffer
 	if(framebuffer != VK_NULL_HANDLE) {
@@ -498,11 +518,20 @@ void RenderGraph::ExecuteGraphicsPass(ResourceManager &resource_manager, VkComma
 	);
 
 	vkCmdEndRenderPass(command_buffer);
+
+	vkCmdEndDebugUtilsLabelEXT(command_buffer);
 }
 
 void RenderGraph::ExecuteRaytracingPass(ResourceManager &resource_manager, VkCommandBuffer command_buffer,
 	RenderPass &render_pass) {
 	RaytracingPass &raytracing_pass = std::get<RaytracingPass>(render_pass.pass);
+
+	VkDebugUtilsLabelEXT pass_label {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+		.pLabelName = render_pass.name,
+		.color = { 0.564f, 0.317f, 0.886f, 1.0f }
+	};
+	vkCmdBeginDebugUtilsLabelEXT(command_buffer, &pass_label);
 
 	raytracing_pass.callback(
 		[&](std::string pipeline_name, RaytracingPipelineExecutionCallback execute_pipeline) {
@@ -522,9 +551,11 @@ void RenderGraph::ExecuteRaytracingPass(ResourceManager &resource_manager, VkCom
 			execute_pipeline(execution_context);
 		}
 	);
+
+	vkCmdEndDebugUtilsLabelEXT(command_buffer);
 }
 
-void RenderGraph::AddSampledOrStorageImage(TransientResource &resource, RenderPass &render_pass,
+void RenderGraph::AddSampledOrStorageImageToPass(TransientResource &resource, RenderPass &render_pass,
 	std::unordered_map<std::string, ImageAccess> &previous_access, std::vector<VkDescriptorSetLayoutBinding> &bindings,
 	std::vector<VkDescriptorImageInfo> &descriptors, VkAccessFlags access_flags) {
 	assert(resource.image.type != TransientImageType::AttachmentImage &&
@@ -589,7 +620,7 @@ void RenderGraph::AddSampledOrStorageImage(TransientResource &resource, RenderPa
 	});
 }
 
-void RenderGraph::AddAttachmentImage(TransientResource &resource, GraphicsPass &graphics_pass,
+void RenderGraph::AddAttachmentImageToPass(TransientResource &resource, GraphicsPass &graphics_pass,
 	std::unordered_map<std::string, ImageAccess> &previous_access, std::vector<VkAttachmentDescription> &attachments,
 	std::vector<VkAttachmentReference> &color_attachment_refs, VkAttachmentReference &depth_attachment_ref, 
 	VkSubpassDescription &subpass_description) {
@@ -656,6 +687,22 @@ void GraphicsPipelineExecutionContext::BindGlobalVertexAndIndexBuffers() {
 	VkDeviceSize offset = 0;
 	vkCmdBindVertexBuffers(command_buffer, 0, 1, &resource_manager.global_vertex_buffer.handle, &offset);
 	vkCmdBindIndexBuffer(command_buffer, resource_manager.global_index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
+}
+
+void GraphicsPipelineExecutionContext::BindVertexBuffer(VkBuffer buffer, VkDeviceSize offset) {
+	vkCmdBindVertexBuffers(command_buffer, 0, 1, &buffer, &offset);
+}
+
+void GraphicsPipelineExecutionContext::BindIndexBuffer(VkBuffer buffer, VkDeviceSize offset, VkIndexType type) {
+	vkCmdBindIndexBuffer(command_buffer, buffer, offset, type);
+}
+
+void GraphicsPipelineExecutionContext::SetScissor(VkRect2D scissor) {
+	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+}
+
+void GraphicsPipelineExecutionContext::SetViewport(VkViewport viewport) {
+	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 }
 
 void GraphicsPipelineExecutionContext::DrawIndexed(uint32_t index_count, uint32_t instance_count, 

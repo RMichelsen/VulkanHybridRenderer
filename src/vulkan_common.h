@@ -52,13 +52,12 @@ struct Vertex {
 	glm::vec2 uv0;
 	glm::vec2 uv1;
 };
-
-constexpr VkVertexInputBindingDescription VERTEX_BINDING_DESCRIPTION {
+constexpr VkVertexInputBindingDescription DEFAULT_VERTEX_BINDING_DESCRIPTION {
 	.binding = 0,
 	.stride = sizeof(Vertex),
 	.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
 };
-constexpr std::array<VkVertexInputAttributeDescription, 4> VERTEX_ATTRIBUTE_DESCRIPTIONS {
+constexpr std::array<VkVertexInputAttributeDescription, 4> DEFAULT_VERTEX_ATTRIBUTE_DESCRIPTIONS {
 	VkVertexInputAttributeDescription {
 		.location = 0,
 		.binding = 0,
@@ -85,6 +84,37 @@ constexpr std::array<VkVertexInputAttributeDescription, 4> VERTEX_ATTRIBUTE_DESC
 	}
 };
 
+struct ImGuiVertex {
+	glm::vec2 pos;
+	glm::vec2 uv;
+	uint32_t col;
+};
+constexpr VkVertexInputBindingDescription IMGUI_VERTEX_BINDING_DESCRIPTION {
+	.binding = 0,
+	.stride = sizeof(ImGuiVertex),
+	.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+};
+constexpr std::array<VkVertexInputAttributeDescription, 3> IMGUI_VERTEX_ATTRIBUTE_DESCRIPTIONS {
+	VkVertexInputAttributeDescription {
+		.location = 0,
+		.binding = 0,
+		.format = VK_FORMAT_R32G32_SFLOAT,
+		.offset = offsetof(ImGuiVertex, pos)
+	},
+	VkVertexInputAttributeDescription {
+		.location = 1,
+		.binding = 0,
+		.format = VK_FORMAT_R32G32_SFLOAT,
+		.offset = offsetof(ImGuiVertex, uv)
+	},
+	VkVertexInputAttributeDescription {
+		.location = 2,
+		.binding = 0,
+		.format = VK_FORMAT_R8G8B8A8_UNORM,
+		.offset = offsetof(ImGuiVertex, col)
+	}
+};
+
 struct MappedBuffer {
 	VkBuffer handle;
 	VmaAllocation allocation;
@@ -102,6 +132,42 @@ struct AccelerationStructure {
 	GPUBuffer scratch;
 };
 
+enum class VertexInputState {
+	Default,
+	Empty,
+	ImGui
+};
+enum class RasterizationState {
+	Fill,
+	Wireframe,
+	FillCullCCW,
+	FillNoCullCCW
+};
+enum class MultisampleState {
+	Off
+};
+enum class DepthStencilState {
+	Off,
+	On
+};
+enum class ColorBlendState {
+	Off,
+	ImGui
+};
+enum class DynamicState {
+	None,
+	ViewportScissor
+};
+
+struct PushConstantDescription {
+	uint32_t size;
+	VkPipelineStageFlags pipeline_stage;
+};
+inline constexpr PushConstantDescription PUSHCONSTANTS_NONE {
+	.size = 0,
+	.pipeline_stage = 0
+};
+
 enum class TransientResourceType {
 	Image,
 	Buffer
@@ -114,7 +180,7 @@ enum class TransientImageType {
 };
 
 struct TransientAttachmentImage {
-	bool color_blending;
+	ColorBlendState color_blend_state;
 };
 
 struct TransientSampledImage {
@@ -154,39 +220,6 @@ struct TransientResource {
 	};
 };
 
-inline constexpr TransientResource TRANSIENT_BACKBUFFER {
-	.name = "BACKBUFFER"
-};
-
-enum class VertexInputState {
-	Default,
-	Empty
-};
-enum class RasterizationState {
-	Fill,
-	Wireframe,
-	FillCullCCW
-};
-enum class MultisampleState {
-	Off
-};
-enum class DepthStencilState {
-	On,
-	Off
-};
-enum class ColorBlendState {
-	Off
-};
-
-struct PushConstantDescription {
-	uint32_t size;
-	VkPipelineStageFlags pipeline_stages;
-};
-inline constexpr PushConstantDescription PUSHCONSTANTS_NONE {
-	.size = 0,
-	.pipeline_stages = 0
-};
-
 struct GraphicsPipelineDescription {
 	const char *name;
 	const char *vertex_shader;
@@ -195,6 +228,7 @@ struct GraphicsPipelineDescription {
 	RasterizationState rasterization_state;
 	MultisampleState multisample_state;
 	DepthStencilState depth_stencil_state;
+	DynamicState dynamic_state;
 	PushConstantDescription push_constants;
 };
 
@@ -261,6 +295,8 @@ struct RaytracingPass {
 };
 
 struct RenderPass {
+	const char *name;
+
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkDescriptorSet descriptor_set;
 	std::vector<ImageLayoutTransition> preparation_transitions;
@@ -279,6 +315,7 @@ struct RaytracingPassDescription {
 };
 
 struct RenderPassDescription {
+	const char *name;
 	std::vector<TransientResource> dependencies;
 	std::vector<TransientResource> outputs;
 

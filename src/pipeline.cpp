@@ -23,13 +23,13 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	};
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_state_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
 	};
 	if(description.vertex_input_state == VertexInputState::Default) {
-		vertex_input_state_info.vertexBindingDescriptionCount = 1;
-		vertex_input_state_info.pVertexBindingDescriptions = &VERTEX_BINDING_DESCRIPTION;
-		vertex_input_state_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(VERTEX_ATTRIBUTE_DESCRIPTIONS.size());
-		vertex_input_state_info.pVertexAttributeDescriptions = VERTEX_ATTRIBUTE_DESCRIPTIONS.data();
+		vertex_input_state_info = VERTEX_INPUT_STATE_DEFAULT;
+	}
+	else if(description.vertex_input_state == VertexInputState::ImGui) {
+		vertex_input_state_info = VERTEX_INPUT_STATE_IMGUI;
 	}
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -57,7 +57,7 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	if(description.push_constants.size > 0) {
 		push_constants.emplace_back(
 			VkPushConstantRange {
-				.stageFlags = description.push_constants.pipeline_stages,
+				.stageFlags = description.push_constants.pipeline_stage,
 				.offset = 0,
 				.size = description.push_constants.size
 			}
@@ -100,6 +100,8 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_WIREFRAME; break;
 	case RasterizationState::FillCullCCW:
 		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_FILL_CULL_CCW; break;
+	case RasterizationState::FillNoCullCCW:
+		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_FILL_NOCULL_CCW; break;
 	}
 	switch(description.multisample_state) {
 	case MultisampleState::Off:
@@ -111,14 +113,24 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	case DepthStencilState::Off:
 		pipeline_info.pDepthStencilState = &DEPTH_STENCIL_STATE_OFF; break;
 	}
+	switch(description.dynamic_state) {
+	case DynamicState::ViewportScissor:
+		pipeline_info.pDynamicState = &DYNAMIC_STATE_VIEWPORT_SCISSOR; break;
+	case DynamicState::None: break;
+	}
 
 	std::vector<VkPipelineColorBlendAttachmentState> color_blend_states;
 	for(TransientResource &resource : graphics_pass.attachments) {
 		if(VkUtils::IsDepthFormat(resource.image.format)) {
 			continue;
 		}
-		if(!resource.image.attachment_image.color_blending) {
+		switch(resource.image.attachment_image.color_blend_state) {
+		case ColorBlendState::Off: {
 			color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_OFF);
+		} break;
+		case ColorBlendState::ImGui: {
+			color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_IMGUI);
+		} break;  
 		}
 	}
 	VkPipelineColorBlendStateCreateInfo color_blend_state {

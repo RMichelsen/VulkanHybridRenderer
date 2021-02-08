@@ -15,9 +15,11 @@ inline constexpr std::array<const char*, 3> INSTANCE_EXTENSIONS {
 };
 #else
 inline constexpr std::array<const char*, 0> LAYERS {};
-inline constexpr std::array<const char*, 2> INSTANCE_EXTENSIONS { 
+inline constexpr std::array<const char*, 3> INSTANCE_EXTENSIONS { 
 	VK_KHR_SURFACE_EXTENSION_NAME,
-	VK_KHR_WIN32_SURFACE_EXTENSION_NAME
+	VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+
+	VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 };
 #endif
 inline constexpr std::array<const char*, 8> DEVICE_EXTENSIONS {
@@ -205,6 +207,7 @@ void VulkanContext::InitLogicalDevice() {
 		.descriptorBindingPartiallyBound = VK_TRUE,
 		.descriptorBindingVariableDescriptorCount = VK_TRUE,
 		.runtimeDescriptorArray = VK_TRUE,
+		.scalarBlockLayout = VK_TRUE,
 		.bufferDeviceAddress = VK_TRUE
 	};
 	VkPhysicalDeviceFeatures2 device_features {
