@@ -85,7 +85,12 @@ ResourceManager::~ResourceManager() {
 
 Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat format, 
 	VkImageUsageFlags usage, VkImageLayout initial_layout) {
-	Image image;
+	Image image {
+		.width = width,
+		.height = height,
+		.format = format,
+		.usage = usage
+	};
 	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, format, usage);
 
 	VmaAllocationCreateInfo image_alloc_info {

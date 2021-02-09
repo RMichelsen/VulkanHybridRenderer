@@ -130,7 +130,7 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		} break;
 		case ColorBlendState::ImGui: {
 			color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_IMGUI);
-		} break;  
+		} break;
 		}
 	}
 	VkPipelineColorBlendStateCreateInfo color_blend_state {

@@ -2,3 +2,5 @@
 bin/
 data/models
 data/shaders/compiled
+
+imgui.ini

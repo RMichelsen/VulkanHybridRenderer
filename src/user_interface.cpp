@@ -19,6 +19,7 @@ UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_m
 	int width, height;
 	io.Fonts->GetTexDataAsRGBA32(&font_data, &width, &height);
 	font_texture = resource_manager.UploadTextureFromData(width, height, font_data);
+	io.Fonts->TexID = reinterpret_cast<ImTextureID>(static_cast<uint64_t>(font_texture));
 
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE, 
 		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -98,6 +99,8 @@ void UserInterface::Draw(GraphicsPipelineExecutionContext &execution_context) {
 				}
 			};
 			execution_context.SetScissor(scissor_rect);
+
+
 			execution_context.DrawIndexed(cmd.ElemCount, 1, index_offset, vertex_offset, 0);
 			index_offset += cmd.ElemCount;
 		}

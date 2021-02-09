@@ -11,6 +11,10 @@ struct Image {
 	VkImage handle;
 	VkImageView view;
 	VmaAllocation allocation;
+	uint32_t width;
+	uint32_t height;
+	VkFormat format;
+	VkImageUsageFlags usage;
 };
 
 struct Camera {
@@ -274,20 +278,8 @@ struct GraphicsPass {
 
 struct ImageAccess {
 	VkImageLayout layout;
-	VkFormat format;
 	VkAccessFlags access_flags;
 	VkPipelineStageFlags stage_flags;
-};
-
-struct ImageLayoutTransition {
-	std::string image_name;
-	VkFormat format;
-	VkImageLayout src_layout;
-	VkImageLayout dst_layout;
-	VkAccessFlags src_access;
-	VkAccessFlags dst_access;
-	VkPipelineStageFlags src_stage;
-	VkPipelineStageFlags dst_stage;
 };
 
 struct RaytracingPass {
@@ -299,8 +291,6 @@ struct RenderPass {
 
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkDescriptorSet descriptor_set;
-	std::vector<ImageLayoutTransition> preparation_transitions;
-
 	std::variant<GraphicsPass, RaytracingPass> pass;
 };
 

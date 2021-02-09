@@ -58,7 +58,7 @@ private:
 class VulkanContext;
 class RenderGraph {
 public:
-	RenderGraph(VulkanContext &context);
+	RenderGraph(VulkanContext &context, ResourceManager &resource_manager);
 
 	void AddGraphicsPass(const char *render_pass_name, std::vector<TransientResource> dependencies,
 		std::vector<TransientResource> outputs, std::vector<GraphicsPipelineDescription> pipelines,
@@ -67,32 +67,24 @@ public:
 		std::vector<TransientResource> outputs, RaytracingPipelineDescription pipeline,
 		RaytracingPassCallback callback);
 
-	void Compile(ResourceManager &resource_manager);
-	void Execute(ResourceManager &resource_manager, VkCommandBuffer command_buffer,
-		uint32_t resource_idx, uint32_t image_idx);
+	void Execute(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx);
 
 private:
+	void CreateGraphicsPass(RenderPassDescription &pass_description);
+	void CreateRaytracingPass(RenderPassDescription &pass_description);
+
 	void FindExecutionOrder();
-	RenderPass CompileGraphicsPass(ResourceManager &resource_manager, 
-		std::unordered_map<std::string, ImageAccess> &previous_access, RenderPassDescription &pass_description);
-	RenderPass CompileRaytracingPass(ResourceManager &resource_manager,
-		std::unordered_map<std::string, ImageAccess> &previous_access, RenderPassDescription &pass_description);
-	void ExecuteGraphicsPass(ResourceManager &resource_manager, VkCommandBuffer command_buffer,
-		uint32_t resource_idx, uint32_t image_idx, RenderPass &render_pass);
-	void ExecuteRaytracingPass(ResourceManager &resource_manager, VkCommandBuffer command_buffer,
-		RenderPass &render_pass);
-	void AddSampledOrStorageImageToPass(TransientResource &resource, RenderPass &render_pass, std::unordered_map<std::string, ImageAccess> &previous_access,
-		std::vector<VkDescriptorSetLayoutBinding> &bindings, std::vector<VkDescriptorImageInfo> &descriptors, VkAccessFlags access_flags);
-	void AddAttachmentImageToPass(TransientResource &resource, GraphicsPass &graphics_pass, 
-		std::unordered_map<std::string, ImageAccess> &previous_access, std::vector<VkAttachmentDescription> &attachments, 
-		std::vector<VkAttachmentReference> &color_attachment_refs, VkAttachmentReference &depth_attachment_ref, 
-		VkSubpassDescription &subpass_description);
+	void InsertBarriers(VkCommandBuffer command_buffer, RenderPass &render_pass);
+	void ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx, RenderPass &render_pass);
+	void ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPass &render_pass);
+	void ActualizeResource(TransientResource &resource);
+
+	bool SanityCheck();
 
 	VulkanContext &context;
-	std::vector<std::string> execution_order;
-	std::unordered_map<std::string, ImageAccess> initial_image_access;
-	std::vector<ImageLayoutTransition> finalize_transitions;
+	ResourceManager &resource_manager;
 
+	std::vector<std::string> execution_order;
 	std::unordered_map<std::string, std::vector<std::string>> readers;
 	std::unordered_map<std::string, std::vector<std::string>> writers;
 	std::unordered_map<std::string, RenderPassDescription> pass_descriptions;
@@ -100,8 +92,9 @@ private:
 	std::unordered_map<std::string, GraphicsPipeline> graphics_pipelines;
 	std::unordered_map<std::string, RaytracingPipeline> raytracing_pipelines;
 	std::unordered_map<std::string, Image> images;
-
+	std::unordered_map<std::string, ImageAccess> image_access;
 };
+
 
 
 

@@ -255,7 +255,7 @@ inline VkImageLayout GetImageLayoutFromResourceType(TransientImageType type, VkF
 	switch(type) {
 	case TransientImageType::AttachmentImage: {
 		return VkUtils::IsDepthFormat(format) ? 
-			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL :
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL :
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	}
 	case TransientImageType::SampledImage: {
@@ -269,4 +269,40 @@ inline VkImageLayout GetImageLayoutFromResourceType(TransientImageType type, VkF
 	return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
+inline VkImageUsageFlags GetImageUsageFromResourceType(TransientImageType type, VkFormat format) {
+	switch(type) {
+	case TransientImageType::AttachmentImage: {
+		return VkUtils::IsDepthFormat(format) ?
+			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT :
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	} break;
+	case TransientImageType::SampledImage: {
+		return VK_IMAGE_USAGE_SAMPLED_BIT;
+	} break;
+	case TransientImageType::StorageImage: {
+		return VK_IMAGE_USAGE_STORAGE_BIT;
+	} break;
+	}
+
+	return 0;
+}
+
+inline VkDescriptorImageInfo DescriptorImageInfo(VkImageView image_view, VkImageLayout layout,
+	VkSampler sampler = VK_NULL_HANDLE) {
+	return VkDescriptorImageInfo {
+		.sampler = sampler,
+		.imageView = image_view,
+		.imageLayout = layout
+	};
+}
+
+inline VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(uint32_t binding, VkDescriptorType type,
+	VkShaderStageFlags shader_stage, uint32_t count = 1) {
+	return VkDescriptorSetLayoutBinding {
+		.binding = binding,
+		.descriptorType = type,
+		.descriptorCount = count,
+		.stageFlags = shader_stage
+	};
+}
 }

@@ -11,7 +11,7 @@
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
 	context = std::make_unique<VulkanContext>(hinstance, hwnd);
 	resource_manager = std::make_unique<ResourceManager>(*context);
-	render_graph = std::make_unique<RenderGraph>(*context);
+	render_graph = std::make_unique<RenderGraph>(*context, *resource_manager);
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
 	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza.glb");
 
@@ -94,7 +94,7 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	};
 	VK_CHECK(vkBeginCommandBuffer(resources.command_buffer, &command_buffer_begin_info));
 	
-	render_graph->Execute(*resource_manager, resources.command_buffer, resource_idx, image_idx);
+	render_graph->Execute(resources.command_buffer, resource_idx, image_idx);
 
 	VK_CHECK(vkEndCommandBuffer(resources.command_buffer));
 }
@@ -203,8 +203,6 @@ void Renderer::CreatePipeline() {
 			);
 		}
 	);
-
-	render_graph->Compile(*resource_manager);
 }
 
 TransientResource Renderer::CreateTransientBackbuffer(ColorBlendState color_blend_state) {

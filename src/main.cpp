@@ -2,13 +2,39 @@
 #include "renderer.h"
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+	Renderer *renderer = reinterpret_cast<Renderer *>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+	if(!renderer) {
+		return DefWindowProc(hwnd, msg, wparam, lparam);
+	}
+
+	ImGuiIO &io = ImGui::GetIO();
 	switch (msg) {
 	case WM_SIZE: {
-	} return 0;
-	case WM_MOVE: {
+		return DefWindowProc(hwnd, msg, wparam, lparam);
 	} return 0;
 	case WM_DESTROY: {
 		PostQuitMessage(0);
+	} return 0;
+	case WM_MOUSEMOVE: {
+		io.MousePos = ImVec2 {
+			static_cast<float>(GET_X_LPARAM(lparam)),
+			static_cast<float>(GET_Y_LPARAM(lparam))
+		};
+	} return 0;
+	case WM_LBUTTONDOWN: {
+		io.MouseDown[0] = true;
+	} return 0;
+	case WM_RBUTTONDOWN: {
+		io.MouseDown[1] = true;
+	} return 0;
+	case WM_LBUTTONUP: {
+		io.MouseDown[0] = false;
+	} return 0;
+	case WM_RBUTTONUP: {
+		io.MouseDown[1] = false;
+	} return 0;
+	case WM_MOUSEWHEEL: {
+		io.MouseWheel += static_cast<float>(GET_WHEEL_DELTA_WPARAM(wparam)) / 100.0f;
 	} return 0;
 	}
 
@@ -26,7 +52,6 @@ int WINAPI wWinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
 	freopen_s(&dummy, "CONOUT$", "w", stderr);
 
 	const wchar_t *window_class_name = L"VHR_Class";
-
 	const wchar_t *window_title = L"Vulkan Hybrid Renderer";
 	WNDCLASSEX window_class {
 		.cbSize = sizeof(WNDCLASSEX),
@@ -59,6 +84,7 @@ int WINAPI wWinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
 	ShowWindow(hwnd, cmd_show);
 
 	Renderer renderer(hinstance, hwnd);
+	SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&renderer));
 
 	MSG msg;
 	bool alive = true;
