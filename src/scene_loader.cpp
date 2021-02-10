@@ -4,6 +4,30 @@
 #include "resource_manager.h"
 
 namespace SceneLoader {
+VkFilter GetVkFilter(cgltf_int filter) {
+	switch(filter) {
+	case 0x2700:
+	case 0x2702:
+		return VK_FILTER_NEAREST;
+	case 0x2701:
+	case 0x2703:
+		return VK_FILTER_LINEAR;
+	default:
+		return VK_FILTER_LINEAR;
+	}
+}
+
+VkSamplerAddressMode GetVkAddressMode(cgltf_int address_mode) {
+	switch(address_mode) {
+	case 0x2900:
+		return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	case 0x2901:
+		return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	default:
+		return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	}
+}
+
 void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, int> &textures, 
 	std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) {
 
@@ -142,6 +166,7 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 		int id;
 		int x;
 		int y;
+		cgltf_sampler *sampler;
 		uint8_t *data;
 	};
 
@@ -154,15 +179,18 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 
 	std::for_each(std::execution::par, images.begin(), images.end(), 
 		[&](ImageData &image) {
+			cgltf_texture *texture = &data->textures[image.id];
 			int _;
-			if(data->textures[image.id].image->uri) {
-				std::string texture_path = parent_path + data->textures[image.id].image->uri;
+			if(texture->image->uri) {
+				image.sampler = texture->sampler;
+				std::string texture_path = parent_path + texture->image->uri;
 				image.data = stbi_load(texture_path.c_str(), &image.x, &image.y, &_, STBI_rgb_alpha);
 			}
 			else {
-				uint64_t size = data->textures[image.id].image->buffer_view->size;
-				uint64_t offset = data->textures[image.id].image->buffer_view->offset;
-				uint8_t *buffer = reinterpret_cast<uint8_t *>(data->textures[image.id].image->buffer_view->buffer->data) + offset;
+				image.sampler = texture->sampler;
+				uint64_t size = texture->image->buffer_view->size;
+				uint64_t offset = texture->image->buffer_view->offset;
+				uint8_t *buffer = reinterpret_cast<uint8_t *>(texture->image->buffer_view->buffer->data) + offset;
 				image.data = stbi_load_from_memory(buffer, static_cast<int>(size), &image.x, &image.y, &_, STBI_rgb_alpha);
 			}
 
@@ -171,8 +199,15 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 	);
 
 	for(int i = 0; i < data->textures_count; ++i) {
-		textures[data->textures[i].image->name] = 
-			resource_manager.UploadTextureFromData(images[i].x, images[i].y, images[i].data);
+		ImageData &image = images[i];
+		SamplerInfo sampler_info {
+			.mag_filter = GetVkFilter(image.sampler->mag_filter),
+			.min_filter = GetVkFilter(image.sampler->min_filter),
+			.address_mode_u = GetVkAddressMode(image.sampler->wrap_s),
+			.address_mode_v = GetVkAddressMode(image.sampler->wrap_t),
+		};
+		textures[data->textures[i].image->name] =
+			resource_manager.UploadTextureFromData(image.x, image.y, image.data, &sampler_info);
 		free(images[i].data);
 	}
 

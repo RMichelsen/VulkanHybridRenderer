@@ -17,6 +17,18 @@ struct Image {
 	VkImageUsageFlags usage;
 };
 
+struct SamplerInfo {
+	VkFilter mag_filter;
+	VkFilter min_filter;
+	VkSamplerAddressMode address_mode_u;
+	VkSamplerAddressMode address_mode_v;
+};
+
+struct Sampler {
+	VkSampler handle;
+	SamplerInfo info;
+};
+
 struct Camera {
 	glm::mat4 perspective;
 	glm::mat4 view;

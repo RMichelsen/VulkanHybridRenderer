@@ -108,7 +108,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 		},
 		[this](ExecuteGraphicsCallback execute_pipeline) {
 			execute_pipeline("Composition Pipeline",
-				[this](GraphicsExecutionContext &execution_context) {
+				[](GraphicsExecutionContext &execution_context) {
 					execution_context.Draw(3, 1, 0, 0);
 				}
 			);
@@ -272,7 +272,7 @@ TransientResource Renderer::CreateTransientSampledImage(const char *name, VkForm
 			.format = format,
 			.sampled_image = TransientSampledImage {
 				.binding = binding,
-				.sampler = resource_manager->sampler
+				.sampler = resource_manager->default_sampler
 			}
 		}
 	};
@@ -290,7 +290,7 @@ TransientResource Renderer::CreateTransientSampledImage(const char *name, uint32
 			.format = format,
 			.sampled_image = TransientSampledImage {
 				.binding = binding,
-				.sampler = resource_manager->sampler
+				.sampler = resource_manager->default_sampler
 			}
 		}
 	};

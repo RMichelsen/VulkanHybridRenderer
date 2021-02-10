@@ -8,8 +8,9 @@ public:
 	ResourceManager(VulkanContext &context);
 	void DestroyResources();
 
-	Image Create2DImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImageLayout initial_layout);
-	uint32_t UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data);
+	Image Create2DImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, 
+		VkImageLayout initial_layout);
+	uint32_t UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data, SamplerInfo *sampler_info = nullptr);
 
 	void UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, Scene &scene);
 	void UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData per_frame_data);
@@ -40,7 +41,8 @@ public:
 	std::array<MappedBuffer, MAX_FRAMES_IN_FLIGHT> per_frame_ubos;
 
 	VkDescriptorPool transient_descriptor_pool = VK_NULL_HANDLE;
-	VkSampler sampler = VK_NULL_HANDLE;
+	VkSampler default_sampler;
+	std::vector<Sampler> samplers;
 
 private:
 	void CreateGlobalDescriptorSet();

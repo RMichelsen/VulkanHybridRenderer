@@ -477,12 +477,17 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 
 		if(VkUtils::IsDepthFormat(attachment.image.format)) {
 			clear_values.emplace_back(VkClearValue {
-				.depthStencil = { 1.0f, 0 }
+				.depthStencil = VkClearDepthStencilValue { 
+					.depth = 1.0f, 
+					.stencil = 0 
+				}
 			});
 		}
 		else {
 			clear_values.emplace_back(VkClearValue {
-				.color = { 0.2f, 0.2f, 0.2f, 1.0f }
+				.color = VkClearColorValue { 
+					.float32 = { 0.2f, 0.2f, 0.2f, 1.0f } 
+				}
 			});
 		}
 	}

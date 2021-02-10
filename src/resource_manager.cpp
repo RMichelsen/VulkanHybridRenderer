@@ -64,7 +64,7 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 		.maxAnisotropy = context.gpu.properties.properties.limits.maxSamplerAnisotropy,
 		.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK
 	};
-	VK_CHECK(vkCreateSampler(context.device, &sampler_info, nullptr, &sampler));
+	VK_CHECK(vkCreateSampler(context.device, &sampler_info, nullptr, &default_sampler));
 }
 
 void ResourceManager::DestroyResources() {
@@ -89,12 +89,14 @@ void ResourceManager::DestroyResources() {
 	vkDestroyDescriptorSetLayout(context.device, per_frame_descriptor_set_layout, nullptr);
 	vkDestroyDescriptorPool(context.device, transient_descriptor_pool, nullptr);
 
-
 	for(MappedBuffer &buffer : per_frame_ubos) {
 		VkUtils::DestroyMappedBuffer(context.allocator, buffer);
 	}
 
-	vkDestroySampler(context.device, sampler, nullptr);
+	for(Sampler &sampler : samplers) {
+		vkDestroySampler(context.device, sampler.handle, nullptr);
+	}
+	vkDestroySampler(context.device, default_sampler, nullptr);
 }
 
 Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat format, 
@@ -134,7 +136,8 @@ Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat f
 	return image;
 }
 
-uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data) {
+uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data, 
+	SamplerInfo *sampler_info) {
 	Image texture;
 
 	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, 
@@ -175,6 +178,40 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(texture.handle, 
 		VK_FORMAT_R8G8B8A8_UNORM);
 	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.view));
+	
+	VkSampler texture_sampler = sampler_info ?
+		VK_NULL_HANDLE :
+		default_sampler;
+
+	if(texture_sampler == VK_NULL_HANDLE) {
+		for(Sampler &sampler : samplers) {
+			if(sampler.info.mag_filter == sampler_info->mag_filter &&
+				sampler.info.min_filter == sampler_info->min_filter &&
+				sampler.info.address_mode_u == sampler_info->address_mode_u &&
+				sampler.info.address_mode_v == sampler_info->address_mode_v) {
+				texture_sampler = sampler.handle;
+			}
+		}
+
+		if(texture_sampler == VK_NULL_HANDLE) {
+			VkSamplerCreateInfo vk_sampler_info {
+				.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+				.magFilter = sampler_info->mag_filter,
+				.minFilter = sampler_info->min_filter,
+				.addressModeU = sampler_info->address_mode_u,
+				.addressModeV = sampler_info->address_mode_v,
+				.addressModeW = sampler_info->address_mode_v,
+				.anisotropyEnable = VK_TRUE,
+				.maxAnisotropy = context.gpu.properties.properties.limits.maxSamplerAnisotropy,
+				.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK
+			};
+			vkCreateSampler(context.device, &vk_sampler_info, nullptr, &texture_sampler);
+			samplers.emplace_back(Sampler {
+				.handle = texture_sampler,
+				.info = *sampler_info
+			});
+		}
+	}
 
 	// TODO: OPTIMIZE
 	for(uint32_t i = 0; i < MAX_GLOBAL_TEXTURES; ++i) {
@@ -182,7 +219,7 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 			textures[i] = texture;
 
 			VkDescriptorImageInfo descriptor {
-				.sampler = sampler,
+				.sampler = texture_sampler,
 				.imageView = texture.view,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			};
@@ -459,9 +496,11 @@ void ResourceManager::UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &
 		glm::vec4 row2 = glm::row(primitive.transform, 1);
 		glm::vec4 row3 = glm::row(primitive.transform, 2);
 		transform_data.emplace_back(VkTransformMatrixKHR {
+			.matrix = { 
 				row1[0], row1[1], row1[2], row1[3],
 				row2[0], row2[1], row2[2], row2[3],
-				row3[0], row3[1], row3[2], row3[3]
+				row3[0], row3[1], row3[2], row3[3] 
+			}
 		});
 		acceleration_structure_geometries.emplace_back(VkAccelerationStructureGeometryKHR {
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -551,9 +590,11 @@ void ResourceManager::UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &
 void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 	VkAccelerationStructureInstanceKHR acceleration_structure_instance {
 		.transform = VkTransformMatrixKHR {
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f
+			.matrix = {
+				1.0f, 0.0f, 0.0f, 0.0f,
+				0.0f, 1.0f, 0.0f, 0.0f,
+				0.0f, 0.0f, 1.0f, 0.0f
+			}
 		},
 		.instanceCustomIndex = 0,
 		.mask = 0xFF,
@@ -651,8 +692,6 @@ void ResourceManager::UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDevi
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 	MappedBuffer staging_buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
 	memcpy(staging_buffer.mapped_data, data, size);
-
-	uint32_t *ptr = reinterpret_cast<uint32_t *>(staging_buffer.mapped_data);
 
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, context.command_pool,
 		[=](VkCommandBuffer command_buffer) {
