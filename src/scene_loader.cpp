@@ -169,55 +169,37 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 
 	std::unordered_map<const char *, int> textures;
 
-	// TODO: Redo parallelization...
-	struct ImageData {
-		int id;
-		int x;
-		int y;
-		cgltf_sampler *sampler;
-		uint8_t *data;
-	};
-
-	std::vector<ImageData> images(data->textures_count);
-
-	int count = 0;
-	for(ImageData &image : images) {
-		image.id = count++;
-	}
-
-	std::for_each(std::execution::par, images.begin(), images.end(), 
-		[&](ImageData &image) {
-			cgltf_texture *texture = &data->textures[image.id];
-			int _;
-			if(texture->image->uri) {
-				image.sampler = texture->sampler;
-				std::string texture_path = parent_path + texture->image->uri;
-				image.data = stbi_load(texture_path.c_str(), &image.x, &image.y, &_, STBI_rgb_alpha);
-			}
-			else {
-				image.sampler = texture->sampler;
-				uint64_t size = texture->image->buffer_view->size;
-				uint64_t offset = texture->image->buffer_view->offset;
-				uint8_t *buffer = reinterpret_cast<uint8_t *>(texture->image->buffer_view->buffer->data) + offset;
-				image.data = stbi_load_from_memory(buffer, static_cast<int>(size), &image.x, &image.y, &_, STBI_rgb_alpha);
-			}
-
-			assert(image.data);
-		}
-	);
-
+	#pragma omp parallel for
 	for(int i = 0; i < data->textures_count; ++i) {
-		ImageData &image = images[i];
+		cgltf_texture *texture = &data->textures[i];
+		int _, x, y;
+		uint8_t *image_data;
+		if(texture->image->uri) {
+			std::string texture_path = parent_path + texture->image->uri;
+			image_data = stbi_load(texture_path.c_str(), &x, &y, &_, STBI_rgb_alpha);
+		}
+		else {
+			uint64_t size = texture->image->buffer_view->size;
+			uint64_t offset = texture->image->buffer_view->offset;
+			uint8_t *buffer = reinterpret_cast<uint8_t *>(texture->image->buffer_view->buffer->data) + offset;
+			image_data = stbi_load_from_memory(buffer, static_cast<int>(size), &x, &y, &_, STBI_rgb_alpha);
+		}
+		assert(image_data);
+
 		SamplerInfo sampler_info {
-			.mag_filter = GetVkFilter(image.sampler->mag_filter),
-			.min_filter = GetVkFilter(image.sampler->min_filter),
-			.address_mode_u = GetVkAddressMode(image.sampler->wrap_s),
-			.address_mode_v = GetVkAddressMode(image.sampler->wrap_t),
+			.mag_filter = GetVkFilter(texture->sampler->mag_filter),
+			.min_filter = GetVkFilter(texture->sampler->min_filter),
+			.address_mode_u = GetVkAddressMode(texture->sampler->wrap_s),
+			.address_mode_v = GetVkAddressMode(texture->sampler->wrap_t)
 		};
-		uint32_t image_idx = resource_manager.UploadTextureFromData(image.x, image.y, image.data, &sampler_info);
-		textures[data->textures[i].image->name] = image_idx;
+
+		uint32_t image_idx;
+		#pragma omp critical
+		{
+			image_idx = resource_manager.UploadTextureFromData(x, y, image_data, &sampler_info);
+			textures[data->textures[i].image->name] = image_idx;
+		}
 		resource_manager.TagImage(image_idx, data->textures[i].image->name);
-		free(images[i].data);
 	}
 
 	std::vector<Vertex> vertices;

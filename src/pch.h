@@ -6,7 +6,6 @@
 #include <cstdio>
 
 #include <array>
-#include <execution>
 #include <deque>
 #include <filesystem>
 #include <fstream>
