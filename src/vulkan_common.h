@@ -312,5 +312,3 @@ struct RenderPassDescription {
 	std::variant<GraphicsPassDescription, RaytracingPassDescription> description;
 };
 
-
-

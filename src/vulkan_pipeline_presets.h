@@ -84,3 +84,4 @@ inline constexpr VkPipelineDynamicStateCreateInfo DYNAMIC_STATE_VIEWPORT_SCISSOR
 	.dynamicStateCount = static_cast<uint32_t>(VIEWPORT_SCISSOR_STATES.size()),
 	.pDynamicStates = VIEWPORT_SCISSOR_STATES.data()
 };
+

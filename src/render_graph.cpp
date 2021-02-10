@@ -589,7 +589,6 @@ void RenderGraph::ActualizeResource(TransientResource &resource) {
 		}
 		image_access[resource.name] = ImageAccess {
 			.layout = VK_IMAGE_LAYOUT_GENERAL,
-			//.format = resource.image.format,
 			.access_flags = 0,
 			.stage_flags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
 		};

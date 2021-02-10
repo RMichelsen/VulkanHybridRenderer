@@ -42,8 +42,3 @@ private:
 	std::unordered_map<std::string, ImageAccess> image_access;
 };
 
-
-
-
-
-

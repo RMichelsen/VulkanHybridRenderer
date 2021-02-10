@@ -334,3 +334,4 @@ TransientResource Renderer::CreateTransientStorageImage(const char *name, uint32
 		}
 	};
 }
+

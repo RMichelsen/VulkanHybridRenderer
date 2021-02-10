@@ -115,3 +115,4 @@ void UserInterface::Draw(GraphicsExecutionContext &execution_context) {
 		vertex_offset += draw_list->VtxBuffer.Size;
 	}
 }
+

@@ -318,3 +318,4 @@ inline VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(uint32_t binding,
 	};
 }
 }
+

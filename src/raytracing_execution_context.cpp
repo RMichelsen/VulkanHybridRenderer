@@ -23,3 +23,4 @@ void RaytracingExecutionContext::TraceRays(uint32_t width, uint32_t height) {
 	vkCmdTraceRaysKHR(command_buffer, &raygen_sbt, &miss_sbt, &hit_sbt,
 		&callable_sbt, width, height, 1);
 }
+

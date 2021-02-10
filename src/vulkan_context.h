@@ -56,3 +56,4 @@ private:
 	void InitFrameResources();
 	void InitSwapchain(HWND hwnd);
 };
+

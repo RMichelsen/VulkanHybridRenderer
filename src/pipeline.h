@@ -9,3 +9,4 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 	RenderPass &render_pass, RaytracingPipelineDescription description, 
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR raytracing_properties);
 }
+

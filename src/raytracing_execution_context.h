@@ -17,3 +17,4 @@ private:
 	ResourceManager &resource_manager;
 	RaytracingPipeline &pipeline;
 };
+

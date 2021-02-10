@@ -357,3 +357,4 @@ void VulkanContext::InitSwapchain(HWND hwnd) {
 			&swapchain.image_views[i]));
 	}
 }
+

@@ -31,3 +31,4 @@ private:
 	ResourceManager &resource_manager;
 	GraphicsPipeline &pipeline;
 };
+
