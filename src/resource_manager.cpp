@@ -73,7 +73,6 @@ void ResourceManager::DestroyResources() {
 	VkUtils::DestroyGPUBuffer(context.allocator, global_vertex_buffer);
 	VkUtils::DestroyGPUBuffer(context.allocator, global_index_buffer);
 	VkUtils::DestroyGPUBuffer(context.allocator, global_obj_data_buffer);
-	VkUtils::DestroyGPUBuffer(context.allocator, global_instances_buffer);
 
 	for(uint32_t i = 0; i < MAX_GLOBAL_TEXTURES; ++i) {
 		if(textures[i].handle != VK_NULL_HANDLE) {
@@ -567,8 +566,8 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(sizeof(VkAccelerationStructureInstanceKHR),
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-	global_instances_buffer = VkUtils::CreateGPUBuffer(context.allocator, buffer_info);
-	UploadDataToGPUBuffer(global_instances_buffer, &acceleration_structure_instance,
+	GPUBuffer instances_buffer = VkUtils::CreateGPUBuffer(context.allocator, buffer_info);
+	UploadDataToGPUBuffer(instances_buffer, &acceleration_structure_instance,
 		sizeof(VkAccelerationStructureInstanceKHR));
 
 	VkAccelerationStructureGeometryKHR acceleration_structure_geometry {
@@ -578,7 +577,7 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 			.instances = VkAccelerationStructureGeometryInstancesDataKHR {
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
 				.arrayOfPointers = VK_FALSE,
-				.data = VkUtils::GetDeviceAddressConst(context.device, global_instances_buffer.handle)
+				.data = VkUtils::GetDeviceAddressConst(context.device, instances_buffer.handle)
 			}
 		},
 		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR
@@ -643,6 +642,8 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 			);
 		}
 	);
+
+	VkUtils::DestroyGPUBuffer(context.allocator, instances_buffer);
 }
 
 void ResourceManager::UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDeviceSize size) {

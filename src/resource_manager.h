@@ -24,7 +24,6 @@ public:
 	GPUBuffer global_vertex_buffer;
 	GPUBuffer global_index_buffer;
 	GPUBuffer global_obj_data_buffer;
-	GPUBuffer global_instances_buffer;
 
 	std::array<Image, MAX_GLOBAL_TEXTURES> textures;
 	

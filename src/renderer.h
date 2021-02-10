@@ -15,7 +15,6 @@ public:
 
 private:
 	void Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx);
-	void CreatePipeline();
 	TransientResource CreateTransientBackbuffer(ColorBlendState color_blend_state = ColorBlendState::Off);
 	TransientResource CreateTransientAttachmentImage(const char *name, VkFormat format,
 		ColorBlendState color_blend_state = ColorBlendState::Off);

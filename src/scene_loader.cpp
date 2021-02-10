@@ -76,10 +76,8 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		assert(position_accessor);
 		for(int j = 0; j < position_accessor->count; ++j) {
 			Vertex v {};
-			if(position_accessor) {
-				cgltf_accessor_read_float(position_accessor, j, 
-					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.pos)), 3);
-			}
+			cgltf_accessor_read_float(position_accessor, j, 
+				reinterpret_cast<cgltf_float *>(glm::value_ptr(v.pos)), 3);
 			if(normal_accessor) {
 				cgltf_accessor_read_float(normal_accessor, j, 
 					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.normal)), 3);
@@ -201,10 +199,6 @@ Scene LoadScene(ResourceManager &resource_manager, const char *path) {
 	}
 
 	return scene;
-}
-
-void DestroyScene(Scene scene) {
-		
 }
 }
 

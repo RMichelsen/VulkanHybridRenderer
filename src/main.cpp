@@ -12,6 +12,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	case WM_SIZE: {
 		return DefWindowProc(hwnd, msg, wparam, lparam);
 	} return 0;
+	case WM_GETMINMAXINFO: {
+		MINMAXINFO *min_max_info = reinterpret_cast<MINMAXINFO *>(lparam);
+		min_max_info->ptMinTrackSize = POINT { .x = 500, .y = 500 };
+	} return 0;
 	case WM_DESTROY: {
 		PostQuitMessage(0);
 	} return 0;

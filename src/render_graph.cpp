@@ -398,7 +398,7 @@ void RenderGraph::InsertBarriers(VkCommandBuffer command_buffer, RenderPass &ren
 		VkImageLayout dst_layout = VkUtils::GetImageLayoutFromResourceType(resource.image.type,
 			resource.image.format);
 
-		if(resource.name != "BACKBUFFER" && current_access.layout != dst_layout) {
+		if(strcmp(resource.name, "BACKBUFFER") && current_access.layout != dst_layout) {
 			VkImageAspectFlags aspect_flags = VkUtils::IsDepthFormat(resource.image.format) ?
 				VK_IMAGE_ASPECT_DEPTH_BIT :
 				VK_IMAGE_ASPECT_COLOR_BIT;

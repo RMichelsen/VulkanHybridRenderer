@@ -10,14 +10,117 @@
 #include "user_interface.h"
 #include "vulkan_context.h"
 
-Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
-	context = std::make_unique<VulkanContext>(hinstance, hwnd);
+Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<VulkanContext>(hinstance, hwnd)) {
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context, *resource_manager);
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
 	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza.glb");
 
-	CreatePipeline();
+	render_graph->AddGraphicsPass("G-Buffer Pass",
+		{},
+		{
+			CreateTransientAttachmentImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
+			CreateTransientAttachmentImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
+			CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
+			CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT)
+		},
+		{
+			GraphicsPipelineDescription {
+				.name = "G-Buffer Pipeline",
+				.vertex_shader = "data/shaders/compiled/gbuf.vert.spv",
+				.fragment_shader = "data/shaders/compiled/gbuf.frag.spv",
+				.vertex_input_state = VertexInputState::Default,
+				.rasterization_state = RasterizationState::Fill,
+				.multisample_state = MultisampleState::Off,
+				.depth_stencil_state = DepthStencilState::On,
+				.dynamic_state = DynamicState::None,
+				.push_constants = PushConstantDescription {
+					.size = sizeof(PushConstants),
+					.pipeline_stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+				}
+			}
+		},
+		[this](ExecuteGraphicsCallback execute_pipeline) {
+			execute_pipeline("G-Buffer Pipeline",
+				[this](GraphicsExecutionContext &execution_context) {
+					execution_context.BindGlobalVertexAndIndexBuffers();
+					for(Mesh &mesh : scene.meshes) {
+						for(int i = 0; i < mesh.primitives.size(); ++i) {
+							Primitive &primitive = mesh.primitives[i];
+							PushConstants push_constants {
+								.object_id = i
+							};
+							execution_context.PushConstants(push_constants);
+							execution_context.DrawIndexed(primitive.index_count, 1, primitive.index_offset,
+								primitive.vertex_offset, 0);
+						}
+					}
+				}
+			);
+		}
+	);
+
+	render_graph->AddRaytracingPass("Raytracing Pass",
+		{},
+		{
+			CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 0)
+		},
+		RaytracingPipelineDescription {
+			.name = "Raytracing Pipeline",
+			.raygen_shader = "data/shaders/compiled/raygen.rgen.spv",
+			.hit_shader = "data/shaders/compiled/closesthit.rchit.spv",
+			.miss_shader = "data/shaders/compiled/miss.rmiss.spv"
+		},
+		[this](ExecuteRaytracingCallback execute_pipeline) {
+			execute_pipeline("Raytracing Pipeline",
+				[this](RaytracingExecutionContext &execution_context) {
+					execution_context.TraceRays(context->swapchain.extent.width,
+						context->swapchain.extent.height);
+				}
+			);
+		}
+	);
+
+	render_graph->AddGraphicsPass("Composition Pass",
+		{
+			CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			CreateTransientSampledImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
+			CreateTransientSampledImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 3)
+		},
+		{
+			CreateTransientBackbuffer(ColorBlendState::ImGui),
+			CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT)
+		},
+		{
+			GraphicsPipelineDescription {
+				.name = "Composition Pipeline",
+				.vertex_shader = "data/shaders/compiled/composition.vert.spv",
+				.fragment_shader = "data/shaders/compiled/composition.frag.spv",
+				.vertex_input_state = VertexInputState::Empty,
+				.rasterization_state = RasterizationState::FillCullCCW,
+				.multisample_state = MultisampleState::Off,
+				.depth_stencil_state = DepthStencilState::On,
+				.dynamic_state = DynamicState::None,
+				.push_constants = PUSHCONSTANTS_NONE
+			},
+			IMGUI_PIPELINE_DESCRIPTION
+		},
+		[this](ExecuteGraphicsCallback execute_pipeline) {
+			execute_pipeline("Composition Pipeline",
+				[this](GraphicsExecutionContext &execution_context) {
+					execution_context.Draw(3, 1, 0, 0);
+				}
+			);
+			execute_pipeline("ImGui Pipeline",
+				[this](GraphicsExecutionContext &execution_context) {
+					user_interface->Draw(execution_context);
+				}
+			);
+		}
+	);
+
+	render_graph->Build();
 }
 
 Renderer::~Renderer() {
@@ -105,115 +208,6 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	render_graph->Execute(resources.command_buffer, resource_idx, image_idx);
 
 	VK_CHECK(vkEndCommandBuffer(resources.command_buffer));
-}
-
-void Renderer::CreatePipeline() {
-
-	render_graph->AddGraphicsPass("G-Buffer Pass",
-		{},
-		{
-			CreateTransientAttachmentImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientAttachmentImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
-			CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT)
-		},
-		{
-			GraphicsPipelineDescription {
-				.name = "G-Buffer Pipeline",
-				.vertex_shader = "data/shaders/compiled/gbuf.vert.spv",
-				.fragment_shader = "data/shaders/compiled/gbuf.frag.spv",
-				.vertex_input_state = VertexInputState::Default,
-				.rasterization_state = RasterizationState::Fill,
-				.multisample_state = MultisampleState::Off,
-				.depth_stencil_state = DepthStencilState::On,
-				.dynamic_state = DynamicState::None,
-				.push_constants = PushConstantDescription {
-					.size = sizeof(PushConstants),
-					.pipeline_stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-				}
-			}
-		},
-		[this](ExecuteGraphicsCallback execute_pipeline) {
-			execute_pipeline("G-Buffer Pipeline",
-				[this](GraphicsExecutionContext &execution_context) {
-					execution_context.BindGlobalVertexAndIndexBuffers();
-					for(Mesh &mesh : scene.meshes) {
-						for(int i = 0; i < mesh.primitives.size(); ++i) {
-							Primitive &primitive = mesh.primitives[i];
-							PushConstants push_constants {
-								.object_id = i
-							};
-							execution_context.PushConstants(push_constants);
-							execution_context.DrawIndexed(primitive.index_count, 1, primitive.index_offset, 
-								primitive.vertex_offset, 0);
-						}
-					}
-				}
-			);
-		}
-	);
-
-	render_graph->AddRaytracingPass("Raytracing Pass",
-		{},
-		{
-			CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 0)
-		},
-		RaytracingPipelineDescription {
-			.name = "Raytracing Pipeline",
-			.raygen_shader = "data/shaders/compiled/raygen.rgen.spv",
-			.hit_shader = "data/shaders/compiled/closesthit.rchit.spv",
-			.miss_shader = "data/shaders/compiled/miss.rmiss.spv"
-		},
-		[this](ExecuteRaytracingCallback execute_pipeline) {
-			execute_pipeline("Raytracing Pipeline",
-				[this](RaytracingExecutionContext &execution_context) {
-					execution_context.TraceRays(context->swapchain.extent.width, 
-						context->swapchain.extent.height);
-				}
-			);
-		}
-	);
-
-	render_graph->AddGraphicsPass("Composition Pass", 
-		{
-			CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			CreateTransientSampledImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
-			CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
-			CreateTransientSampledImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 3)
-		},
-		{
-			CreateTransientBackbuffer(ColorBlendState::ImGui),
-			CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT)
-		},
-		{
-			GraphicsPipelineDescription {
-				.name = "Composition Pipeline",
-				.vertex_shader = "data/shaders/compiled/composition.vert.spv",
-				.fragment_shader = "data/shaders/compiled/composition.frag.spv",
-				.vertex_input_state = VertexInputState::Empty,
-				.rasterization_state = RasterizationState::FillCullCCW,
-				.multisample_state = MultisampleState::Off,
-				.depth_stencil_state = DepthStencilState::On,
-				.dynamic_state = DynamicState::None,
-				.push_constants = PUSHCONSTANTS_NONE
-			},
-			IMGUI_PIPELINE_DESCRIPTION
-		},
-		[this](ExecuteGraphicsCallback execute_pipeline) {
-			execute_pipeline("Composition Pipeline",
-				[this](GraphicsExecutionContext &execution_context) {
-					execution_context.Draw(3, 1, 0, 0);
-				}
-			);
-			execute_pipeline("ImGui Pipeline",
-				[this](GraphicsExecutionContext &execution_context) {
-					user_interface->Draw(execution_context);
-				}
-			);
-		}
-	);
-
-	render_graph->Build();
 }
 
 TransientResource Renderer::CreateTransientBackbuffer(ColorBlendState color_blend_state) {
