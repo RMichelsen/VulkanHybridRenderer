@@ -152,7 +152,7 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 
 RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceManager &resource_manager,
 	RenderPass &render_pass, RaytracingPipelineDescription description,
-	VkPhysicalDeviceRayTracingPipelinePropertiesKHR raytracing_properties) {
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR &raytracing_properties) {
 	RaytracingPipeline pipeline {
 		.description = description
 	};

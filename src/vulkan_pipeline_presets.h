@@ -7,7 +7,6 @@ inline constexpr VkPipelineVertexInputStateCreateInfo VERTEX_INPUT_STATE_DEFAULT
 	.vertexAttributeDescriptionCount = static_cast<uint32_t>(DEFAULT_VERTEX_ATTRIBUTE_DESCRIPTIONS.size()),
 	.pVertexAttributeDescriptions = DEFAULT_VERTEX_ATTRIBUTE_DESCRIPTIONS.data()
 };
-
 inline constexpr VkPipelineVertexInputStateCreateInfo VERTEX_INPUT_STATE_IMGUI {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 	.vertexBindingDescriptionCount = 1,
@@ -15,7 +14,6 @@ inline constexpr VkPipelineVertexInputStateCreateInfo VERTEX_INPUT_STATE_IMGUI {
 	.vertexAttributeDescriptionCount = static_cast<uint32_t>(IMGUI_VERTEX_ATTRIBUTE_DESCRIPTIONS.size()),
 	.pVertexAttributeDescriptions = IMGUI_VERTEX_ATTRIBUTE_DESCRIPTIONS.data()
 };
-
 inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_FILL {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
 	.polygonMode = VK_POLYGON_MODE_FILL,

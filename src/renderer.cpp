@@ -139,12 +139,13 @@ void Renderer::CreatePipeline() {
 					execution_context.BindGlobalVertexAndIndexBuffers();
 					for(Mesh &mesh : scene.meshes) {
 						for(int i = 0; i < mesh.primitives.size(); ++i) {
+							Primitive &primitive = mesh.primitives[i];
 							PushConstants push_constants {
 								.object_id = i
 							};
 							execution_context.PushConstants(push_constants);
-							execution_context.DrawIndexed(mesh.primitives[i].index_count, 1,
-								mesh.primitives[i].index_offset, mesh.primitives[i].vertex_offset, 0);
+							execution_context.DrawIndexed(primitive.index_count, 1, primitive.index_offset, 
+								primitive.vertex_offset, 0);
 						}
 					}
 				}

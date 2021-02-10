@@ -148,7 +148,7 @@ void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 			case TransientImageType::AttachmentImage: {
 				assert(!input_resource && "Attachment images must be outputs");
 				graphics_pass.attachments.emplace_back(resource);
-				bool is_backbuffer = resource.name == "BACKBUFFER";
+				bool is_backbuffer = !strcmp(resource.name, "BACKBUFFER");
 				VkImageLayout layout = VkUtils::GetImageLayoutFromResourceType(resource.image.type,
 					resource.image.format);
 				attachments.emplace_back(VkAttachmentDescription {
@@ -468,7 +468,7 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 	std::vector<VkImageView> image_views;
 	std::vector<VkClearValue> clear_values;
 	for(TransientResource &attachment : graphics_pass.attachments) {
-		if(attachment.name == "BACKBUFFER") {
+		if(!strcmp(attachment.name, "BACKBUFFER")) {
 			image_views.emplace_back(context.swapchain.image_views[image_idx]);
 		}
 		else {
@@ -568,7 +568,9 @@ void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPa
 }
 
 void RenderGraph::ActualizeResource(TransientResource &resource) {
-	if(resource.name == "BACKBUFFER") return;
+	if(!strcmp(resource.name, "BACKBUFFER")) {
+		return;
+	}
 	
 	if(!images.contains(resource.name)) {
 		// TODO: Usage is not optimized (tracking usage was cumbersome though...)
@@ -616,7 +618,10 @@ bool RenderGraph::SanityCheck() {
 	}
 
 	for(auto &[name, resources] : participating_resources) {
-		if(name == "BACKBUFFER") continue;
+		if(!strcmp(name.c_str(), "BACKBUFFER")) {
+			continue;
+		}
+
 		if(resources.empty()) {
 			return false;
 		}

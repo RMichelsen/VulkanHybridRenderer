@@ -131,7 +131,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <DisableSpecificWarnings>26812;28251;26439</DisableSpecificWarnings>
+      <DisableSpecificWarnings>26812;28251;26439;26451;26495;6387</DisableSpecificWarnings>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -158,7 +158,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <DisableSpecificWarnings>26812;28251;26439</DisableSpecificWarnings>
+      <DisableSpecificWarnings>26812;28251;26439;26451;26495;6387</DisableSpecificWarnings>
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>

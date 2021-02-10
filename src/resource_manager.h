@@ -2,7 +2,6 @@
 
 inline constexpr uint32_t MAX_GLOBAL_TEXTURES = 1024;
 
-
 class VulkanContext;
 class ResourceManager {
 public:
@@ -54,3 +53,4 @@ private:
 
 	VulkanContext &context;
 };
+
