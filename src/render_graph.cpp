@@ -112,6 +112,12 @@ void RenderGraph::Execute(VkCommandBuffer command_buffer, uint32_t resource_idx,
 		assert(passes.contains(pass_name));
 		RenderPass &render_pass = passes[pass_name];
 
+		VkDebugUtilsLabelEXT pass_label {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+			.pLabelName = render_pass.name
+		};
+		vkCmdBeginDebugUtilsLabelEXT(command_buffer, &pass_label);
+
 		InsertBarriers(command_buffer, render_pass);
 
 		if(std::holds_alternative<GraphicsPass>(render_pass.pass)) {
@@ -120,6 +126,8 @@ void RenderGraph::Execute(VkCommandBuffer command_buffer, uint32_t resource_idx,
 		else if(std::holds_alternative<RaytracingPass>(render_pass.pass)) {
 			ExecuteRaytracingPass(command_buffer, render_pass);
 		}
+
+		vkCmdEndDebugUtilsLabelEXT(command_buffer);
 	}
 }
 
@@ -392,6 +400,8 @@ void RenderGraph::InsertBarriers(VkCommandBuffer command_buffer, RenderPass &ren
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT :
 		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
 
+	bool transitions_started = false;
+
 	auto insert_barrier_if_needed = [&](TransientResource &resource, 
 		VkPipelineStageFlags dst_stage, VkAccessFlags dst_access) {
 		ImageAccess current_access = image_access[resource.name];
@@ -402,6 +412,15 @@ void RenderGraph::InsertBarriers(VkCommandBuffer command_buffer, RenderPass &ren
 			VkImageAspectFlags aspect_flags = VkUtils::IsDepthFormat(resource.image.format) ?
 				VK_IMAGE_ASPECT_DEPTH_BIT :
 				VK_IMAGE_ASPECT_COLOR_BIT;
+
+			if(!transitions_started) {
+				VkDebugUtilsLabelEXT pass_label {
+					.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+					.pLabelName = "Image Transitions"
+				};
+				vkCmdBeginDebugUtilsLabelEXT(command_buffer, &pass_label);
+				transitions_started = true;
+			}
 
 			VkUtils::InsertImageBarrier(command_buffer, images[resource.name].handle,
 				aspect_flags, current_access.layout, dst_layout, current_access.stage_flags,
@@ -445,19 +464,15 @@ void RenderGraph::InsertBarriers(VkCommandBuffer command_buffer, RenderPass &ren
 		}
 	}
 
-
+	if(transitions_started) {
+		vkCmdEndDebugUtilsLabelEXT(command_buffer);
+	}
 }
 
 void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t resource_idx, 
 	uint32_t image_idx, RenderPass &render_pass) {
 	GraphicsPass &graphics_pass = std::get<GraphicsPass>(render_pass.pass);
 	VkFramebuffer &framebuffer = graphics_pass.framebuffers[resource_idx];
-
-	VkDebugUtilsLabelEXT pass_label {
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-		.pLabelName = render_pass.name
-	};
-	vkCmdBeginDebugUtilsLabelEXT(command_buffer, &pass_label);
 
 	// Delete previous framebuffer
 	if(framebuffer != VK_NULL_HANDLE) {
@@ -537,18 +552,10 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 	);
 
 	vkCmdEndRenderPass(command_buffer);
-
-	vkCmdEndDebugUtilsLabelEXT(command_buffer);
 }
 
 void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPass &render_pass) {
 	RaytracingPass &raytracing_pass = std::get<RaytracingPass>(render_pass.pass);
-
-	VkDebugUtilsLabelEXT pass_label {
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-		.pLabelName = render_pass.name
-	};
-	vkCmdBeginDebugUtilsLabelEXT(command_buffer, &pass_label);
 
 	raytracing_pass.callback(
 		[&](std::string pipeline_name, RaytracingExecutionCallback execute_pipeline) {
@@ -568,8 +575,6 @@ void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPa
 			execute_pipeline(execution_context);
 		}
 	);
-
-	vkCmdEndDebugUtilsLabelEXT(command_buffer);
 }
 
 void RenderGraph::ActualizeResource(TransientResource &resource) {
@@ -599,13 +604,7 @@ void RenderGraph::ActualizeResource(TransientResource &resource) {
 			.access_flags = 0,
 			.stage_flags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
 		};
-		VkDebugUtilsObjectNameInfoEXT debug_utils_object_name_info {
-			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-			.objectType = VK_OBJECT_TYPE_IMAGE,
-			.objectHandle = reinterpret_cast<uint64_t>(images[resource.name].handle),
-			.pObjectName = resource.name
-		};
-		vkSetDebugUtilsObjectNameEXT(context.device, &debug_utils_object_name_info);
+		resource_manager.TagImage(images[resource.name], resource.name);
 	}
 }
 

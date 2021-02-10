@@ -243,6 +243,26 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 	return static_cast<uint32_t>(-1);
 }
 
+void ResourceManager::TagImage(Image &image, const char *name) {
+	VkDebugUtilsObjectNameInfoEXT debug_utils_object_name_info {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.objectType = VK_OBJECT_TYPE_IMAGE,
+		.objectHandle = reinterpret_cast<uint64_t>(image.handle),
+		.pObjectName = name
+	};
+	vkSetDebugUtilsObjectNameEXT(context.device, &debug_utils_object_name_info);
+}
+
+void ResourceManager::TagImage(uint32_t image_idx, const char *name) {
+	VkDebugUtilsObjectNameInfoEXT debug_utils_object_name_info {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.objectType = VK_OBJECT_TYPE_IMAGE,
+		.objectHandle = reinterpret_cast<uint64_t>(textures[image_idx].handle),
+		.pObjectName = name
+	};
+	vkSetDebugUtilsObjectNameEXT(context.device, &debug_utils_object_name_info);
+}
+
 void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, Scene &scene) {
 	UploadDataToGPUBuffer(global_vertex_buffer, vertices.data(), vertices.size() * sizeof(Vertex));
 	UploadDataToGPUBuffer(global_index_buffer, indices.data(), indices.size() * sizeof(uint32_t));

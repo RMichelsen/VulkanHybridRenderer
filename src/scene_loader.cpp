@@ -6,24 +6,32 @@
 namespace SceneLoader {
 VkFilter GetVkFilter(cgltf_int filter) {
 	switch(filter) {
+	case 0x2600:
 	case 0x2700:
-	case 0x2702:
-		return VK_FILTER_NEAREST;
 	case 0x2701:
+		return VK_FILTER_NEAREST;
+	case 0x2601:
+	case 0x2702:
 	case 0x2703:
 		return VK_FILTER_LINEAR;
 	default:
+		assert(false);
 		return VK_FILTER_LINEAR;
 	}
 }
 
 VkSamplerAddressMode GetVkAddressMode(cgltf_int address_mode) {
 	switch(address_mode) {
-	case 0x2900:
+	case 0x812F:
 		return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	case 0x812D:
+		return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 	case 0x2901:
 		return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	case 0x8370:
+		return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
 	default:
+		assert(false);
 		return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	}
 }
@@ -206,8 +214,9 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 			.address_mode_u = GetVkAddressMode(image.sampler->wrap_s),
 			.address_mode_v = GetVkAddressMode(image.sampler->wrap_t),
 		};
-		textures[data->textures[i].image->name] =
-			resource_manager.UploadTextureFromData(image.x, image.y, image.data, &sampler_info);
+		uint32_t image_idx = resource_manager.UploadTextureFromData(image.x, image.y, image.data, &sampler_info);
+		textures[data->textures[i].image->name] = image_idx;
+		resource_manager.TagImage(image_idx, data->textures[i].image->name);
 		free(images[i].data);
 	}
 
