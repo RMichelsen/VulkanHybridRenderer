@@ -1,26 +1,58 @@
 #include "pch.h"
 #include "render_graph.h"
 
+#include "graphics_execution_context.h"
 #include "pipeline.h"
+#include "raytracing_execution_context.h"
 #include "resource_manager.h"
 #include "vulkan_context.h"
 #include "vulkan_utils.h"
 
-RenderGraph::RenderGraph(VulkanContext &context, ResourceManager &resource_manager) : context(context), resource_manager(resource_manager) {}
+RenderGraph::RenderGraph(VulkanContext &context, ResourceManager &resource_manager) : 
+	context(context), 
+	resource_manager(resource_manager) {}
+
+void RenderGraph::DestroyResources() {
+	VK_CHECK(vkDeviceWaitIdle(context.device));
+
+	for(auto &[_, render_pass] : passes) {
+		vkDestroyDescriptorSetLayout(context.device, render_pass.descriptor_set_layout, nullptr);
+		if(std::holds_alternative<GraphicsPass>(render_pass.pass)) {
+			GraphicsPass &graphics_pass = std::get<GraphicsPass>(render_pass.pass);
+			for(VkFramebuffer &framebuffer : graphics_pass.framebuffers) {
+				vkDestroyFramebuffer(context.device, framebuffer, nullptr);
+			}
+			vkDestroyRenderPass(context.device, graphics_pass.handle, nullptr);
+		}
+	}
+
+	for(auto &[_, pipeline] : graphics_pipelines) {
+		vkDestroyPipelineLayout(context.device, pipeline.layout, nullptr);
+		vkDestroyPipeline(context.device, pipeline.handle, nullptr);
+	}
+
+	for(auto &[_, pipeline] : raytracing_pipelines) {
+		VkUtils::DestroyMappedBuffer(context.allocator, pipeline.shader_binding_table);
+		vkDestroyPipelineLayout(context.device, pipeline.layout, nullptr);
+		vkDestroyPipeline(context.device, pipeline.handle, nullptr);
+	}
+
+	for(auto &[_, image] : images) {
+		VkUtils::DestroyImage(context.device, context.allocator, image);
+	}
+
+	readers.clear();
+	writers.clear();
+	passes.clear();
+	graphics_pipelines.clear();
+	raytracing_pipelines.clear();
+	images.clear();
+	image_access.clear();
+}
 
 void RenderGraph::AddGraphicsPass(const char *render_pass_name, std::vector<TransientResource> dependencies, 
 	std::vector<TransientResource> outputs, std::vector<GraphicsPipelineDescription> pipelines, 
 	GraphicsPassCallback callback) {
-
-	for(TransientResource &resource : dependencies) {
-		readers[resource.name].emplace_back(render_pass_name);
-		ActualizeResource(resource);
-	}
-	for(TransientResource &resource : outputs) {
-		writers[resource.name].emplace_back(render_pass_name);
-		ActualizeResource(resource);
-	}
-
 	RenderPassDescription pass_description {
 		.name = render_pass_name,
 		.dependencies = dependencies,
@@ -33,23 +65,11 @@ void RenderGraph::AddGraphicsPass(const char *render_pass_name, std::vector<Tran
 
 	assert(!pass_descriptions.contains(render_pass_name));
 	pass_descriptions[render_pass_name] = pass_description;
-
-	CreateGraphicsPass(pass_description);
 }
 
 void RenderGraph::AddRaytracingPass(const char *render_pass_name, std::vector<TransientResource> dependencies, 
 	std::vector<TransientResource> outputs, RaytracingPipelineDescription pipeline, 
 	RaytracingPassCallback callback) {
-
-	for(TransientResource &resource : dependencies) {
-		readers[resource.name].emplace_back(render_pass_name);
-		ActualizeResource(resource);
-	}
-	for(TransientResource &resource : outputs) {
-		writers[resource.name].emplace_back(render_pass_name);
-		ActualizeResource(resource);
-	}
-
 	RenderPassDescription pass_description {
 		.name = render_pass_name,
 		.dependencies = dependencies,
@@ -61,8 +81,27 @@ void RenderGraph::AddRaytracingPass(const char *render_pass_name, std::vector<Tr
 	};
 	assert(!pass_descriptions.contains(render_pass_name));
 	pass_descriptions[render_pass_name] = pass_description;
+}
 
-	CreateRaytracingPass(pass_description);
+void RenderGraph::Build() {
+	DestroyResources();
+
+	for(auto &[_, pass_description] : pass_descriptions) {
+		for(TransientResource &resource : pass_description.dependencies) {
+			readers[resource.name].emplace_back(pass_description.name);
+			ActualizeResource(resource);
+		}
+		for(TransientResource &resource : pass_description.outputs) {
+			writers[resource.name].emplace_back(pass_description.name);
+			ActualizeResource(resource);
+		}
+		if(std::holds_alternative<GraphicsPassDescription>(pass_description.description)) {
+			CreateGraphicsPass(pass_description);
+		}
+		else if(std::holds_alternative<RaytracingPassDescription>(pass_description.description)) {
+			CreateRaytracingPass(pass_description);
+		}
+	}
 }
 
 void RenderGraph::Execute(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx) {
@@ -475,7 +514,7 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
 	graphics_pass.callback(
-		[&](std::string pipeline_name, GraphicsPipelineExecutionCallback execute_pipeline) {
+		[&](std::string pipeline_name, GraphicsExecutionCallback execute_pipeline) {
 			GraphicsPipeline &pipeline = graphics_pipelines[pipeline_name];
 			
 			vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
@@ -487,7 +526,7 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout,
 					2, 1, &render_pass.descriptor_set, 0, nullptr);
 			}
-			GraphicsPipelineExecutionContext execution_context(command_buffer, resource_manager, render_pass, pipeline);
+			GraphicsExecutionContext execution_context(command_buffer, resource_manager, pipeline);
 			execute_pipeline(execution_context);
 		}
 	);
@@ -507,7 +546,7 @@ void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPa
 	vkCmdBeginDebugUtilsLabelEXT(command_buffer, &pass_label);
 
 	raytracing_pass.callback(
-		[&](std::string pipeline_name, RaytracingPipelineExecutionCallback execute_pipeline) {
+		[&](std::string pipeline_name, RaytracingExecutionCallback execute_pipeline) {
 			RaytracingPipeline &pipeline = raytracing_pipelines[pipeline_name];
 
 			vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.handle);
@@ -520,7 +559,7 @@ void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPa
 					2, 1, &render_pass.descriptor_set, 0, nullptr);
 			}
 
-			RaytracingPipelineExecutionContext execution_context(command_buffer, resource_manager, render_pass, pipeline);
+			RaytracingExecutionContext execution_context(command_buffer, resource_manager, pipeline);
 			execute_pipeline(execution_context);
 		}
 	);
@@ -539,8 +578,15 @@ void RenderGraph::ActualizeResource(TransientResource &resource) {
 			usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		}
 
-		images[resource.name] = resource_manager.Create2DImage(resource.image.width,
-			resource.image.height, resource.image.format, usage, VK_IMAGE_LAYOUT_GENERAL);
+		// Swapchain-sized image
+		if(resource.image.width == 0 && resource.image.height == 0) {
+			images[resource.name] = resource_manager.Create2DImage(context.swapchain.extent.width,
+				context.swapchain.extent.height, resource.image.format, usage, VK_IMAGE_LAYOUT_GENERAL);
+		}
+		else {
+			images[resource.name] = resource_manager.Create2DImage(resource.image.width,
+				resource.image.height, resource.image.format, usage, VK_IMAGE_LAYOUT_GENERAL);
+		}
 		image_access[resource.name] = ImageAccess {
 			.layout = VK_IMAGE_LAYOUT_GENERAL,
 			//.format = resource.image.format,
@@ -595,61 +641,6 @@ bool RenderGraph::SanityCheck() {
 			assert(false);
 		}
 	}
-
 	return true;
 }
 
-void GraphicsPipelineExecutionContext::BindGlobalVertexAndIndexBuffers() {
-	VkDeviceSize offset = 0;
-	vkCmdBindVertexBuffers(command_buffer, 0, 1, &resource_manager.global_vertex_buffer.handle, &offset);
-	vkCmdBindIndexBuffer(command_buffer, resource_manager.global_index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
-}
-
-void GraphicsPipelineExecutionContext::BindVertexBuffer(VkBuffer buffer, VkDeviceSize offset) {
-	vkCmdBindVertexBuffers(command_buffer, 0, 1, &buffer, &offset);
-}
-
-void GraphicsPipelineExecutionContext::BindIndexBuffer(VkBuffer buffer, VkDeviceSize offset, VkIndexType type) {
-	vkCmdBindIndexBuffer(command_buffer, buffer, offset, type);
-}
-
-void GraphicsPipelineExecutionContext::SetScissor(VkRect2D scissor) {
-	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
-}
-
-void GraphicsPipelineExecutionContext::SetViewport(VkViewport viewport) {
-	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
-}
-
-void GraphicsPipelineExecutionContext::DrawIndexed(uint32_t index_count, uint32_t instance_count, 
-	uint32_t first_index, uint32_t vertex_offset, uint32_t first_instance) {
-	vkCmdDrawIndexed(command_buffer, index_count, instance_count, first_index, vertex_offset, first_instance);
-}
-
-void GraphicsPipelineExecutionContext::Draw(uint32_t vertex_count, uint32_t instance_count, 
-	uint32_t first_vertex, uint32_t first_instance) {
-	vkCmdDraw(command_buffer, vertex_count, instance_count, first_vertex, instance_count);
-}
-
-void RaytracingPipelineExecutionContext::TraceRays(uint32_t width, uint32_t height) {
-	VkStridedDeviceAddressRegionKHR raygen_sbt {
-		.deviceAddress = pipeline.shader_binding_table_address + 0 * pipeline.shader_group_size,
-		.stride = pipeline.shader_group_size,
-		.size = pipeline.shader_group_size
-	};
-	VkStridedDeviceAddressRegionKHR miss_sbt {
-		.deviceAddress = pipeline.shader_binding_table_address + 1 * pipeline.shader_group_size,
-		.stride = pipeline.shader_group_size,
-		.size = pipeline.shader_group_size
-	};
-	VkStridedDeviceAddressRegionKHR hit_sbt {
-		.deviceAddress = pipeline.shader_binding_table_address + 2 * pipeline.shader_group_size,
-		.stride = pipeline.shader_group_size,
-		.size = pipeline.shader_group_size
-	};
-	VkStridedDeviceAddressRegionKHR callable_sbt {};
-
-	// TODO: Move callback out of resource manager?
-	vkCmdTraceRaysKHR(command_buffer, &raygen_sbt, &miss_sbt, &hit_sbt, 
-		&callable_sbt, width, height, 1);
-}

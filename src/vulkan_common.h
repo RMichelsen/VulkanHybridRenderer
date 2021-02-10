@@ -259,15 +259,15 @@ struct RaytracingPipeline {
 	VkPipelineLayout layout;
 };
 
-class GraphicsPipelineExecutionContext;
-using GraphicsPipelineExecutionCallback = std::function<void(GraphicsPipelineExecutionContext &)>;
-using ExecuteGraphicsPipelineCallback = std::function<void(std::string, GraphicsPipelineExecutionCallback)>;
-using GraphicsPassCallback = std::function<void(ExecuteGraphicsPipelineCallback)>;
+class GraphicsExecutionContext;
+using GraphicsExecutionCallback = std::function<void(GraphicsExecutionContext &)>;
+using ExecuteGraphicsCallback = std::function<void(std::string, GraphicsExecutionCallback)>;
+using GraphicsPassCallback = std::function<void(ExecuteGraphicsCallback)>;
 
-class RaytracingPipelineExecutionContext;
-using RaytracingPipelineExecutionCallback = std::function<void(RaytracingPipelineExecutionContext &)>;
-using ExecuteRaytracingPipelineCallback = std::function<void(std::string, RaytracingPipelineExecutionCallback)>;
-using RaytracingPassCallback = std::function<void(ExecuteRaytracingPipelineCallback)>;
+class RaytracingExecutionContext;
+using RaytracingExecutionCallback = std::function<void(RaytracingExecutionContext &)>;
+using ExecuteRaytracingCallback = std::function<void(std::string, RaytracingExecutionCallback)>;
+using RaytracingPassCallback = std::function<void(ExecuteRaytracingCallback)>;
 
 struct GraphicsPass {
 	VkRenderPass handle;

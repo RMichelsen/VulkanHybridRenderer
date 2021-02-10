@@ -87,8 +87,35 @@ VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) {
 	InitSwapchain(hwnd);
 }
 
-VulkanContext::~VulkanContext() {
+void VulkanContext::DestroyResources() {
 	VK_CHECK(vkDeviceWaitIdle(device));
+
+	for(FrameResources &resources : frame_resources) {
+		vkDestroyFramebuffer(device, resources.framebuffer, nullptr);
+		vkDestroySemaphore(device, resources.image_available, nullptr);
+		vkDestroySemaphore(device, resources.render_finished, nullptr);
+		vkDestroyFence(device, resources.fence, nullptr);
+	}
+
+	for(VkImageView &image_view : swapchain.image_views) {
+		vkDestroyImageView(device, image_view, nullptr);
+	}
+	vkDestroySwapchainKHR(device, swapchain.handle, nullptr);
+
+	vkDestroyCommandPool(device, command_pool, nullptr);
+	vmaDestroyAllocator(allocator);
+
+	vkDestroyDevice(device, nullptr);
+
+#ifndef NDEBUG
+	vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
+#endif
+	vkDestroySurfaceKHR(instance, surface, nullptr);
+	vkDestroyInstance(instance, nullptr);
+}
+
+void VulkanContext::Resize(HWND hwnd) {
+	InitSwapchain(hwnd);
 }
 
 #ifndef NDEBUG
@@ -271,6 +298,7 @@ void VulkanContext::InitFrameResources() {
 }
 
 void VulkanContext::InitSwapchain(HWND hwnd) {
+	VK_CHECK(vkDeviceWaitIdle(device));
 	VkSwapchainKHR old_swapchain = swapchain.handle;
 
 	RECT client_rect;

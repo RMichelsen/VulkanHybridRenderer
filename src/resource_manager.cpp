@@ -26,17 +26,6 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	buffer_info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	global_obj_data_buffer = VkUtils::CreateGPUBuffer(context.allocator, buffer_info);
 
-	VkTransformMatrixKHR identity_transform {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f
-	};
-	buffer_info = VkUtils::BufferCreateInfo(sizeof(VkTransformMatrixKHR),
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-	identity_transform_buffer = VkUtils::CreateGPUBuffer(context.allocator, buffer_info);
-	UploadDataToGPUBuffer(identity_transform_buffer, &identity_transform, sizeof(VkTransformMatrixKHR));
-	
 	std::array<VkDescriptorPoolSize, 3> transient_descriptor_pool_sizes {
 		VkDescriptorPoolSize {
 			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -78,9 +67,35 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	VK_CHECK(vkCreateSampler(context.device, &sampler_info, nullptr, &sampler));
 }
 
-ResourceManager::~ResourceManager() {
+void ResourceManager::DestroyResources() {
+	VK_CHECK(vkDeviceWaitIdle(context.device));
+
 	VkUtils::DestroyGPUBuffer(context.allocator, global_vertex_buffer);
 	VkUtils::DestroyGPUBuffer(context.allocator, global_index_buffer);
+	VkUtils::DestroyGPUBuffer(context.allocator, global_obj_data_buffer);
+	VkUtils::DestroyGPUBuffer(context.allocator, global_instances_buffer);
+
+	for(uint32_t i = 0; i < MAX_GLOBAL_TEXTURES; ++i) {
+		if(textures[i].handle != VK_NULL_HANDLE) {
+			VkUtils::DestroyImage(context.device, context.allocator, textures[i]);
+		}
+	}
+
+	VkUtils::DestroyAccelerationStructure(context.device, context.allocator, global_BLAS);
+	VkUtils::DestroyAccelerationStructure(context.device, context.allocator, global_TLAS);
+
+	vkDestroyDescriptorPool(context.device, global_descriptor_pool, nullptr);
+	vkDestroyDescriptorSetLayout(context.device, global_descriptor_set_layout, nullptr);
+	vkDestroyDescriptorPool(context.device, per_frame_descriptor_pool, nullptr);
+	vkDestroyDescriptorSetLayout(context.device, per_frame_descriptor_set_layout, nullptr);
+	vkDestroyDescriptorPool(context.device, transient_descriptor_pool, nullptr);
+
+
+	for(MappedBuffer &buffer : per_frame_ubos) {
+		VkUtils::DestroyMappedBuffer(context.allocator, buffer);
+	}
+
+	vkDestroySampler(context.device, sampler, nullptr);
 }
 
 Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat format, 
@@ -192,8 +207,7 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 	return static_cast<uint32_t>(-1);
 }
 
-void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
-	Scene &scene) {
+void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, Scene &scene) {
 	UploadDataToGPUBuffer(global_vertex_buffer, vertices.data(), vertices.size() * sizeof(Vertex));
 	UploadDataToGPUBuffer(global_index_buffer, indices.data(), indices.size() * sizeof(uint32_t));
 

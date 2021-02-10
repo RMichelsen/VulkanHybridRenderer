@@ -251,6 +251,18 @@ inline void DestroyGPUBuffer(VmaAllocator allocator, GPUBuffer buffer) {
 	vmaDestroyBuffer(allocator, buffer.handle, buffer.allocation);
 }
 
+inline void DestroyImage(VkDevice device, VmaAllocator allocator, Image image) {
+	vkDestroyImageView(device, image.view, nullptr);
+	vmaDestroyImage(allocator, image.handle, image.allocation);
+}
+
+inline void DestroyAccelerationStructure(VkDevice device, VmaAllocator allocator,
+	AccelerationStructure acceleration_structure) {
+	VkUtils::DestroyGPUBuffer(allocator, acceleration_structure.buffer);
+	VkUtils::DestroyGPUBuffer(allocator, acceleration_structure.scratch);
+	vkDestroyAccelerationStructureKHR(device, acceleration_structure.handle, nullptr);
+}
+
 inline VkImageLayout GetImageLayoutFromResourceType(TransientImageType type, VkFormat format) {
 	switch(type) {
 	case TransientImageType::AttachmentImage: {

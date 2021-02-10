@@ -924,6 +924,12 @@
     <ClInclude Include="src\user_interface.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics_execution_context.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\raytracing_execution_context.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\dependencies_impl.cpp">
@@ -975,6 +981,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\user_interface.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics_execution_context.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\raytracing_execution_context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

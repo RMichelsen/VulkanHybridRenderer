@@ -27,14 +27,16 @@ class VulkanContext;
 class UserInterface {
 public:
 	UserInterface(VulkanContext &context, ResourceManager &resource_manager);
+	void DestroyResources();
 
 	void Update();
-	void Draw(GraphicsPipelineExecutionContext &execution_context);
+	void Draw(GraphicsExecutionContext &execution_context);
 
 private:
+	VulkanContext &context;
+
 	MappedBuffer vertex_buffer;
 	MappedBuffer index_buffer;
-
 	uint32_t font_texture;
 };
 

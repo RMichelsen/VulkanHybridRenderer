@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "user_interface.h"
 
+#include "graphics_execution_context.h"
 #include "render_graph.h"
 #include "resource_manager.h"
 #include "vulkan_context.h"
@@ -8,7 +9,8 @@
 
 inline constexpr uint32_t IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE = 32 * 1024 * 1024; // 32MB
 
-UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_manager) {
+UserInterface::UserInterface(VulkanContext &context, 
+	ResourceManager &resource_manager) : context(context) {
 	ImGui::CreateContext();
 	ImGuiIO &io = ImGui::GetIO();
 	io.DisplaySize.x = static_cast<float>(context.swapchain.extent.width);
@@ -28,6 +30,12 @@ UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_m
 	index_buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
 }
 
+void UserInterface::DestroyResources() {
+	VK_CHECK(vkDeviceWaitIdle(context.device));
+	VkUtils::DestroyMappedBuffer(context.allocator, vertex_buffer);
+	VkUtils::DestroyMappedBuffer(context.allocator, index_buffer);
+}
+
 void UserInterface::Update() {
 	ImGui::NewFrame();
 	ImGui::ShowDemoWindow();
@@ -36,7 +44,7 @@ void UserInterface::Update() {
 	ImGui::Render();
 }
 
-void UserInterface::Draw(GraphicsPipelineExecutionContext &execution_context) {
+void UserInterface::Draw(GraphicsExecutionContext &execution_context) {
 	ImDrawData *draw_data = ImGui::GetDrawData();
 	if(!draw_data || draw_data->CmdListsCount == 0) {
 		return;

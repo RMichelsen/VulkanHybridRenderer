@@ -29,7 +29,8 @@ struct FrameResources {
 class VulkanContext {
 public:
 	VulkanContext(HINSTANCE hinstance, HWND hwnd);
-	~VulkanContext();
+	void DestroyResources();
+	void Resize(HWND hwnd);
 
 	VkInstance instance = VK_NULL_HANDLE;
 	VkSurfaceKHR surface = VK_NULL_HANDLE;

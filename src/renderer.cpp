@@ -1,7 +1,9 @@
 #include "pch.h"
 #include "renderer.h"
 
+#include "graphics_execution_context.h"
 #include "pipeline.h"
+#include "raytracing_execution_context.h"
 #include "render_graph.h"
 #include "resource_manager.h"
 #include "scene_loader.h"
@@ -19,15 +21,17 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) {
 }
 
 Renderer::~Renderer() {
-	resource_manager.reset();
-	context.reset();
+	user_interface->DestroyResources();
+	render_graph->DestroyResources();
+	resource_manager->DestroyResources();
+	context->DestroyResources();
 }
 
 void Renderer::Update() {
 	user_interface->Update();
 }
 
-void Renderer::Present() {
+void Renderer::Present(HWND hwnd) {
 	static uint32_t resource_idx = 0;
 	FrameResources &resources = context->frame_resources[resource_idx];
 
@@ -38,7 +42,8 @@ void Renderer::Present() {
 	VkResult result = vkAcquireNextImageKHR(context->device, context->swapchain.handle, 
 		UINT64_MAX, resources.image_available, VK_NULL_HANDLE, &image_idx);
 	if(result == VK_ERROR_OUT_OF_DATE_KHR) {
-		// TODO: Recreate swapchain
+		context->Resize(hwnd);
+		render_graph->Build();
 		return;
 	}
 	VK_CHECK(result);
@@ -69,9 +74,12 @@ void Renderer::Present() {
 	};
 
 	result = vkQueuePresentKHR(context->graphics_queue, &present_info);
-	if(result == VK_ERROR_OUT_OF_DATE_KHR) {
-		// TODO: Recreate swapchain
-		return;
+	if(!((result == VK_SUCCESS) || (result == VK_SUBOPTIMAL_KHR))) {
+		if(result == VK_ERROR_OUT_OF_DATE_KHR) {
+			context->Resize(hwnd);
+			render_graph->Build();
+			return;
+		}
 	}
 	VK_CHECK(result);
 
@@ -125,9 +133,9 @@ void Renderer::CreatePipeline() {
 				}
 			}
 		},
-		[this](ExecuteGraphicsPipelineCallback execute_pipeline) {
+		[this](ExecuteGraphicsCallback execute_pipeline) {
 			execute_pipeline("G-Buffer Pipeline",
-				[this](GraphicsPipelineExecutionContext &execution_context) {
+				[this](GraphicsExecutionContext &execution_context) {
 					execution_context.BindGlobalVertexAndIndexBuffers();
 					for(Mesh &mesh : scene.meshes) {
 						for(int i = 0; i < mesh.primitives.size(); ++i) {
@@ -155,9 +163,9 @@ void Renderer::CreatePipeline() {
 			.hit_shader = "data/shaders/compiled/closesthit.rchit.spv",
 			.miss_shader = "data/shaders/compiled/miss.rmiss.spv"
 		},
-		[this](ExecuteRaytracingPipelineCallback execute_pipeline) {
+		[this](ExecuteRaytracingCallback execute_pipeline) {
 			execute_pipeline("Raytracing Pipeline",
-				[this](RaytracingPipelineExecutionContext &execution_context) {
+				[this](RaytracingExecutionContext &execution_context) {
 					execution_context.TraceRays(context->swapchain.extent.width, 
 						context->swapchain.extent.height);
 				}
@@ -190,19 +198,21 @@ void Renderer::CreatePipeline() {
 			},
 			IMGUI_PIPELINE_DESCRIPTION
 		},
-		[this](ExecuteGraphicsPipelineCallback execute_pipeline) {
+		[this](ExecuteGraphicsCallback execute_pipeline) {
 			execute_pipeline("Composition Pipeline",
-				[this](GraphicsPipelineExecutionContext &execution_context) {
+				[this](GraphicsExecutionContext &execution_context) {
 					execution_context.Draw(3, 1, 0, 0);
 				}
 			);
 			execute_pipeline("ImGui Pipeline",
-				[this](GraphicsPipelineExecutionContext &execution_context) {
+				[this](GraphicsExecutionContext &execution_context) {
 					user_interface->Draw(execution_context);
 				}
 			);
 		}
 	);
+
+	render_graph->Build();
 }
 
 TransientResource Renderer::CreateTransientBackbuffer(ColorBlendState color_blend_state) {
@@ -228,8 +238,8 @@ TransientResource Renderer::CreateTransientAttachmentImage(const char *name, VkF
 		.name = name,
 		.image = TransientImage {
 			.type = TransientImageType::AttachmentImage,
-			.width = context->swapchain.extent.width,
-			.height = context->swapchain.extent.height,
+			.width = 0,
+			.height = 0,
 			.format = format,
 			.attachment_image = TransientAttachmentImage {
 				.color_blend_state = color_blend_state
@@ -262,8 +272,8 @@ TransientResource Renderer::CreateTransientSampledImage(const char *name, VkForm
 		.name = name,
 		.image = TransientImage {
 			.type = TransientImageType::SampledImage,
-			.width = context->swapchain.extent.width,
-			.height = context->swapchain.extent.height,
+			.width = 0,
+			.height = 0,
 			.format = format,
 			.sampled_image = TransientSampledImage {
 				.binding = binding,
@@ -298,8 +308,8 @@ TransientResource Renderer::CreateTransientStorageImage(const char *name, VkForm
 		.name = name,
 		.image = TransientImage {
 			.type = TransientImageType::StorageImage,
-			.width = context->swapchain.extent.width,
-			.height = context->swapchain.extent.height,
+			.width = 0,
+			.height = 0,
 			.format = format,
 			.storage_image = TransientStorageImage {
 				.binding = binding

@@ -143,6 +143,10 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	VK_CHECK(vkCreateGraphicsPipelines(context.device, VK_NULL_HANDLE, 1, &pipeline_info,
 		nullptr, &pipeline.handle));
 
+	for(VkPipelineShaderStageCreateInfo &pipeline_shader_stage_info : shader_stage_infos) {
+		vkDestroyShaderModule(context.device, pipeline_shader_stage_info.module, nullptr);
+	}
+
 	return pipeline;
 }
 
@@ -239,6 +243,10 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 	pipeline.shader_group_size = group_size_aligned;
 	pipeline.shader_binding_table_address = 
 		VkUtils::GetDeviceAddress(context.device, pipeline.shader_binding_table.handle).deviceAddress;
+
+	for(VkPipelineShaderStageCreateInfo &pipeline_shader_stage_info : shader_stage_infos) {
+		vkDestroyShaderModule(context.device, pipeline_shader_stage_info.module, nullptr);
+	}
 
 	return pipeline;
 }

@@ -87,14 +87,12 @@ int WINAPI wWinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
 	SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&renderer));
 
 	MSG msg;
-	bool alive = true;
-	while(alive) {
+	while(true) {
 		while(PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 			if(msg.message == WM_QUIT) {
-				alive = false;
-				break;
+				goto Done;
 			}
 		}
 
@@ -103,10 +101,11 @@ int WINAPI wWinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
 		}
 		else {
 			renderer.Update();
-			renderer.Present();
+			renderer.Present(hwnd);
 		}
 	}
 
+Done:
 	UnregisterClass(window_class_name, hinstance);
 	DestroyWindow(hwnd);
 	return 0;
