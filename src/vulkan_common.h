@@ -195,35 +195,19 @@ enum class TransientImageType {
 	StorageImage
 };
 
-struct TransientAttachmentImage {
-	ColorBlendState color_blend_state;
-};
-
-struct TransientSampledImage {
-	uint32_t binding;
-	VkSampler sampler;
-};
-
-struct TransientStorageImage {
-	uint32_t binding;
-};
-
-struct TransientBuffer {
-	uint32_t stride;
-	uint32_t count;
-};
-
 struct TransientImage {
 	TransientImageType type;
 	uint32_t width;
 	uint32_t height;
 	VkFormat format;
+	uint32_t binding;
+	
+	ColorBlendState color_blend_state;
+};
 
-	union {
-		TransientAttachmentImage attachment_image;
-		TransientSampledImage sampled_image;
-		TransientStorageImage storage_image;
-	};
+struct TransientBuffer {
+	uint32_t stride;
+	uint32_t count;
 };
 
 struct TransientResource {

@@ -124,7 +124,7 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		if(VkUtils::IsDepthFormat(resource.image.format)) {
 			continue;
 		}
-		switch(resource.image.attachment_image.color_blend_state) {
+		switch(resource.image.color_blend_state) {
 		case ColorBlendState::Off: {
 			color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_OFF);
 		} break;

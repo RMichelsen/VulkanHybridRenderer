@@ -142,10 +142,23 @@ void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 	};
 	GraphicsPass &graphics_pass = std::get<GraphicsPass>(render_pass.pass);
 
+	uint32_t color_attachment_count = 0;
+	uint32_t total_attachment_count = 0;
+	for(TransientResource &output : pass_description.outputs) {
+		if(output.type == TransientResourceType::Image &&
+			output.image.type == TransientImageType::AttachmentImage) {
+			if(!VkUtils::IsDepthFormat(output.image.format)) {
+				++color_attachment_count;
+			}
+			++total_attachment_count;
+		}
+	}
+	std::vector<VkAttachmentDescription> attachments(total_attachment_count);
+	std::vector<VkAttachmentReference> color_attachment_refs(color_attachment_count);
+	graphics_pass.attachments.resize(total_attachment_count);
+
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	std::vector<VkDescriptorImageInfo> descriptors;
-	std::vector<VkAttachmentDescription> attachments;
-	std::vector<VkAttachmentReference> color_attachment_refs;
 	VkAttachmentReference depth_attachment_ref;
 	VkSubpassDescription subpass_description {
 		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -155,11 +168,11 @@ void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 			switch(resource.image.type) {
 			case TransientImageType::AttachmentImage: {
 				assert(!input_resource && "Attachment images must be outputs");
-				graphics_pass.attachments.emplace_back(resource);
 				bool is_backbuffer = !strcmp(resource.name, "BACKBUFFER");
 				VkImageLayout layout = VkUtils::GetImageLayoutFromResourceType(resource.image.type,
 					resource.image.format);
-				attachments.emplace_back(VkAttachmentDescription {
+				graphics_pass.attachments[resource.image.binding] = resource;
+				attachments[resource.image.binding] = VkAttachmentDescription {
 					.format = is_backbuffer ? context.swapchain.format : resource.image.format,
 					.samples = VK_SAMPLE_COUNT_1_BIT,
 					.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, // TODO: Support LOAD?
@@ -168,36 +181,35 @@ void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 					.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // TODO: Support LOAD?
 					.finalLayout = is_backbuffer ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : layout
-				});
+				};
+
 				if(VkUtils::IsDepthFormat(resource.image.format)) {
 					assert(!subpass_description.pDepthStencilAttachment);
 					depth_attachment_ref = VkAttachmentReference {
-						.attachment = static_cast<uint32_t>(attachments.size() - 1),
+						.attachment = resource.image.binding,
 						.layout = layout
 					};
 					subpass_description.pDepthStencilAttachment = &depth_attachment_ref;
 				}
 				else {
-					color_attachment_refs.emplace_back(VkAttachmentReference {
-						.attachment = static_cast<uint32_t>(attachments.size() - 1),
+					color_attachment_refs[resource.image.binding] = VkAttachmentReference {
+						.attachment = resource.image.binding,
 						.layout = layout
-					});
+					};
 				}
 			} break;
 			case TransientImageType::SampledImage: {
 				descriptors.emplace_back(VkUtils::DescriptorImageInfo(images[resource.name].view,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, resource.image.sampled_image.sampler));
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, resource_manager.default_sampler));
 				bindings.emplace_back(VkUtils::DescriptorSetLayoutBinding(
-					resource.image.sampled_image.binding,
-					VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					resource.image.binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT));
 			} break;
 			case TransientImageType::StorageImage: {
 				descriptors.emplace_back(VkUtils::DescriptorImageInfo(images[resource.name].view,
 					VK_IMAGE_LAYOUT_GENERAL));
 				bindings.emplace_back(VkUtils::DescriptorSetLayoutBinding(
-					resource.image.storage_image.binding,
-					VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					resource.image.binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT));
 			} break;
 			}
@@ -301,17 +313,17 @@ void RenderGraph::CreateRaytracingPass(RenderPassDescription &pass_description) 
 			switch(resource.image.type) {
 			case TransientImageType::SampledImage: {
 				descriptors.emplace_back(VkUtils::DescriptorImageInfo(images[resource.name].view,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, resource.image.sampled_image.sampler));
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, resource_manager.default_sampler));
 				bindings.emplace_back(VkUtils::DescriptorSetLayoutBinding(
-					resource.image.sampled_image.binding,
-					VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR));
+					resource.image.binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 
+					VK_SHADER_STAGE_RAYGEN_BIT_KHR));
 			} break;
 			case TransientImageType::StorageImage: {
 				descriptors.emplace_back(VkUtils::DescriptorImageInfo(images[resource.name].view,
 					VK_IMAGE_LAYOUT_GENERAL));
 				bindings.emplace_back(VkUtils::DescriptorSetLayoutBinding(
-					resource.image.storage_image.binding,
-					VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR));
+					resource.image.binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 
+					VK_SHADER_STAGE_RAYGEN_BIT_KHR));
 			} break;
 			}
 		}

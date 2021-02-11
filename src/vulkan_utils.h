@@ -317,5 +317,112 @@ inline VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(uint32_t binding,
 		.stageFlags = shader_stage
 	};
 }
+
+inline TransientResource CreateTransientBackbuffer(uint32_t binding, ColorBlendState color_blend_state) {
+	return TransientResource {
+		.type = TransientResourceType::Image,
+		.name = "BACKBUFFER",
+		.image = TransientImage {
+			.type = TransientImageType::AttachmentImage,
+			.width = 0,
+			.height = 0,
+			.format = VK_FORMAT_UNDEFINED,
+			.binding = binding,
+			.color_blend_state = color_blend_state
+		}
+	};
+}
+
+inline TransientResource CreateTransientAttachmentImage(const char *name, VkFormat format, uint32_t binding,
+	ColorBlendState color_blend_state = ColorBlendState::Off) {
+	return TransientResource {
+		.type = TransientResourceType::Image,
+		.name = name,
+		.image = TransientImage {
+			.type = TransientImageType::AttachmentImage,
+			.width = 0,
+			.height = 0,
+			.format = format,
+			.binding = binding,
+			.color_blend_state = color_blend_state
+		}
+	};
+}
+
+inline TransientResource CreateTransientAttachmentImage(const char *name, uint32_t width, uint32_t height,
+	VkFormat format, uint32_t binding, ColorBlendState color_blend_state = ColorBlendState::Off) {
+	return TransientResource {
+		.type = TransientResourceType::Image,
+		.name = name,
+		.image = TransientImage {
+			.type = TransientImageType::AttachmentImage,
+			.width = width,
+			.height = height,
+			.format = format,
+			.binding = binding,
+			.color_blend_state = color_blend_state
+		}
+	};
+}
+
+inline TransientResource CreateTransientSampledImage(const char *name, VkFormat format,
+	uint32_t binding) {
+	return TransientResource {
+		.type = TransientResourceType::Image,
+		.name = name,
+		.image = TransientImage {
+			.type = TransientImageType::SampledImage,
+			.width = 0,
+			.height = 0,
+			.format = format,
+			.binding = binding
+		}
+	};
+}
+
+inline TransientResource CreateTransientSampledImage(const char *name, uint32_t width,
+	uint32_t height, VkFormat format, uint32_t binding) {
+	return TransientResource {
+		.type = TransientResourceType::Image,
+		.name = name,
+		.image = TransientImage {
+			.type = TransientImageType::SampledImage,
+			.width = width,
+			.height = height,
+			.format = format,
+			.binding = binding
+		}
+	};
+}
+
+inline TransientResource CreateTransientStorageImage(const char *name, VkFormat format,
+	uint32_t binding) {
+	return TransientResource {
+		.type = TransientResourceType::Image,
+		.name = name,
+		.image = TransientImage {
+			.type = TransientImageType::StorageImage,
+			.width = 0,
+			.height = 0,
+			.format = format,
+			.binding = binding
+		}
+	};
+}
+
+inline TransientResource CreateTransientStorageImage(const char *name, uint32_t width,
+	uint32_t height, VkFormat format, uint32_t binding) {
+	return TransientResource {
+		.type = TransientResourceType::Image,
+		.name = name,
+		.image = TransientImage {
+			.type = TransientImageType::StorageImage,
+			.width = width,
+			.height = height,
+			.format = format,
+			.binding = binding
+		}
+	};
+}
 }
 

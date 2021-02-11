@@ -11,6 +11,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <sstream>
 #include <unordered_map>

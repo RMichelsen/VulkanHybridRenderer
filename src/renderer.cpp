@@ -9,6 +9,7 @@
 #include "scene_loader.h"
 #include "user_interface.h"
 #include "vulkan_context.h"
+#include "vulkan_utils.h"
 
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<VulkanContext>(hinstance, hwnd)) {
 	resource_manager = std::make_unique<ResourceManager>(*context);
@@ -19,10 +20,10 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	render_graph->AddGraphicsPass("G-Buffer Pass",
 		{},
 		{
-			CreateTransientAttachmentImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientAttachmentImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT),
-			CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM),
-			CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT)
+			VkUtils::CreateTransientAttachmentImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientAttachmentImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
+			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 3)
 		},
 		{
 			GraphicsPipelineDescription {
@@ -63,7 +64,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	render_graph->AddRaytracingPass("Raytracing Pass",
 		{},
 		{
-			CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 0)
+			VkUtils::CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 0)
 		},
 		RaytracingPipelineDescription {
 			.name = "Raytracing Pipeline",
@@ -83,14 +84,14 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 
 	render_graph->AddGraphicsPass("Composition Pass",
 		{
-			CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			CreateTransientSampledImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
-			CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
-			CreateTransientSampledImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 3)
+			VkUtils::CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientSampledImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
+			VkUtils::CreateTransientSampledImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 3)
 		},
 		{
-			CreateTransientBackbuffer(ColorBlendState::ImGui),
-			CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT)
+			VkUtils::CreateTransientBackbuffer(0, ColorBlendState::ImGui),
+			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1),
 		},
 		{
 			GraphicsPipelineDescription {
@@ -208,125 +209,5 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	render_graph->Execute(resources.command_buffer, resource_idx, image_idx);
 
 	VK_CHECK(vkEndCommandBuffer(resources.command_buffer));
-}
-
-TransientResource Renderer::CreateTransientBackbuffer(ColorBlendState color_blend_state) {
-	return TransientResource {
-		.type = TransientResourceType::Image,
-		.name = "BACKBUFFER",
-		.image = TransientImage {
-			.type = TransientImageType::AttachmentImage,
-			.width = context->swapchain.extent.width,
-			.height = context->swapchain.extent.height,
-			.format = VK_FORMAT_UNDEFINED,
-			.attachment_image = TransientAttachmentImage {
-				.color_blend_state = color_blend_state
-			}
-		}
-	};
-}
-
-TransientResource Renderer::CreateTransientAttachmentImage(const char *name, VkFormat format,
-	ColorBlendState color_blend_state) {
-	return TransientResource {
-		.type = TransientResourceType::Image,
-		.name = name,
-		.image = TransientImage {
-			.type = TransientImageType::AttachmentImage,
-			.width = 0,
-			.height = 0,
-			.format = format,
-			.attachment_image = TransientAttachmentImage {
-				.color_blend_state = color_blend_state
-			}
-		}
-	};
-}
-
-TransientResource Renderer::CreateTransientAttachmentImage(const char *name, uint32_t width, uint32_t height, 
-	VkFormat format, ColorBlendState color_blend_state) {
-	return TransientResource {
-		.type = TransientResourceType::Image,
-		.name = name,
-		.image = TransientImage {
-			.type = TransientImageType::AttachmentImage,
-			.width = width,
-			.height = height,
-			.format = format,
-			.attachment_image = TransientAttachmentImage {
-				.color_blend_state = color_blend_state
-			}
-		}
-	};
-}
-
-TransientResource Renderer::CreateTransientSampledImage(const char *name, VkFormat format,
-	uint32_t binding) {
-	return TransientResource {
-		.type = TransientResourceType::Image,
-		.name = name,
-		.image = TransientImage {
-			.type = TransientImageType::SampledImage,
-			.width = 0,
-			.height = 0,
-			.format = format,
-			.sampled_image = TransientSampledImage {
-				.binding = binding,
-				.sampler = resource_manager->default_sampler
-			}
-		}
-	};
-}
-
-TransientResource Renderer::CreateTransientSampledImage(const char *name, uint32_t width,
-	uint32_t height, VkFormat format, uint32_t binding) {
-	return TransientResource {
-		.type = TransientResourceType::Image,
-		.name = name,
-		.image = TransientImage {
-			.type = TransientImageType::SampledImage,
-			.width = width,
-			.height = height,
-			.format = format,
-			.sampled_image = TransientSampledImage {
-				.binding = binding,
-				.sampler = resource_manager->default_sampler
-			}
-		}
-	};
-}
-
-TransientResource Renderer::CreateTransientStorageImage(const char *name, VkFormat format, 
-	uint32_t binding) {
-	return TransientResource {
-		.type = TransientResourceType::Image,
-		.name = name,
-		.image = TransientImage {
-			.type = TransientImageType::StorageImage,
-			.width = 0,
-			.height = 0,
-			.format = format,
-			.storage_image = TransientStorageImage {
-				.binding = binding
-			}
-		}
-	};
-}
-
-TransientResource Renderer::CreateTransientStorageImage(const char *name, uint32_t width,
-	uint32_t height, VkFormat format, uint32_t binding) {
-	return TransientResource {
-		.type = TransientResourceType::Image,
-		.name = name,
-		.image = TransientImage {
-			.type = TransientImageType::StorageImage,
-			.width = width,
-			.height = height,
-			.format = format,
-			.storage_image = TransientStorageImage {
-				.binding = binding
-			}
-		}
-	};
 }
 
