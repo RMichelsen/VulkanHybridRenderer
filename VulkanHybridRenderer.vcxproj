@@ -138,6 +138,7 @@
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <OpenMPSupport>true</OpenMPSupport>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

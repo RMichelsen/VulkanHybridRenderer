@@ -25,3 +25,4 @@ void main() {
 	out_normal = vec4(in_normal, 1.0);
 	out_albedo = texture(textures[primitives[pc.object_id].texture_idx], in_uv);
 }
+

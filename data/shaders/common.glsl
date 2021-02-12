@@ -12,3 +12,4 @@ struct Primitive {
 	int index_count;
 	int texture_idx;
 };
+

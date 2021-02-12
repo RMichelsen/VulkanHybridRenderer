@@ -1,4 +1,4 @@
- #version 460
+#version 460
 
 layout(push_constant) uniform PushConstants {
  	vec2 scale;
@@ -18,3 +18,4 @@ void main() {
     out_color = in_color;
 	gl_Position = vec4(in_pos * pc.scale + pc.translate, 0.0, 1.0);
 }
+

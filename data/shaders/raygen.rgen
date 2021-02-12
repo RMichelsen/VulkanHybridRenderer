@@ -29,3 +29,4 @@ void main() {
 	out_coords.y = int(gl_LaunchSizeEXT.y - out_coords.y);
 	imageStore(output_image, out_coords, payload);
 }
+

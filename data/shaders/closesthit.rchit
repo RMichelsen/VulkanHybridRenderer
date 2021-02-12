@@ -29,3 +29,4 @@ void main() {
 	vec2 uv = v0.uv0 * barycentrics.x + v1.uv0 * barycentrics.y + v2.uv0 * barycentrics.z;
 	payload = texture(textures[primitive.texture_idx], uv);
 }
+

@@ -13,3 +13,4 @@ void main() {
 	else if(in_uv.x + in_uv.y < 1.002) out_color = vec4(1.0, 0.0, 0.0, 1.0);
 	else out_color = texture(output_image, in_uv);
 }
+

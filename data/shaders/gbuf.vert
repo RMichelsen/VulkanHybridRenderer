@@ -34,3 +34,4 @@ void main() {
 
 	gl_Position = (pfd.camera_proj * pfd.camera_view * model) * vec4(in_pos, 1.0);
 }
+

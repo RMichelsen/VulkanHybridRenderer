@@ -198,6 +198,7 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 		{
 			image_idx = resource_manager.UploadTextureFromData(x, y, image_data, &sampler_info);
 			textures[data->textures[i].image->name] = image_idx;
+			free(image_data);
 		}
 		resource_manager.TagImage(image_idx, data->textures[i].image->name);
 	}
