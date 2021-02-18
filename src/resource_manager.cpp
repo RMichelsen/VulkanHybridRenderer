@@ -385,7 +385,7 @@ void ResourceManager::CreateGlobalDescriptorSet() {
 			.binding = 3,
 			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
 			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR
+			.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
 		},
 		VkDescriptorSetLayoutBinding {
 			.binding = 4,
@@ -452,7 +452,7 @@ void ResourceManager::CreatePerFrameDescriptorSet() {
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = MAX_PER_FRAME_UBOS,
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | 
-			VK_SHADER_STAGE_RAYGEN_BIT_KHR
+			VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
 	};
 	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,

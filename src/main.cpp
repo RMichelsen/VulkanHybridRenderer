@@ -24,6 +24,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 			static_cast<float>(GET_X_LPARAM(lparam)),
 			static_cast<float>(GET_Y_LPARAM(lparam))
 		};
+		if(io.MouseDown[0]) {
+			renderer->SetAnchor(static_cast<float>(GET_X_LPARAM(lparam)));
+		}
 	} return 0;
 	case WM_LBUTTONDOWN: {
 		io.MouseDown[0] = true;

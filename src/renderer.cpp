@@ -15,7 +15,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context, *resource_manager);
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
-	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza.glb");
+	scene = SceneLoader::LoadScene(*resource_manager, "data/models/Sponza_WithLight.glb");
 
 	render_graph->AddGraphicsPass("G-Buffer Pass",
 		{},
@@ -70,7 +70,8 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 			.name = "Raytracing Pipeline",
 			.raygen_shader = "data/shaders/compiled/raygen.rgen.spv",
 			.hit_shader = "data/shaders/compiled/closesthit.rchit.spv",
-			.miss_shader = "data/shaders/compiled/miss.rmiss.spv"
+			.miss_shader = "data/shaders/compiled/miss.rmiss.spv",
+			.shadow_miss_shader = "data/shaders/compiled/shadow_miss.rmiss.spv"
 		},
 		[this](ExecuteRaytracingCallback execute_pipeline) {
 			execute_pipeline("Raytracing Pipeline",
@@ -122,6 +123,8 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	);
 
 	render_graph->Build();
+
+	anchor = 0.5f;
 }
 
 Renderer::~Renderer() {
@@ -190,13 +193,19 @@ void Renderer::Present(HWND hwnd) {
 	resource_idx = (resource_idx + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+void Renderer::SetAnchor(float mouse_xpos) {
+	anchor = mouse_xpos / static_cast<float>(context->swapchain.extent.width);
+}
+
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {
 	resource_manager->UpdatePerFrameUBO(resource_idx, 
 		PerFrameData {
 			.camera_view = scene.camera.view,
 			.camera_proj = scene.camera.perspective,
 			.camera_view_inverse = glm::inverse(scene.camera.view),
-			.camera_proj_inverse = glm::inverse(scene.camera.perspective)
+			.camera_proj_inverse = glm::inverse(scene.camera.perspective),
+			.directional_light = scene.directional_light,
+			.anchor = anchor
 		}
 	);
 

@@ -38,7 +38,10 @@ void UserInterface::DestroyResources() {
 
 void UserInterface::Update() {
 	ImGui::NewFrame();
-	ImGui::ShowDemoWindow();
+
+	ImGui::BeginMainMenuBar();
+	ImGui::EndMainMenuBar();
+
 	ImGui::EndFrame();
 
 	ImGui::Render();
@@ -107,7 +110,6 @@ void UserInterface::Draw(GraphicsExecutionContext &execution_context) {
 				}
 			};
 			execution_context.SetScissor(scissor_rect);
-
 
 			execution_context.DrawIndexed(cmd.ElemCount, 1, index_offset, vertex_offset, 0);
 			index_offset += cmd.ElemCount;

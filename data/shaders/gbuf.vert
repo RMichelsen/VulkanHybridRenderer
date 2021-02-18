@@ -10,6 +10,8 @@ layout(set = 1, binding = 0) uniform PerFrameData {
 	mat4 camera_proj;
 	mat4 camera_view_inverse;
 	mat4 camera_proj_inverse;
+	DirectionalLight directional_light;
+	float anchor;
 } pfd;
 
 layout(push_constant) uniform PushConstants {
@@ -29,7 +31,7 @@ void main() {
 	mat4 model = primitives[pc.object_id].transform;
 
 	out_uv = in_uv0;
-	out_pos = (model * vec4(in_pos, 1.0)).rgb;
+	out_pos = vec3(model * vec4(in_pos, 1.0));
 	out_normal = in_normal;
 
 	gl_Position = (pfd.camera_proj * pfd.camera_view * model) * vec4(in_pos, 1.0);

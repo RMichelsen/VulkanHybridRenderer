@@ -1005,6 +1005,7 @@
     <GLSLShader Include="data\shaders\imgui.frag">
       <Filter>Header Files</Filter>
     </GLSLShader>
+    <GLSLShader Include="data\shaders\shadow_miss.rmiss" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />

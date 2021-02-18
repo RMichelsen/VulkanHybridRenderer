@@ -63,6 +63,17 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		return;
 	}
 
+	if(node.light) {
+		assert(node.light->type == cgltf_light_type_directional);
+
+		glm::mat4 node_transform;
+		cgltf_node_transform_world(&node, glm::value_ptr(node_transform));
+		scene.directional_light = DirectionalLight {
+			.direction = glm::vec4(glm::mat3(node_transform) * glm::vec3(0.0f, 0.0f, -1.0f), 1.0f),
+			.color = glm::vec4(glm::make_vec3(node.light->color), 1.0f)
+		};
+	}
+
 	if(!node.mesh) {
 		return;
 	}
@@ -207,6 +218,13 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 	std::vector<uint32_t> indices;
 	for(int i = 0; i < data->nodes_count; ++i) {
 		ParseNode(data->nodes[i], scene, textures, vertices, indices);
+	}
+
+	if(data->lights_count == 0) {
+		scene.directional_light = DirectionalLight{
+			.direction = glm::vec4(0.45f, -1.0f, 0.45f, 0.0f),
+			.color = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f)
+		};
 	}
 
 	resource_manager.UpdateGeometry(vertices, indices, scene);

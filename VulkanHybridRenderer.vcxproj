@@ -486,6 +486,7 @@
     <ClInclude Include="src\vulkan_context.h" />
     <ClInclude Include="src\vulkan_pipeline_presets.h" />
     <ClInclude Include="src\vulkan_utils.h" />
+    <GLSLShader Include="data\shaders\shadow_miss.rmiss" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dependencies\glm\detail\glm.cpp">

@@ -46,8 +46,14 @@ struct Mesh {
 	std::vector<Primitive> primitives;
 };
 
+struct DirectionalLight {
+	glm::vec4 direction;
+	glm::vec4 color;
+};
+
 struct Scene {
 	Camera camera;
+	DirectionalLight directional_light;
 	std::vector<Mesh> meshes;
 };
 
@@ -56,6 +62,8 @@ struct PerFrameData {
 	glm::mat4 camera_proj;
 	glm::mat4 camera_view_inverse;
 	glm::mat4 camera_proj_inverse;
+	DirectionalLight directional_light;
+	float anchor;
 };
 
 struct PushConstants {
@@ -243,11 +251,12 @@ struct RaytracingPipelineDescription {
 	const char *raygen_shader;
 	const char *hit_shader;
 	const char *miss_shader;
+	const char* shadow_miss_shader;
 };
 
 struct RaytracingPipeline {
 	RaytracingPipelineDescription description;
-	std::array<VkRayTracingShaderGroupCreateInfoKHR, 3> shader_groups;
+	std::array<VkRayTracingShaderGroupCreateInfoKHR, 4> shader_groups;
 	uint32_t shader_group_size;
 	MappedBuffer shader_binding_table;
 	VkDeviceAddress shader_binding_table_address;

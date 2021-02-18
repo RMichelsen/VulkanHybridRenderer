@@ -157,16 +157,18 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 		.description = description
 	};
 
-	std::array<VkPipelineShaderStageCreateInfo, 3> shader_stage_infos {
+	std::array<VkPipelineShaderStageCreateInfo, 4> shader_stage_infos {
 		VkUtils::PipelineShaderStageCreateInfo(context.device, description.raygen_shader,
 			VK_SHADER_STAGE_RAYGEN_BIT_KHR),
 		VkUtils::PipelineShaderStageCreateInfo(context.device, description.miss_shader,
+			VK_SHADER_STAGE_MISS_BIT_KHR),
+		VkUtils::PipelineShaderStageCreateInfo(context.device, description.shadow_miss_shader,
 			VK_SHADER_STAGE_MISS_BIT_KHR),
 		VkUtils::PipelineShaderStageCreateInfo(context.device, description.hit_shader,
 			VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
 	};
 	
-	pipeline.shader_groups = std::array<VkRayTracingShaderGroupCreateInfoKHR, 3> {
+	pipeline.shader_groups = std::array<VkRayTracingShaderGroupCreateInfoKHR, 4> {
 		VkRayTracingShaderGroupCreateInfoKHR {
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
@@ -185,9 +187,17 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 		},
 		VkRayTracingShaderGroupCreateInfoKHR {
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = 2,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR
+		},
+		VkRayTracingShaderGroupCreateInfoKHR {
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 			.generalShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = 2,
+			.closestHitShader = 3,
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR
 		},
@@ -213,7 +223,7 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 		.pStages = shader_stage_infos.data(),
 		.groupCount = static_cast<uint32_t>(pipeline.shader_groups.size()),
 		.pGroups = pipeline.shader_groups.data(),
-		.maxPipelineRayRecursionDepth = 1,
+		.maxPipelineRayRecursionDepth = 2,
 		.layout = pipeline.layout
 	};
 

@@ -13,3 +13,7 @@ struct Primitive {
 	int texture_idx;
 };
 
+struct DirectionalLight {
+	vec4 direction;
+	vec4 color;
+};

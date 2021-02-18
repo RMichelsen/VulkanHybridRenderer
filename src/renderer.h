@@ -12,6 +12,7 @@ public:
 
 	void Update();
 	void Present(HWND hwnd);
+	void SetAnchor(float mouse_xpos);
 
 private:
 	void Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx);
@@ -21,5 +22,6 @@ private:
 	std::unique_ptr<RenderGraph> render_graph;
 	std::unique_ptr<UserInterface> user_interface;
 	Scene scene;
+	float anchor;
 };
 
