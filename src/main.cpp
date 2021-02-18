@@ -7,6 +7,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 		return DefWindowProc(hwnd, msg, wparam, lparam);
 	}
 
+	HCURSOR sizewe_cursor = LoadCursor(NULL, IDC_SIZEWE);
+	HCURSOR arrow_cursor = LoadCursor(NULL, IDC_ARROW);
+
+	static bool anchor_active = false;
 	ImGuiIO &io = ImGui::GetIO();
 	switch (msg) {
 	case WM_SIZE: {
@@ -19,22 +23,34 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	case WM_DESTROY: {
 		PostQuitMessage(0);
 	} return 0;
+	case WM_SETCURSOR: {
+		if(renderer->PosOnAnchor(io.MousePos.x)) {
+			SetCursor(sizewe_cursor);
+		}
+		else {
+			SetCursor(arrow_cursor);
+		}
+	} return 0;
 	case WM_MOUSEMOVE: {
 		io.MousePos = ImVec2 {
 			static_cast<float>(GET_X_LPARAM(lparam)),
 			static_cast<float>(GET_Y_LPARAM(lparam))
 		};
-		if(io.MouseDown[0]) {
-			renderer->SetAnchor(static_cast<float>(GET_X_LPARAM(lparam)));
+		if(io.MouseDown[0] && anchor_active) {
+			renderer->SetAnchor(io.MousePos.x);
 		}
 	} return 0;
 	case WM_LBUTTONDOWN: {
+		if(renderer->PosOnAnchor(static_cast<float>(GET_X_LPARAM(lparam)))) {
+			anchor_active = true;
+		}
 		io.MouseDown[0] = true;
 	} return 0;
 	case WM_RBUTTONDOWN: {
 		io.MouseDown[1] = true;
 	} return 0;
 	case WM_LBUTTONUP: {
+		anchor_active = false;
 		io.MouseDown[0] = false;
 	} return 0;
 	case WM_RBUTTONUP: {
@@ -65,7 +81,7 @@ int WINAPI wWinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
 		.style = CS_HREDRAW | CS_VREDRAW,
 		.lpfnWndProc = WndProc,
 		.hInstance = hinstance,
-		.hCursor = LoadCursor(NULL, IDC_ARROW),
+		.hCursor = NULL,
 		.hbrBackground = nullptr,
 		.lpszClassName = window_class_name,
 	};

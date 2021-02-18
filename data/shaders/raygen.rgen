@@ -31,7 +31,7 @@ void main() {
 		1000.0, 0);
 	
 	ivec2 out_coords = ivec2(gl_LaunchIDEXT.xy);
-	out_coords.y = int(gl_LaunchSizeEXT.y - out_coords.y);
+	out_coords.y = int((gl_LaunchSizeEXT.y - 1) - out_coords.y);
 	imageStore(output_image, out_coords, payload);
 }
 

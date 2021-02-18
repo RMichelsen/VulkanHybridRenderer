@@ -123,7 +123,6 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	);
 
 	render_graph->Build();
-
 	anchor = 0.5f;
 }
 
@@ -195,6 +194,14 @@ void Renderer::Present(HWND hwnd) {
 
 void Renderer::SetAnchor(float mouse_xpos) {
 	anchor = mouse_xpos / static_cast<float>(context->swapchain.extent.width);
+}
+
+bool Renderer::PosOnAnchor(float mouse_xpos) {
+	float target_anchor = mouse_xpos / static_cast<float>(context->swapchain.extent.width);
+	if(fabs(anchor - target_anchor) < 0.002f) {
+		return true;
+	}
+	return false;
 }
 
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {

@@ -13,6 +13,7 @@ public:
 	void Update();
 	void Present(HWND hwnd);
 	void SetAnchor(float mouse_xpos);
+	bool PosOnAnchor(float mouse_xpos);
 
 private:
 	void Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx);
