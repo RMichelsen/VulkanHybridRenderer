@@ -2,15 +2,24 @@
 #include "user_interface.h"
 
 #include "graphics_execution_context.h"
+#include "pipeline.h"
 #include "render_graph.h"
 #include "resource_manager.h"
 #include "vulkan_context.h"
 #include "vulkan_utils.h"
 
+struct ImGuiPushConstants {
+	glm::vec2 scale;
+	glm::vec2 translate;
+	uint32_t font_texture;
+};
 inline constexpr uint32_t IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE = 32 * 1024 * 1024; // 32MB
+inline constexpr float ANCHOR_WIDTH = 0.001f;
 
-UserInterface::UserInterface(VulkanContext &context, 
-	ResourceManager &resource_manager) : context(context) {
+UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_manager) : 
+	context(context), 
+	split_view_anchor(0.5f),
+	split_view_anchor_drag_active(false) {
 	ImGui::CreateContext();
 	ImGuiIO &io = ImGui::GetIO();
 	io.DisplaySize.x = static_cast<float>(context.swapchain.extent.width);
@@ -28,12 +37,22 @@ UserInterface::UserInterface(VulkanContext &context,
 	vertex_buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
 	buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 	index_buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+
+	CreateImGuiRenderPass();
+	CreateImGuiPipeline(resource_manager);
 }
 
 void UserInterface::DestroyResources() {
 	VK_CHECK(vkDeviceWaitIdle(context.device));
 	VkUtils::DestroyMappedBuffer(context.allocator, vertex_buffer);
 	VkUtils::DestroyMappedBuffer(context.allocator, index_buffer);
+
+	for(VkFramebuffer &framebuffer : framebuffers) {
+		vkDestroyFramebuffer(context.device, framebuffer, nullptr);
+	}
+	vkDestroyPipelineLayout(context.device, pipeline_layout, nullptr);
+	vkDestroyPipeline(context.device, pipeline, nullptr);
+	vkDestroyRenderPass(context.device, render_pass, nullptr);
 }
 
 void UserInterface::Update() {
@@ -43,11 +62,47 @@ void UserInterface::Update() {
 	ImGui::EndMainMenuBar();
 
 	ImGui::EndFrame();
-
 	ImGui::Render();
 }
 
-void UserInterface::Draw(GraphicsExecutionContext &execution_context) {
+void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer command_buffer, 
+	uint32_t resource_idx, uint32_t image_idx) {
+	VkFramebuffer& framebuffer = framebuffers[resource_idx];
+
+	// Delete previous framebuffer
+	if(framebuffer != VK_NULL_HANDLE) {
+		vkDestroyFramebuffer(context.device, framebuffer, nullptr);
+		framebuffer = VK_NULL_HANDLE;
+	}
+	VkFramebufferCreateInfo framebuffer_info {
+		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+		.renderPass = render_pass,
+		.attachmentCount = 1,
+		.pAttachments = &context.swapchain.image_views[image_idx],
+		.width = context.swapchain.extent.width,
+		.height = context.swapchain.extent.height,
+		.layers = 1
+	};
+	VK_CHECK(vkCreateFramebuffer(context.device, &framebuffer_info, nullptr, &framebuffer));
+
+	VkRenderPassBeginInfo render_pass_begin_info {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = render_pass,
+		.framebuffer = framebuffer,
+		.renderArea = VkRect2D {
+			.offset = VkOffset2D {.x = 0, .y = 0 },
+			.extent = context.swapchain.extent
+		}
+	};
+
+	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		pipeline_layout, 0, 1, &resource_manager.global_descriptor_set, 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		pipeline_layout, 1, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
+
 	ImDrawData *draw_data = ImGui::GetDrawData();
 	if(!draw_data || draw_data->CmdListsCount == 0) {
 		return;
@@ -81,7 +136,8 @@ void UserInterface::Draw(GraphicsExecutionContext &execution_context) {
 		.translate = glm::vec2 { -1.0f, -1.0f },
 		.font_texture = font_texture
 	};
-	execution_context.PushConstants(push_constants);
+	vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | 
+		VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ImGuiPushConstants), &push_constants);
 
 	VkViewport viewport {
 		.width = draw_data->DisplaySize.x,
@@ -89,12 +145,13 @@ void UserInterface::Draw(GraphicsExecutionContext &execution_context) {
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f
 	};
-	execution_context.SetViewport(viewport);
+	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
+	std::array<VkDeviceSize, 1> offsets = { 0 };
 	uint32_t vertex_offset = 0;
 	uint32_t index_offset = 0;
-	execution_context.BindVertexBuffer(vertex_buffer.handle, 0);
-	execution_context.BindIndexBuffer(index_buffer.handle, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer.handle, offsets.data());
+	vkCmdBindIndexBuffer(command_buffer, index_buffer.handle, 0, VK_INDEX_TYPE_UINT16);
 	for(int i = 0; i < draw_data->CmdListsCount; ++i) {
 		ImDrawList *draw_list = draw_data->CmdLists[i];
 		for(int j = 0; j < draw_list->CmdBuffer.Size; ++j) {
@@ -109,12 +166,189 @@ void UserInterface::Draw(GraphicsExecutionContext &execution_context) {
 					.height = static_cast<uint32_t>(cmd.ClipRect.w - cmd.ClipRect.y)
 				}
 			};
-			execution_context.SetScissor(scissor_rect);
-
-			execution_context.DrawIndexed(cmd.ElemCount, 1, index_offset, vertex_offset, 0);
+			vkCmdSetScissor(command_buffer, 0, 1, &scissor_rect);
+			vkCmdDrawIndexed(command_buffer, cmd.ElemCount, 1, index_offset, vertex_offset, 0);
 			index_offset += cmd.ElemCount;
 		}
 		vertex_offset += draw_list->VtxBuffer.Size;
+	}
+
+	vkCmdEndRenderPass(command_buffer);
+}
+
+void UserInterface::ResizeToSwapchain() {
+	ImGuiIO& io = ImGui::GetIO();
+	io.DisplaySize.x = static_cast<float>(context.swapchain.extent.width);
+	io.DisplaySize.y = static_cast<float>(context.swapchain.extent.height);
+}
+
+bool UserInterface::IsHoveringAnchor() {
+	ImGuiIO& io = ImGui::GetIO();
+	float target = io.MousePos.x / static_cast<float>(context.swapchain.extent.width);
+	if(fabs(split_view_anchor - target) < ANCHOR_WIDTH * 4.0f) {
+		return true;
+	}
+	return false;
+}
+
+void UserInterface::MouseMove(float x, float y) {
+	ImGuiIO& io = ImGui::GetIO();
+	io.MousePos = ImVec2 { x, y };
+	if(io.MouseDown[0] && split_view_anchor_drag_active) {
+		split_view_anchor = x / static_cast<float>(context.swapchain.extent.width);
+	}
+}
+
+void UserInterface::MouseLeftButtonDown() {
+	if(IsHoveringAnchor()) {
+		split_view_anchor_drag_active = true;
+	}
+	ImGui::GetIO().MouseDown[0] = true;
+}
+
+void UserInterface::MouseLeftButtonUp() {
+	split_view_anchor_drag_active = false;
+	ImGui::GetIO().MouseDown[0] = false;
+}
+
+void UserInterface::MouseRightButtonDown() {
+	ImGui::GetIO().MouseDown[1] = true;
+}
+
+void UserInterface::MouseRightButtonUp() {
+	ImGui::GetIO().MouseDown[1] = false;
+}
+
+void UserInterface::MouseScroll(float delta) {
+	ImGui::GetIO().MouseWheel += delta;
+}
+
+void UserInterface::CreateImGuiRenderPass() {
+	std::array<VkAttachmentDescription, 1> attachments {
+	VkAttachmentDescription {
+		.format = context.swapchain.format,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+	}
+	};
+	std::array<VkAttachmentReference, 1> color_attachment_refs {
+		VkAttachmentReference {
+			.attachment = 0,
+			.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		}
+	};
+	VkSubpassDescription subpass_description {
+		.colorAttachmentCount = static_cast<uint32_t>(color_attachment_refs.size()),
+		.pColorAttachments = color_attachment_refs.data()
+	};
+	VkSubpassDependency subpass_dependency {
+		.srcSubpass = VK_SUBPASS_EXTERNAL,
+		.dstSubpass = 0,
+		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		.srcAccessMask = 0,
+		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+	};
+	VkRenderPassCreateInfo render_pass_info {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+		.attachmentCount = static_cast<uint32_t>(attachments.size()),
+		.pAttachments = attachments.data(),
+		.subpassCount = 1,
+		.pSubpasses = &subpass_description,
+		.dependencyCount = 1,
+		.pDependencies = &subpass_dependency
+	};
+	vkCreateRenderPass(context.device, &render_pass_info, nullptr, &render_pass);
+}
+
+void UserInterface::CreateImGuiPipeline(ResourceManager &resource_manager) {
+	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stage_infos {
+		VkUtils::PipelineShaderStageCreateInfo(context.device, "data/shaders/compiled/imgui.vert.spv",
+			VK_SHADER_STAGE_VERTEX_BIT),
+		VkUtils::PipelineShaderStageCreateInfo(context.device, "data/shaders/compiled/imgui.frag.spv",
+			VK_SHADER_STAGE_FRAGMENT_BIT)
+	};
+
+	VkPipelineVertexInputStateCreateInfo vertex_input_state_info = VERTEX_INPUT_STATE_IMGUI;
+	VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+	};
+	VkViewport viewport {
+		.y = static_cast<float>(context.swapchain.extent.height),
+		.width = static_cast<float>(context.swapchain.extent.width),
+		.height = -static_cast<float>(context.swapchain.extent.height),
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f
+	};
+	VkRect2D scissor {
+		.extent = context.swapchain.extent
+	};
+	VkPipelineViewportStateCreateInfo viewport_state_info {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.pViewports = &viewport,
+		.scissorCount = 1,
+		.pScissors = &scissor
+	};
+
+	std::array<VkPushConstantRange, 1> push_constants {
+		VkPushConstantRange {
+			.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+			.offset = 0,
+			.size = sizeof(ImGuiPushConstants)
+		}
+	};
+
+	std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts {
+		resource_manager.global_descriptor_set_layout,
+		resource_manager.per_frame_descriptor_set_layout,
+	};
+	VkPipelineLayoutCreateInfo layout_info {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.setLayoutCount = static_cast<uint32_t>(descriptor_set_layouts.size()),
+		.pSetLayouts = descriptor_set_layouts.data(),
+		.pushConstantRangeCount = static_cast<uint32_t>(push_constants.size()),
+		.pPushConstantRanges = push_constants.empty() ? nullptr : push_constants.data()
+	};
+
+	VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &pipeline_layout));
+
+	std::array<VkPipelineColorBlendAttachmentState, 1> color_blend_states {
+		COLOR_BLEND_ATTACHMENT_STATE_IMGUI
+	};
+	VkPipelineColorBlendStateCreateInfo color_blend_state {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.attachmentCount = static_cast<uint32_t>(color_blend_states.size()),
+		.pAttachments = color_blend_states.data()
+	};
+	VkGraphicsPipelineCreateInfo pipeline_info {
+		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		.stageCount = static_cast<uint32_t>(shader_stage_infos.size()),
+		.pStages = shader_stage_infos.data(),
+		.pVertexInputState = &vertex_input_state_info,
+		.pInputAssemblyState = &input_assembly_state_info,
+		.pViewportState = &viewport_state_info,
+		.pRasterizationState = &RASTERIZATION_STATE_FILL_NOCULL_CCW,
+		.pMultisampleState = &MULTISAMPLE_STATE_OFF,
+		.pDepthStencilState = &DEPTH_STENCIL_STATE_OFF,
+		.pColorBlendState = &color_blend_state,
+		.pDynamicState = &DYNAMIC_STATE_VIEWPORT_SCISSOR,
+		.layout = pipeline_layout,
+		.renderPass = render_pass,
+		.subpass = 0
+	};
+
+	VK_CHECK(vkCreateGraphicsPipelines(context.device, VK_NULL_HANDLE, 1, &pipeline_info,
+		nullptr, &pipeline));
+
+	for(VkPipelineShaderStageCreateInfo& pipeline_shader_stage_info : shader_stage_infos) {
+		vkDestroyShaderModule(context.device, pipeline_shader_stage_info.module, nullptr);
 	}
 }
 

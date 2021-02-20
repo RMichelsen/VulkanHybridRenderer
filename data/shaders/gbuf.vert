@@ -11,7 +11,7 @@ layout(set = 1, binding = 0) uniform PerFrameData {
 	mat4 camera_view_inverse;
 	mat4 camera_proj_inverse;
 	DirectionalLight directional_light;
-	float anchor;
+	float split_view_anchor;
 } pfd;
 
 layout(push_constant) uniform PushConstants {

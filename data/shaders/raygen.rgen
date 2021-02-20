@@ -11,7 +11,7 @@ layout(set = 1, binding = 0) uniform PerFrameData {
 	mat4 camera_view_inverse;
 	mat4 camera_proj_inverse;
 	DirectionalLight directional_light;
-	float anchor;
+	float split_view_anchor;
 } pfd;
 layout(set = 2, binding = 0, rgba8) uniform image2D output_image;
 

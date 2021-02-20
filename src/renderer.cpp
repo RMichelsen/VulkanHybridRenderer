@@ -91,8 +91,8 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 			VkUtils::CreateTransientSampledImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 3)
 		},
 		{
-			VkUtils::CreateTransientBackbuffer(0, ColorBlendState::ImGui),
-			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1),
+			VkUtils::CreateTransientBackbuffer(0, ColorBlendState::Off),
+			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1)
 		},
 		{
 			GraphicsPipelineDescription {
@@ -105,8 +105,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 				.depth_stencil_state = DepthStencilState::On,
 				.dynamic_state = DynamicState::None,
 				.push_constants = PUSHCONSTANTS_NONE
-			},
-			IMGUI_PIPELINE_DESCRIPTION
+			}
 		},
 		[this](ExecuteGraphicsCallback execute_pipeline) {
 			execute_pipeline("Composition Pipeline",
@@ -114,16 +113,10 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 					execution_context.Draw(3, 1, 0, 0);
 				}
 			);
-			execute_pipeline("ImGui Pipeline",
-				[this](GraphicsExecutionContext &execution_context) {
-					user_interface->Draw(execution_context);
-				}
-			);
 		}
 	);
 
 	render_graph->Build();
-	anchor = 0.5f;
 }
 
 Renderer::~Renderer() {
@@ -149,6 +142,7 @@ void Renderer::Present(HWND hwnd) {
 		UINT64_MAX, resources.image_available, VK_NULL_HANDLE, &image_idx);
 	if(result == VK_ERROR_OUT_OF_DATE_KHR) {
 		context->Resize(hwnd);
+		user_interface->ResizeToSwapchain();
 		render_graph->Build();
 		return;
 	}
@@ -192,18 +186,6 @@ void Renderer::Present(HWND hwnd) {
 	resource_idx = (resource_idx + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::SetAnchor(float mouse_xpos) {
-	anchor = mouse_xpos / static_cast<float>(context->swapchain.extent.width);
-}
-
-bool Renderer::PosOnAnchor(float mouse_xpos) {
-	float target_anchor = mouse_xpos / static_cast<float>(context->swapchain.extent.width);
-	if(fabs(anchor - target_anchor) < 0.002f) {
-		return true;
-	}
-	return false;
-}
-
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {
 	resource_manager->UpdatePerFrameUBO(resource_idx, 
 		PerFrameData {
@@ -212,7 +194,7 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 			.camera_view_inverse = glm::inverse(scene.camera.view),
 			.camera_proj_inverse = glm::inverse(scene.camera.perspective),
 			.directional_light = scene.directional_light,
-			.anchor = anchor
+			.split_view_anchor = user_interface->split_view_anchor
 		}
 	);
 
@@ -223,6 +205,7 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	VK_CHECK(vkBeginCommandBuffer(resources.command_buffer, &command_buffer_begin_info));
 	
 	render_graph->Execute(resources.command_buffer, resource_idx, image_idx);
+	user_interface->Draw(*resource_manager, resources.command_buffer, resource_idx, image_idx);
 
 	VK_CHECK(vkEndCommandBuffer(resources.command_buffer));
 }

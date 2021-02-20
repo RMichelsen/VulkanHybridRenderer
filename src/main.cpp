@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "renderer.h"
+#include "user_interface.h"
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	Renderer *renderer = reinterpret_cast<Renderer *>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
@@ -7,11 +8,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 		return DefWindowProc(hwnd, msg, wparam, lparam);
 	}
 
-	HCURSOR sizewe_cursor = LoadCursor(NULL, IDC_SIZEWE);
-	HCURSOR arrow_cursor = LoadCursor(NULL, IDC_ARROW);
-
-	static bool anchor_active = false;
-	ImGuiIO &io = ImGui::GetIO();
 	switch (msg) {
 	case WM_SIZE: {
 		return DefWindowProc(hwnd, msg, wparam, lparam);
@@ -24,40 +20,34 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 		PostQuitMessage(0);
 	} return 0;
 	case WM_SETCURSOR: {
-		if(renderer->PosOnAnchor(io.MousePos.x)) {
-			SetCursor(sizewe_cursor);
+		if(renderer->user_interface->IsHoveringAnchor()) {
+			SetCursor(LoadCursor(NULL, IDC_SIZEWE));
 		}
 		else {
-			SetCursor(arrow_cursor);
+			return DefWindowProc(hwnd, msg, wparam, lparam);
 		}
 	} return 0;
 	case WM_MOUSEMOVE: {
-		io.MousePos = ImVec2 {
+		renderer->user_interface->MouseMove(
 			static_cast<float>(GET_X_LPARAM(lparam)),
 			static_cast<float>(GET_Y_LPARAM(lparam))
-		};
-		if(io.MouseDown[0] && anchor_active) {
-			renderer->SetAnchor(io.MousePos.x);
-		}
+		);
 	} return 0;
 	case WM_LBUTTONDOWN: {
-		if(renderer->PosOnAnchor(static_cast<float>(GET_X_LPARAM(lparam)))) {
-			anchor_active = true;
-		}
-		io.MouseDown[0] = true;
+		renderer->user_interface->MouseLeftButtonDown();
 	} return 0;
 	case WM_RBUTTONDOWN: {
-		io.MouseDown[1] = true;
+		renderer->user_interface->MouseRightButtonDown();
 	} return 0;
 	case WM_LBUTTONUP: {
-		anchor_active = false;
-		io.MouseDown[0] = false;
+		renderer->user_interface->MouseLeftButtonUp();
 	} return 0;
 	case WM_RBUTTONUP: {
-		io.MouseDown[1] = false;
+		renderer->user_interface->MouseRightButtonUp();
 	} return 0;
 	case WM_MOUSEWHEEL: {
-		io.MouseWheel += static_cast<float>(GET_WHEEL_DELTA_WPARAM(wparam)) / 100.0f;
+		float delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(wparam)) / 100.0f;
+		renderer->user_interface->MouseScroll(delta);
 	} return 0;
 	}
 
@@ -81,7 +71,7 @@ int WINAPI wWinMain(HINSTANCE hinstance, HINSTANCE prev_hinstance,
 		.style = CS_HREDRAW | CS_VREDRAW,
 		.lpfnWndProc = WndProc,
 		.hInstance = hinstance,
-		.hCursor = NULL,
+		.hCursor = LoadCursor(NULL, IDC_ARROW),
 		.hbrBackground = nullptr,
 		.lpszClassName = window_class_name,
 	};

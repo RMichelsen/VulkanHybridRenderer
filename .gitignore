@@ -4,3 +4,5 @@ data/models
 data/shaders/compiled
 
 imgui.ini
+compileData*
+

@@ -1,3 +1,5 @@
+#define ANCHOR_WIDTH 0.001
+
 struct Vertex {
 	vec3 pos;
 	vec3 normal;

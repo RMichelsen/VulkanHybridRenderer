@@ -63,7 +63,7 @@ struct PerFrameData {
 	glm::mat4 camera_view_inverse;
 	glm::mat4 camera_proj_inverse;
 	DirectionalLight directional_light;
-	float anchor;
+	float split_view_anchor;
 };
 
 struct PushConstants {
