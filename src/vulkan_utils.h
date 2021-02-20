@@ -318,10 +318,10 @@ inline VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(uint32_t binding,
 	};
 }
 
-inline TransientResource CreateTransientBackbuffer(uint32_t binding, ColorBlendState color_blend_state) {
+inline TransientResource CreateTransientRenderOutput(uint32_t binding, ColorBlendState color_blend_state) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
-		.name = "BACKBUFFER",
+		.name = "RENDER_OUTPUT",
 		.image = TransientImage {
 			.type = TransientImageType::AttachmentImage,
 			.width = 0,

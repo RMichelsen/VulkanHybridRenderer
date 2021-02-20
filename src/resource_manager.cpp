@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "resource_manager.h"
 
+#include "scene_loader.h"
 #include "vulkan_context.h"
 #include "vulkan_utils.h"
 
@@ -97,6 +98,10 @@ void ResourceManager::DestroyResources() {
 		vkDestroySampler(context.device, sampler.handle, nullptr);
 	}
 	vkDestroySampler(context.device, default_sampler, nullptr);
+}
+
+void ResourceManager::LoadScene(const char* scene_path) {
+	scene = SceneLoader::LoadScene(*this, scene_path);
 }
 
 Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat format, 

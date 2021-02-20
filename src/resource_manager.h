@@ -8,6 +8,8 @@ public:
 	ResourceManager(VulkanContext &context);
 	void DestroyResources();
 
+	void LoadScene(const char* scene_path);
+
 	Image Create2DImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, 
 		VkImageLayout initial_layout);
 	uint32_t UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data, SamplerInfo *sampler_info = nullptr);
@@ -46,6 +48,8 @@ public:
 	VkDescriptorPool transient_descriptor_pool = VK_NULL_HANDLE;
 	VkSampler default_sampler;
 	std::vector<Sampler> samplers;
+
+	Scene scene;
 
 private:
 	void CreateGlobalDescriptorSet();

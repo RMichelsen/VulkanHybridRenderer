@@ -168,19 +168,19 @@ void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 			switch(resource.image.type) {
 			case TransientImageType::AttachmentImage: {
 				assert(!input_resource && "Attachment images must be outputs");
-				bool is_backbuffer = !strcmp(resource.name, "BACKBUFFER");
+				bool is_render_output = !strcmp(resource.name, "RENDER_OUTPUT");
 				VkImageLayout layout = VkUtils::GetImageLayoutFromResourceType(resource.image.type,
 					resource.image.format);
 				graphics_pass.attachments[resource.image.binding] = resource;
 				attachments[resource.image.binding] = VkAttachmentDescription {
-					.format = is_backbuffer ? context.swapchain.format : resource.image.format,
+					.format = is_render_output ? context.swapchain.format : resource.image.format,
 					.samples = VK_SAMPLE_COUNT_1_BIT,
 					.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 					.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-					.finalLayout = is_backbuffer ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : layout
+					.finalLayout = is_render_output ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : layout
 				};
 
 				if(VkUtils::IsDepthFormat(resource.image.format)) {
@@ -384,10 +384,10 @@ void RenderGraph::CreateRaytracingPass(RenderPassDescription &pass_description) 
 }
 
 void RenderGraph::FindExecutionOrder() {
-	assert(writers["BACKBUFFER"].size() == 1);
+	assert(writers["RENDER_OUTPUT"].size() == 1);
 
-	execution_order = { writers["BACKBUFFER"][0] };
-	std::deque<std::string> stack { writers["BACKBUFFER"][0] };
+	execution_order = { writers["RENDER_OUTPUT"][0] };
+	std::deque<std::string> stack { writers["RENDER_OUTPUT"][0] };
 	while(!stack.empty()) {
 		RenderPassDescription &pass = pass_descriptions[stack.front()];
 		stack.pop_front();
@@ -420,7 +420,7 @@ void RenderGraph::InsertBarriers(VkCommandBuffer command_buffer, RenderPass &ren
 		VkImageLayout dst_layout = VkUtils::GetImageLayoutFromResourceType(resource.image.type,
 			resource.image.format);
 
-		if(strcmp(resource.name, "BACKBUFFER") && current_access.layout != dst_layout) {
+		if(strcmp(resource.name, "RENDER_OUTPUT") && current_access.layout != dst_layout) {
 			VkImageAspectFlags aspect_flags = VkUtils::IsDepthFormat(resource.image.format) ?
 				VK_IMAGE_ASPECT_DEPTH_BIT :
 				VK_IMAGE_ASPECT_COLOR_BIT;
@@ -495,7 +495,7 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 	std::vector<VkImageView> image_views;
 	std::vector<VkClearValue> clear_values;
 	for(TransientResource &attachment : graphics_pass.attachments) {
-		if(!strcmp(attachment.name, "BACKBUFFER")) {
+		if(!strcmp(attachment.name, "RENDER_OUTPUT")) {
 			image_views.emplace_back(context.swapchain.image_views[image_idx]);
 		}
 		else {
@@ -590,7 +590,7 @@ void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPa
 }
 
 void RenderGraph::ActualizeResource(TransientResource &resource) {
-	if(!strcmp(resource.name, "BACKBUFFER")) {
+	if(!strcmp(resource.name, "RENDER_OUTPUT")) {
 		return;
 	}
 	
@@ -634,7 +634,7 @@ bool RenderGraph::SanityCheck() {
 	}
 
 	for(auto &[name, resources] : participating_resources) {
-		if(!strcmp(name.c_str(), "BACKBUFFER")) {
+		if(!strcmp(name.c_str(), "RENDER_OUTPUT")) {
 			continue;
 		}
 
