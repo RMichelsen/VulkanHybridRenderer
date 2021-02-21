@@ -15,34 +15,34 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\vulkan_utils.h">
+    <ClInclude Include="src\rendering_backend\vulkan_utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\renderer.h">
+    <ClInclude Include="src\rendering_backend\renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\resource_manager.h">
+    <ClInclude Include="src\rendering_backend\resource_manager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\scene_loader.h">
+    <ClInclude Include="src\scene\scene_loader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\vulkan_common.h">
+    <ClInclude Include="src\rendering_backend\vulkan_common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\vulkan_context.h">
+    <ClInclude Include="src\rendering_backend\vulkan_context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\render_graph.h">
+    <ClInclude Include="src\render_graph\render_graph.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\pipeline.h">
+    <ClInclude Include="src\rendering_backend\pipeline.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\vulkan_pipeline_presets.h">
+    <ClInclude Include="src\rendering_backend\vulkan_pipeline_presets.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="dependencies\cgltf\cgltf.h">
@@ -921,16 +921,22 @@
     <ClInclude Include="dependencies\volk\volk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\user_interface.h">
+    <ClInclude Include="src\rendering_backend\user_interface.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\graphics_execution_context.h">
+    <ClInclude Include="src\render_graph\graphics_execution_context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\raytracing_execution_context.h">
+    <ClInclude Include="src\render_graph\raytracing_execution_context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\deferred_render_path.h">
+    <ClInclude Include="src\render_paths\deferred_render_path.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render_paths\hybrid_shadows_render_path.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render_paths\raytraced_shadows_render_path.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -941,25 +947,25 @@
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\renderer.cpp">
+    <ClCompile Include="src\rendering_backend\renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\resource_manager.cpp">
+    <ClCompile Include="src\rendering_backend\resource_manager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\scene_loader.cpp">
+    <ClCompile Include="src\scene\scene_loader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\vulkan_context.cpp">
+    <ClCompile Include="src\rendering_backend\vulkan_context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render_graph.cpp">
+    <ClCompile Include="src\render_graph\render_graph.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\pipeline.cpp">
+    <ClCompile Include="src\rendering_backend\pipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="dependencies\glm\detail\glm.cpp">
@@ -983,16 +989,22 @@
     <ClCompile Include="dependencies\volk\volk.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\user_interface.cpp">
+    <ClCompile Include="src\rendering_backend\user_interface.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\graphics_execution_context.cpp">
+    <ClCompile Include="src\render_graph\graphics_execution_context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\raytracing_execution_context.cpp">
+    <ClCompile Include="src\render_graph\raytracing_execution_context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\deferred_render_path.cpp">
+    <ClCompile Include="src\render_paths\deferred_render_path.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render_paths\hybrid_shadows_render_path.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render_paths\raytraced_shadows_render_path.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1000,25 +1012,28 @@
     <Natvis Include="misc\glm.natvis" />
   </ItemGroup>
   <ItemGroup>
-    <GLSLShader Include="data\shaders\composition.frag" />
-    <GLSLShader Include="data\shaders\composition.vert" />
-    <GLSLShader Include="data\shaders\gbuf.frag" />
-    <GLSLShader Include="data\shaders\gbuf.vert" />
-    <GLSLShader Include="data\shaders\miss.rmiss" />
-    <GLSLShader Include="data\shaders\closesthit.rchit" />
-    <GLSLShader Include="data\shaders\raygen.rgen" />
-    <GLSLShader Include="data\shaders\imgui.vert" />
-    <GLSLShader Include="data\shaders\imgui.frag">
+    <GLSLShader Include="data\shaders\imgui\imgui.vert" />
+    <GLSLShader Include="data\shaders\imgui\imgui.frag">
       <Filter>Header Files</Filter>
     </GLSLShader>
-    <GLSLShader Include="data\shaders\shadow_miss.rmiss" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\composition.frag" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\composition.vert" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\gbuf.frag" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\gbuf.vert" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\miss.rmiss" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\raygen.rgen" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\shadow_miss.rmiss" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\closesthit.rchit" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\miss.rmiss" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\raygen.rgen" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\composition.vert" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\composition.frag" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />
   </ItemGroup>
   <ItemGroup>
     <None Include="misc\glsl.targets" />
-    <None Include="data\shaders\common.glsl" />
     <None Include="dependencies\glm\detail\func_common.inl">
       <Filter>Header Files</Filter>
     </None>
@@ -1427,5 +1442,7 @@
     <None Include="dependencies\glm\gtx\wrap.inl">
       <Filter>Header Files</Filter>
     </None>
+    <None Include="data\shaders\hybrid_shadows\common.glsl" />
+    <None Include="data\shaders\raytraced_shadows\common.glsl" />
   </ItemGroup>
 </Project>

@@ -1,10 +1,10 @@
 #include "pch.h"
 #include "pipeline.h"
 
-#include "resource_manager.h"
-#include "vulkan_context.h"
-#include "vulkan_pipeline_presets.h"
-#include "vulkan_utils.h"
+#include "rendering_backend/resource_manager.h"
+#include "rendering_backend/vulkan_context.h"
+#include "rendering_backend/vulkan_pipeline_presets.h"
+#include "rendering_backend/vulkan_utils.h"
 
 namespace VkUtils {
 GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager &resource_manager, 
@@ -157,51 +157,48 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 		.description = description
 	};
 
-	std::array<VkPipelineShaderStageCreateInfo, 4> shader_stage_infos {
+	uint32_t shader_slot = 0;
+	std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos {
 		VkUtils::PipelineShaderStageCreateInfo(context.device, description.raygen_shader,
 			VK_SHADER_STAGE_RAYGEN_BIT_KHR),
-		VkUtils::PipelineShaderStageCreateInfo(context.device, description.miss_shader,
-			VK_SHADER_STAGE_MISS_BIT_KHR),
-		VkUtils::PipelineShaderStageCreateInfo(context.device, description.shadow_miss_shader,
-			VK_SHADER_STAGE_MISS_BIT_KHR),
-		VkUtils::PipelineShaderStageCreateInfo(context.device, description.hit_shader,
-			VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
 	};
-	
-	pipeline.shader_groups = std::array<VkRayTracingShaderGroupCreateInfoKHR, 4> {
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups {
 		VkRayTracingShaderGroupCreateInfoKHR {
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.generalShader = 0,
+			.generalShader = shader_slot++,
 			.closestHitShader = VK_SHADER_UNUSED_KHR,
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR
-		},
-		VkRayTracingShaderGroupCreateInfoKHR {
+		}
+	};
+
+	for(const char *miss_shader : description.miss_shaders) {
+		shader_stage_infos.emplace_back(
+			VkUtils::PipelineShaderStageCreateInfo(context.device, miss_shader, VK_SHADER_STAGE_MISS_BIT_KHR)
+		);
+		shader_groups.emplace_back(VkRayTracingShaderGroupCreateInfoKHR {
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.generalShader = 1,
+			.generalShader = shader_slot++,
 			.closestHitShader = VK_SHADER_UNUSED_KHR,
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR
-		},
-		VkRayTracingShaderGroupCreateInfoKHR {
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.generalShader = 2,
-			.closestHitShader = VK_SHADER_UNUSED_KHR,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.intersectionShader = VK_SHADER_UNUSED_KHR
-		},
-		VkRayTracingShaderGroupCreateInfoKHR {
+		});
+	}
+	for(const char *hit_shader : description.hit_shaders) {
+		shader_stage_infos.emplace_back(
+			VkUtils::PipelineShaderStageCreateInfo(context.device, hit_shader, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+		);
+		shader_groups.emplace_back(VkRayTracingShaderGroupCreateInfoKHR {
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 			.generalShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = 3,
+			.closestHitShader = shader_slot++,
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR
-		},
-	};
+		});
+	}
 
 	std::vector<VkDescriptorSetLayout> descriptor_set_layouts { 
 		resource_manager.global_descriptor_set_layout,
@@ -221,38 +218,55 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
 		.stageCount = static_cast<uint32_t>(shader_stage_infos.size()),
 		.pStages = shader_stage_infos.data(),
-		.groupCount = static_cast<uint32_t>(pipeline.shader_groups.size()),
-		.pGroups = pipeline.shader_groups.data(),
-		.maxPipelineRayRecursionDepth = 2,
+		.groupCount = static_cast<uint32_t>(shader_groups.size()),
+		.pGroups = shader_groups.data(),
+		.maxPipelineRayRecursionDepth = 1,
 		.layout = pipeline.layout
 	};
 
 	VK_CHECK(vkCreateRayTracingPipelinesKHR(context.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1,
 		&raytracing_pipeline_info, nullptr, &pipeline.handle));
 
-	uint32_t group_count = static_cast<uint32_t>(pipeline.shader_groups.size());
+	uint32_t group_count = static_cast<uint32_t>(shader_groups.size());
 	uint32_t group_handle_size = raytracing_properties.shaderGroupHandleSize;
-	uint32_t group_size_aligned = VkUtils::AlignUp(group_handle_size, 
+	uint32_t group_handle_size_aligned = VkUtils::AlignUp(group_handle_size, 
 		raytracing_properties.shaderGroupBaseAlignment);
-	uint32_t shader_binding_table_size = group_size_aligned * group_count;
-
+	uint32_t shader_binding_table_size = group_handle_size_aligned * group_count;
 	std::vector<uint8_t> shader_group_handles(shader_binding_table_size);
 	VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(context.device, pipeline.handle, 0,
 		group_count, shader_binding_table_size, shader_group_handles.data()));
 
-	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(shader_binding_table_size, 
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR);
-	pipeline.shader_binding_table = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+	auto create_shader_binding_table = [&](uint64_t offset, uint64_t num_handles) {
+		if(num_handles == 0) {
+			return ShaderBindingTable {};
+		}
 
-	uint8_t *sbt_data = reinterpret_cast<uint8_t *>(pipeline.shader_binding_table.mapped_data);
-	for(uint32_t i = 0; i < group_count; ++i) {
-		memcpy(sbt_data + i * group_size_aligned,
-			shader_group_handles.data() + i * group_handle_size, group_handle_size);
-	}
+		VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(group_handle_size_aligned * num_handles,
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR);
+		ShaderBindingTable shader_binding_table {
+			.buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info)
+		};
 
-	pipeline.shader_group_size = group_size_aligned;
-	pipeline.shader_binding_table_address = 
-		VkUtils::GetDeviceAddress(context.device, pipeline.shader_binding_table.handle).deviceAddress;
+		uint8_t *mapped_data = reinterpret_cast<uint8_t *>(shader_binding_table.buffer.mapped_data);
+		for(int i = 0; i < num_handles; ++i) {
+			memcpy(
+				mapped_data,
+				(shader_group_handles.data() + offset * group_handle_size) + group_handle_size * i,
+				group_handle_size
+			);
+			mapped_data += group_handle_size_aligned;
+		}
+		shader_binding_table.strided_device_address_region = VkStridedDeviceAddressRegionKHR {
+			.deviceAddress = VkUtils::GetDeviceAddress(context.device, shader_binding_table.buffer.handle).deviceAddress,
+			.stride = group_handle_size_aligned,
+			.size = group_handle_size_aligned * num_handles
+		};
+		return shader_binding_table;
+	};
+
+	pipeline.raygen_sbt = create_shader_binding_table(0, 1);
+	pipeline.miss_sbt = create_shader_binding_table(1, description.miss_shaders.size());
+	pipeline.hit_sbt = create_shader_binding_table(1 + description.miss_shaders.size(), description.hit_shaders.size());
 
 	for(VkPipelineShaderStageCreateInfo &pipeline_shader_stage_info : shader_stage_infos) {
 		vkDestroyShaderModule(context.device, pipeline_shader_stage_info.module, nullptr);

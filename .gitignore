@@ -1,7 +1,7 @@
 .vs/
 bin/
 data/models
-data/shaders/compiled
+data/shaders_compiled
 
 imgui.ini
 compileData*

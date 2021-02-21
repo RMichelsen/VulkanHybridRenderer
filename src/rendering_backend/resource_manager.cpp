@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "resource_manager.h"
 
-#include "scene_loader.h"
-#include "vulkan_context.h"
-#include "vulkan_utils.h"
+#include "rendering_backend/vulkan_context.h"
+#include "rendering_backend/vulkan_utils.h"
+#include "scene/scene_loader.h"
 
 inline constexpr uint32_t MAX_TRANSIENT_DESCRIPTORS_PER_TYPE = 256;
 inline constexpr uint32_t MAX_TRANSIENT_SETS = 128;
@@ -101,7 +101,8 @@ void ResourceManager::DestroyResources() {
 }
 
 void ResourceManager::LoadScene(const char* scene_path) {
-	scene = SceneLoader::LoadScene(*this, scene_path);
+	std::string full_scene_path = "data/models/" + std::string(scene_path);
+	scene = SceneLoader::LoadScene(*this, full_scene_path.c_str());
 }
 
 Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat format, 

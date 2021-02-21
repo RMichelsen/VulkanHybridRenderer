@@ -1,6 +1,7 @@
 #include "pch.h"
-#include "renderer.h"
-#include "user_interface.h"
+
+#include "rendering_backend/renderer.h"
+#include "rendering_backend/user_interface.h"
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	Renderer *renderer = reinterpret_cast<Renderer *>(GetWindowLongPtr(hwnd, GWLP_USERDATA));

@@ -10,11 +10,12 @@
   <Target
     Name="GLSL"
     Inputs="@(GLSLShader)"
-	Outputs="@(GLSLShader -> '$(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv')"
+    Outputs="@(GLSLShader -> '%(FullPath).spv'->Replace('data\shaders', 'data\shaders_compiled'))"
     BeforeTargets="ClCompile">
-
-    <Message Importance="High" Text="---------- Compiling shaders ----------" />
-	<MakeDir Directories="$(ProjectDir)data\shaders\compiled"/>
-    <Exec Command="@(GLSLShader -> '$(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V --target-env vulkan1.2 -o $(ProjectDir)data\shaders\compiled\%(Filename)%(Extension).spv', ' &#38; ')" />
+  
+  	<Message Importance="High" Text="---------- Compiling shaders ----------" />
+    <!-- Hacky way to ensure creation of required directories -->
+  	<MakeDir Directories="@(GLSLShader -> '%(RelativeDir)'->Replace('data\shaders', 'data\shaders_compiled'))"/>
+  	<Exec Command="@(GLSLShader -> '$(VULKAN_SDK)\Bin\glslangValidator.exe %(FullPath) -V --target-env vulkan1.2 -o %(RelativeDir)%(Filename)%(Extension).spv'->Replace(' data\shaders', ' data\shaders_compiled'), ' &#38; ')" />
   </Target>
 </Project>

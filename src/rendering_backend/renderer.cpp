@@ -1,24 +1,26 @@
 #include "pch.h"
 #include "renderer.h"
 
-#include "deferred_render_path.h"
-#include "graphics_execution_context.h"
-#include "pipeline.h"
-#include "raytracing_execution_context.h"
-#include "render_graph.h"
-#include "resource_manager.h"
-#include "scene_loader.h"
-#include "user_interface.h"
-#include "vulkan_context.h"
-#include "vulkan_utils.h"
+#include "rendering_backend/pipeline.h"
+#include "rendering_backend/resource_manager.h"
+#include "rendering_backend/user_interface.h"
+#include "rendering_backend/vulkan_context.h"
+#include "rendering_backend/vulkan_utils.h"
+#include "render_graph/render_graph.h"
+#include "render_graph/graphics_execution_context.h"
+#include "render_graph/raytracing_execution_context.h"
+#include "render_paths/deferred_render_path.h"
+#include "render_paths/hybrid_shadows_render_path.h"
+#include "render_paths/raytraced_shadows_render_path.h"
+#include "scene/scene_loader.h"
 
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<VulkanContext>(hinstance, hwnd)) {
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context, *resource_manager);
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
-	resource_manager->LoadScene("data/models/Sponza_WithLight.glb");
+	resource_manager->LoadScene("Sponza_WithLight.glb");
 
-	EnableRenderPath(DeferredRenderPath::Enable);
+	EnableRenderPath(RaytracedShadowsRenderPath::Enable);
 }
 
 Renderer::~Renderer() {

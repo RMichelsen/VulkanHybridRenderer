@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "vulkan_context.h"
 
-#include "vulkan_utils.h"
+#include "rendering_backend/vulkan_utils.h"
 
 #ifndef NDEBUG
 inline constexpr std::array<const char*, 1> LAYERS { 

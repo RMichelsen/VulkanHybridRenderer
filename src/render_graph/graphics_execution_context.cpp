@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "graphics_execution_context.h"
 
-#include "resource_manager.h"
+#include "rendering_backend/resource_manager.h"
 
 void GraphicsExecutionContext::BindGlobalVertexAndIndexBuffers() {
 	VkDeviceSize offset = 0;

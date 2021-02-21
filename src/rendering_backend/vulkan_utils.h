@@ -6,7 +6,8 @@ inline uint32_t AlignUp(uint32_t value, uint32_t alignment) {
 }
 
 inline std::vector<uint32_t> LoadShader(const char *path, VkShaderStageFlags shader_stage) {
-	HANDLE file = CreateFileA(path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	std::string full_path = "data/shaders_compiled/" + std::string(path) + ".spv";
+	HANDLE file = CreateFileA(full_path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	assert(file != INVALID_HANDLE_VALUE);
 
 	DWORD file_size = GetFileSize(file, NULL);

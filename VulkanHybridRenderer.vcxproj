@@ -129,7 +129,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <AdditionalIncludeDirectories>dependencies;$(VULKAN_SDK)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;dependencies;$(VULKAN_SDK)\Include</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -158,7 +158,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <AdditionalIncludeDirectories>dependencies;$(VULKAN_SDK)\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;dependencies;$(VULKAN_SDK)\Include</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -178,8 +178,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <GLSLShader Include="data\shaders\imgui.frag">
-      <FileType>CppHeader</FileType>
+    <GLSLShader Include="data\shaders\hybrid_shadows\composition.frag" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\composition.vert" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\gbuf.frag" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\gbuf.vert" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\miss.rmiss" />
+    <GLSLShader Include="data\shaders\hybrid_shadows\raygen.rgen" />
+    <GLSLShader Include="data\shaders\imgui\imgui.frag">
+      <FileType>GLSLShader</FileType>
     </GLSLShader>
     <ClInclude Include="dependencies\cgltf\cgltf.h" />
     <ClInclude Include="dependencies\glm\common.hpp" />
@@ -473,21 +479,28 @@
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="dependencies\vma\vk_mem_alloc.h" />
     <ClInclude Include="dependencies\volk\volk.h" />
-    <ClInclude Include="src\deferred_render_path.h" />
-    <ClInclude Include="src\raytracing_execution_context.h" />
-    <ClInclude Include="src\graphics_execution_context.h" />
-    <ClInclude Include="src\user_interface.h" />
+    <ClInclude Include="src\render_paths\deferred_render_path.h" />
+    <ClInclude Include="src\render_paths\hybrid_shadows_render_path.h" />
+    <ClInclude Include="src\render_paths\raytraced_shadows_render_path.h" />
+    <ClInclude Include="src\render_graph\raytracing_execution_context.h" />
+    <ClInclude Include="src\render_graph\graphics_execution_context.h" />
+    <ClInclude Include="src\rendering_backend\user_interface.h" />
     <ClInclude Include="src\pch.h" />
-    <ClInclude Include="src\pipeline.h" />
-    <ClInclude Include="src\renderer.h" />
-    <ClInclude Include="src\render_graph.h" />
-    <ClInclude Include="src\resource_manager.h" />
-    <ClInclude Include="src\scene_loader.h" />
-    <ClInclude Include="src\vulkan_common.h" />
-    <ClInclude Include="src\vulkan_context.h" />
-    <ClInclude Include="src\vulkan_pipeline_presets.h" />
-    <ClInclude Include="src\vulkan_utils.h" />
-    <GLSLShader Include="data\shaders\shadow_miss.rmiss" />
+    <ClInclude Include="src\rendering_backend\pipeline.h" />
+    <ClInclude Include="src\rendering_backend\renderer.h" />
+    <ClInclude Include="src\render_graph\render_graph.h" />
+    <ClInclude Include="src\rendering_backend\resource_manager.h" />
+    <ClInclude Include="src\scene\scene_loader.h" />
+    <ClInclude Include="src\rendering_backend\vulkan_common.h" />
+    <ClInclude Include="src\rendering_backend\vulkan_context.h" />
+    <ClInclude Include="src\rendering_backend\vulkan_pipeline_presets.h" />
+    <ClInclude Include="src\rendering_backend\vulkan_utils.h" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\closesthit.rchit" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\composition.frag" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\composition.vert" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\miss.rmiss" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\raygen.rgen" />
+    <GLSLShader Include="data\shaders\raytraced_shadows\shadow_miss.rmiss" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dependencies\glm\detail\glm.cpp">
@@ -520,10 +533,12 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="src\deferred_render_path.cpp" />
-    <ClCompile Include="src\raytracing_execution_context.cpp" />
+    <ClCompile Include="src\render_paths\deferred_render_path.cpp" />
+    <ClCompile Include="src\render_paths\hybrid_shadows_render_path.cpp" />
+    <ClCompile Include="src\render_paths\raytraced_shadows_render_path.cpp" />
+    <ClCompile Include="src\render_graph\raytracing_execution_context.cpp" />
     <ClCompile Include="src\dependencies_impl.cpp" />
-    <ClCompile Include="src\graphics_execution_context.cpp" />
+    <ClCompile Include="src\render_graph\graphics_execution_context.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -531,44 +546,26 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
-    <ClCompile Include="src\pipeline.cpp" />
-    <ClCompile Include="src\renderer.cpp" />
-    <ClCompile Include="src\render_graph.cpp" />
-    <ClCompile Include="src\resource_manager.cpp" />
-    <ClCompile Include="src\scene_loader.cpp" />
-    <ClCompile Include="src\user_interface.cpp" />
-    <ClCompile Include="src\vulkan_context.cpp" />
+    <ClCompile Include="src\rendering_backend\pipeline.cpp" />
+    <ClCompile Include="src\rendering_backend\renderer.cpp" />
+    <ClCompile Include="src\render_graph\render_graph.cpp" />
+    <ClCompile Include="src\rendering_backend\resource_manager.cpp" />
+    <ClCompile Include="src\scene\scene_loader.cpp" />
+    <ClCompile Include="src\rendering_backend\user_interface.cpp" />
+    <ClCompile Include="src\rendering_backend\vulkan_context.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="misc\glm.natvis" />
   </ItemGroup>
   <ItemGroup>
-    <GLSLShader Include="data\shaders\closesthit.rchit" />
-    <GLSLShader Include="data\shaders\composition.frag">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V -o %(Directory)\compiled\%(Filename).%(Extension).spv</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VULKAN_SDK)\Bin\glslangvalidator.exe %(FullPath) -V -o %(Directory)\compiled\%(Filename).%(Extension).spv</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Directory)\compiled\%(Filename).%(Extension).spv</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Directory)\compiled\%(Filename).%(Extension).spv</Outputs>
-    </GLSLShader>
-    <GLSLShader Include="data\shaders\composition.vert">
-      <FileType>Document</FileType>
-    </GLSLShader>
-    <GLSLShader Include="data\shaders\gbuf.frag">
-      <FileType>Document</FileType>
-    </GLSLShader>
-    <GLSLShader Include="data\shaders\gbuf.vert">
-      <FileType>Document</FileType>
-    </GLSLShader>
-    <GLSLShader Include="data\shaders\imgui.vert" />
-    <GLSLShader Include="data\shaders\miss.rmiss" />
-    <GLSLShader Include="data\shaders\raygen.rgen" />
+    <GLSLShader Include="data\shaders\imgui\imgui.vert" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="data\shaders\common.glsl" />
+    <None Include="data\shaders\hybrid_shadows\common.glsl" />
+    <None Include="data\shaders\raytraced_shadows\common.glsl" />
     <None Include="dependencies\glm\detail\func_common.inl" />
     <None Include="dependencies\glm\detail\func_common_simd.inl" />
     <None Include="dependencies\glm\detail\func_exponential.inl" />

@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "deferred_render_path.h"
 
-#include "graphics_execution_context.h"
-#include "raytracing_execution_context.h"
-#include "render_graph.h"
-#include "resource_manager.h"
-#include "vulkan_context.h"
-#include "vulkan_utils.h"
+#include "rendering_backend/resource_manager.h"
+#include "rendering_backend/vulkan_context.h"
+#include "rendering_backend/vulkan_utils.h"
+#include "render_graph/graphics_execution_context.h"
+#include "render_graph/raytracing_execution_context.h"
+#include "render_graph/render_graph.h"
 
 namespace DeferredRenderPath {
 void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGraph &render_graph) {
@@ -54,29 +54,32 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 		}
 	);
 
-	render_graph.AddRaytracingPass("Raytracing Pass",
-		{},
-	{
-		VkUtils::CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 0)
-	},
-		RaytracingPipelineDescription {
-			.name = "Raytracing Pipeline",
-			.raygen_shader = "data/shaders/compiled/raygen.rgen.spv",
-			.hit_shader = "data/shaders/compiled/closesthit.rchit.spv",
-			.miss_shader = "data/shaders/compiled/miss.rmiss.spv",
-			.shadow_miss_shader = "data/shaders/compiled/shadow_miss.rmiss.spv"
-		},
-		[&](ExecuteRaytracingCallback execute_pipeline) {
-			execute_pipeline("Raytracing Pipeline",
-				[&](RaytracingExecutionContext &execution_context) {
-					execution_context.TraceRays(
-						context.swapchain.extent.width,
-						context.swapchain.extent.height
-					);
-				}
-			);
-		}
-	);
+	//render_graph.AddRaytracingPass("Raytracing Pass",
+	//	{},
+	//{
+	//	VkUtils::CreateTransientStorageImage("Rays", VK_FORMAT_B8G8R8A8_UNORM, 0)
+	//},
+	//	RaytracingPipelineDescription {
+	//		.name = "Raytracing Pipeline",
+	//		.raygen_shader = "data/shaders/compiled/raygen.rgen.spv",
+	//		.miss_shaders = {
+	//			"hybrid_shadows/"
+	//		}
+	//		.hit_shader = "data/shaders/compiled/closesthit.rchit.spv",
+	//		.miss_shader = "data/shaders/compiled/miss.rmiss.spv",
+	//		.shadow_miss_shader = "data/shaders/compiled/shadow_miss.rmiss.spv"
+	//	},
+	//	[&](ExecuteRaytracingCallback execute_pipeline) {
+	//		execute_pipeline("Raytracing Pipeline",
+	//			[&](RaytracingExecutionContext &execution_context) {
+	//				execution_context.TraceRays(
+	//					context.swapchain.extent.width,
+	//					context.swapchain.extent.height
+	//				);
+	//			}
+	//		);
+	//	}
+	//);
 
 	render_graph.AddGraphicsPass("Composition Pass",
 		{

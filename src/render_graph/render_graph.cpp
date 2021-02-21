@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "render_graph.h"
 
-#include "graphics_execution_context.h"
-#include "pipeline.h"
-#include "raytracing_execution_context.h"
-#include "resource_manager.h"
-#include "vulkan_context.h"
-#include "vulkan_utils.h"
+#include "rendering_backend/pipeline.h"
+#include "rendering_backend/resource_manager.h"
+#include "rendering_backend/vulkan_context.h"
+#include "rendering_backend/vulkan_utils.h"
+#include "render_graph/graphics_execution_context.h"
+#include "render_graph/raytracing_execution_context.h"
 
 RenderGraph::RenderGraph(VulkanContext &context, ResourceManager &resource_manager) : 
 	context(context), 
@@ -32,7 +32,13 @@ void RenderGraph::DestroyResources() {
 	}
 
 	for(auto &[_, pipeline] : raytracing_pipelines) {
-		VkUtils::DestroyMappedBuffer(context.allocator, pipeline.shader_binding_table);
+		VkUtils::DestroyMappedBuffer(context.allocator, pipeline.raygen_sbt.buffer);
+		if(pipeline.miss_sbt.buffer.handle != VK_NULL_HANDLE) {
+			VkUtils::DestroyMappedBuffer(context.allocator, pipeline.miss_sbt.buffer);
+		}
+		if(pipeline.hit_sbt.buffer.handle != VK_NULL_HANDLE) {
+			VkUtils::DestroyMappedBuffer(context.allocator, pipeline.hit_sbt.buffer);
+		}
 		vkDestroyPipelineLayout(context.device, pipeline.layout, nullptr);
 		vkDestroyPipeline(context.device, pipeline.handle, nullptr);
 	}

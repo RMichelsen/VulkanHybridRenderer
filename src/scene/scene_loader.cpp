@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "scene_loader.h"
 
-#include "resource_manager.h"
+#include "rendering_backend/resource_manager.h"
 
 namespace SceneLoader {
 VkFilter GetVkFilter(cgltf_int filter) {

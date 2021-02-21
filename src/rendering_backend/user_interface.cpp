@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "user_interface.h"
 
-#include "graphics_execution_context.h"
-#include "pipeline.h"
-#include "render_graph.h"
-#include "resource_manager.h"
-#include "vulkan_context.h"
-#include "vulkan_utils.h"
+#include "render_graph/graphics_execution_context.h"
+#include "render_graph/render_graph.h"
+#include "rendering_backend/pipeline.h"
+#include "rendering_backend/resource_manager.h"
+#include "rendering_backend/vulkan_context.h"
+#include "rendering_backend/vulkan_utils.h"
 
 struct ImGuiPushConstants {
 	glm::vec2 scale;
@@ -268,9 +268,9 @@ void UserInterface::CreateImGuiRenderPass() {
 
 void UserInterface::CreateImGuiPipeline(ResourceManager &resource_manager) {
 	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stage_infos {
-		VkUtils::PipelineShaderStageCreateInfo(context.device, "data/shaders/compiled/imgui.vert.spv",
+		VkUtils::PipelineShaderStageCreateInfo(context.device, "imgui/imgui.vert",
 			VK_SHADER_STAGE_VERTEX_BIT),
-		VkUtils::PipelineShaderStageCreateInfo(context.device, "data/shaders/compiled/imgui.frag.spv",
+		VkUtils::PipelineShaderStageCreateInfo(context.device, "imgui/imgui.frag",
 			VK_SHADER_STAGE_FRAGMENT_BIT)
 	};
 

@@ -249,17 +249,21 @@ struct GraphicsPipeline {
 struct RaytracingPipelineDescription {
 	const char *name;
 	const char *raygen_shader;
-	const char *hit_shader;
-	const char *miss_shader;
-	const char* shadow_miss_shader;
+	std::vector<const char *> miss_shaders;
+	std::vector<const char *> hit_shaders;
+};
+
+struct ShaderBindingTable {
+	MappedBuffer buffer;
+	VkStridedDeviceAddressRegionKHR strided_device_address_region;
 };
 
 struct RaytracingPipeline {
 	RaytracingPipelineDescription description;
-	std::array<VkRayTracingShaderGroupCreateInfoKHR, 4> shader_groups;
 	uint32_t shader_group_size;
-	MappedBuffer shader_binding_table;
-	VkDeviceAddress shader_binding_table_address;
+	ShaderBindingTable raygen_sbt;
+	ShaderBindingTable miss_sbt;
+	ShaderBindingTable hit_sbt;
 	VkPipeline handle;
 	VkPipelineLayout layout;
 };
