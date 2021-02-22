@@ -162,10 +162,9 @@ enum class VertexInputState {
 	ImGui
 };
 enum class RasterizationState {
-	Fill,
-	Wireframe,
-	FillCullCCW,
-	FillNoCullCCW
+	CullClockwise,
+	CullCounterClockwise,
+	CullNone
 };
 enum class MultisampleState {
 	Off
@@ -180,7 +179,9 @@ enum class ColorBlendState {
 };
 enum class DynamicState {
 	None,
-	ViewportScissor
+	Viewport,
+	ViewportScissor,
+	DepthBias
 };
 
 struct PushConstantDescription {

@@ -9,10 +9,7 @@
 #include "render_graph/render_graph.h"
 #include "render_graph/graphics_execution_context.h"
 #include "render_graph/raytracing_execution_context.h"
-#include "render_paths/deferred_render_path.h"
 #include "render_paths/hybrid_shadows_render_path.h"
-#include "render_paths/hybrid_shadows_inline_raytracing_render_path.h"
-#include "render_paths/raytraced_shadows_render_path.h"
 #include "scene/scene_loader.h"
 
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<VulkanContext>(hinstance, hwnd)) {
@@ -21,7 +18,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
 	resource_manager->LoadScene("Sponza_WithLight.glb");
 
-	EnableRenderPath(HybridShadowsInlineRaytracingRenderPath::Enable);
+	EnableRenderPath(HybridShadowsRenderPath::Enable);
 }
 
 Renderer::~Renderer() {
@@ -32,7 +29,7 @@ Renderer::~Renderer() {
 }
 
 void Renderer::Update() {
-	user_interface->Update();
+	user_interface->Update(*this);
 }
 
 void Renderer::Present(HWND hwnd) {

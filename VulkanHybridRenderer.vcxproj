@@ -481,9 +481,9 @@
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="dependencies\vma\vk_mem_alloc.h" />
     <ClInclude Include="dependencies\volk\volk.h" />
-    <ClInclude Include="src\render_paths\deferred_render_path.h" />
     <ClInclude Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.h" />
     <ClInclude Include="src\render_paths\hybrid_shadows_render_path.h" />
+    <ClInclude Include="src\render_paths\rasterized_shadows_render_path.h" />
     <ClInclude Include="src\render_paths\raytraced_shadows_render_path.h" />
     <ClInclude Include="src\render_graph\raytracing_execution_context.h" />
     <ClInclude Include="src\render_graph\graphics_execution_context.h" />
@@ -498,6 +498,10 @@
     <ClInclude Include="src\rendering_backend\vulkan_context.h" />
     <ClInclude Include="src\rendering_backend\vulkan_pipeline_presets.h" />
     <ClInclude Include="src\rendering_backend\vulkan_utils.h" />
+    <GLSLShader Include="data\shaders\rasterized_shadows\default.frag" />
+    <GLSLShader Include="data\shaders\rasterized_shadows\default.vert" />
+    <GLSLShader Include="data\shaders\rasterized_shadows\depth.frag" />
+    <GLSLShader Include="data\shaders\rasterized_shadows\depth.vert" />
     <GLSLShader Include="data\shaders\raytraced_shadows\closesthit.rchit" />
     <GLSLShader Include="data\shaders\raytraced_shadows\composition.frag" />
     <GLSLShader Include="data\shaders\raytraced_shadows\composition.vert" />
@@ -536,9 +540,9 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="src\render_paths\deferred_render_path.cpp" />
     <ClCompile Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.cpp" />
     <ClCompile Include="src\render_paths\hybrid_shadows_render_path.cpp" />
+    <ClCompile Include="src\render_paths\rasterized_shadows_render_path.cpp" />
     <ClCompile Include="src\render_paths\raytraced_shadows_render_path.cpp" />
     <ClCompile Include="src\render_graph\raytracing_execution_context.cpp" />
     <ClCompile Include="src\dependencies_impl.cpp" />
@@ -570,6 +574,7 @@
   <ItemGroup>
     <None Include="data\shaders\hybrid_shadows\common.glsl" />
     <None Include="data\shaders\hybrid_shadows_inline_raytracing\common.glsl" />
+    <None Include="data\shaders\rasterized_shadows\common.glsl" />
     <None Include="data\shaders\raytraced_shadows\common.glsl" />
     <None Include="dependencies\glm\detail\func_common.inl" />
     <None Include="dependencies\glm\detail\func_common_simd.inl" />

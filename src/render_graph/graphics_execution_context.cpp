@@ -25,6 +25,11 @@ void GraphicsExecutionContext::SetViewport(VkViewport viewport) {
 	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 }
 
+void GraphicsExecutionContext::SetDepthBias(float depth_bias_constant_factor, float depth_bias_clamp, 
+	float depth_bias_slope_factor) {
+	vkCmdSetDepthBias(command_buffer, depth_bias_constant_factor, depth_bias_clamp, depth_bias_slope_factor);
+}
+
 void GraphicsExecutionContext::DrawIndexed(uint32_t index_count, uint32_t instance_count,
 	uint32_t first_index, uint32_t vertex_offset, uint32_t first_instance) {
 	vkCmdDrawIndexed(command_buffer, index_count, instance_count, first_index, vertex_offset, first_instance);

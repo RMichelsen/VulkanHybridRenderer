@@ -1,12 +1,17 @@
 #include "pch.h"
 #include "user_interface.h"
 
-#include "render_graph/graphics_execution_context.h"
-#include "render_graph/render_graph.h"
 #include "rendering_backend/pipeline.h"
+#include "rendering_backend/renderer.h"
 #include "rendering_backend/resource_manager.h"
 #include "rendering_backend/vulkan_context.h"
 #include "rendering_backend/vulkan_utils.h"
+#include "render_graph/graphics_execution_context.h"
+#include "render_graph/render_graph.h"
+#include "render_paths/hybrid_shadows_render_path.h"
+#include "render_paths/hybrid_shadows_inline_raytracing_render_path.h"
+#include "render_paths/rasterized_shadows_render_path.h"
+#include "render_paths/raytraced_shadows_render_path.h"
 
 struct ImGuiPushConstants {
 	glm::vec2 scale;
@@ -58,7 +63,7 @@ void UserInterface::DestroyResources() {
 	vkDestroyRenderPass(context.device, render_pass, nullptr);
 }
 
-void UserInterface::Update() {
+void UserInterface::Update(Renderer &renderer) {
 	ImGuiIO &io = ImGui::GetIO();
 
 	uint64_t current_time = 0;
@@ -71,8 +76,22 @@ void UserInterface::Update() {
 	ImGui::BeginMainMenuBar();
 	ImGui::EndMainMenuBar();
 
-	ImGui::Begin("FPS Counter", nullptr, ImGuiWindowFlags_NoTitleBar);
+	ImGui::Begin("Configuration");
 	ImGui::Text("FPS: %f", io.Framerate);
+	static int active_path = 0;
+	int current_path = active_path;
+	if(ImGui::RadioButton("Hybrid Shadows", &active_path, 0) && current_path != 0) {
+		renderer.EnableRenderPath(HybridShadowsRenderPath::Enable);
+	}
+	if(ImGui::RadioButton("Hybrid Shadows Inline Raytracing", &active_path, 1) && current_path != 1) {
+		renderer.EnableRenderPath(HybridShadowsInlineRaytracingRenderPath::Enable);
+	}
+	if(ImGui::RadioButton("Rasterized Shadows", &active_path, 2) && current_path != 2) {
+		renderer.EnableRenderPath(RasterizedShadowsRenderPath::Enable);
+	}
+	if(ImGui::RadioButton("Raytraced Shadows", &active_path, 3) && current_path != 3) {
+		renderer.EnableRenderPath(RaytracedShadowsRenderPath::Enable);
+	}
 	ImGui::End();
 
 	ImGui::EndFrame();
@@ -294,11 +313,11 @@ void UserInterface::CreateImGuiPipeline(ResourceManager &resource_manager) {
 		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
 	};
 	VkViewport viewport {
-		.y = static_cast<float>(context.swapchain.extent.height),
-		.width = static_cast<float>(context.swapchain.extent.width),
-		.height = -static_cast<float>(context.swapchain.extent.height),
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f
+		//.y = static_cast<float>(context.swapchain.extent.height),
+		//.width = static_cast<float>(context.swapchain.extent.width),
+		//.height = -static_cast<float>(context.swapchain.extent.height),
+		//.minDepth = 0.0f,
+		//.maxDepth = 1.0f
 	};
 	VkRect2D scissor {
 		.extent = context.swapchain.extent
@@ -348,7 +367,7 @@ void UserInterface::CreateImGuiPipeline(ResourceManager &resource_manager) {
 		.pVertexInputState = &vertex_input_state_info,
 		.pInputAssemblyState = &input_assembly_state_info,
 		.pViewportState = &viewport_state_info,
-		.pRasterizationState = &RASTERIZATION_STATE_FILL_NOCULL_CCW,
+		.pRasterizationState = &RASTERIZATION_STATE_CULL_NONE,
 		.pMultisampleState = &MULTISAMPLE_STATE_OFF,
 		.pDepthStencilState = &DEPTH_STENCIL_STATE_OFF,
 		.pColorBlendState = &color_blend_state,

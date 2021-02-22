@@ -35,23 +35,6 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
 		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
 	};
-	VkViewport viewport {
-		.y = static_cast<float>(context.swapchain.extent.height),
-		.width = static_cast<float>(context.swapchain.extent.width),
-		.height = -static_cast<float>(context.swapchain.extent.height),
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f
-	};
-	VkRect2D scissor {
-		.extent = context.swapchain.extent
-	};
-	VkPipelineViewportStateCreateInfo viewport_state_info {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount = 1,
-		.pViewports = &viewport,
-		.scissorCount = 1,
-		.pScissors = &scissor
-	};
 
 	std::vector<VkPushConstantRange> push_constants;
 	if(description.push_constants.size > 0) {
@@ -87,21 +70,18 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		.pStages = shader_stage_infos.data(),
 		.pVertexInputState = &vertex_input_state_info,
 		.pInputAssemblyState = &input_assembly_state_info,
-		.pViewportState = &viewport_state_info,
 		.layout = pipeline.layout,
 		.renderPass = graphics_pass.handle,
 		.subpass = 0
 	};
 
 	switch(description.rasterization_state) {
-	case RasterizationState::Fill:
-		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_FILL; break;
-	case RasterizationState::Wireframe:
-		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_WIREFRAME; break;
-	case RasterizationState::FillCullCCW:
-		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_FILL_CULL_CCW; break;
-	case RasterizationState::FillNoCullCCW:
-		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_FILL_NOCULL_CCW; break;
+	case RasterizationState::CullClockwise:
+		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_CW; break;
+	case RasterizationState::CullCounterClockwise:
+		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_CCW; break;
+	case RasterizationState::CullNone:
+		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_NONE; break;
 	}
 	switch(description.multisample_state) {
 	case MultisampleState::Off:
@@ -113,18 +93,31 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	case DepthStencilState::Off:
 		pipeline_info.pDepthStencilState = &DEPTH_STENCIL_STATE_OFF; break;
 	}
+
+	VkPipelineRasterizationStateCreateInfo rasterization_state;
 	switch(description.dynamic_state) {
 	case DynamicState::ViewportScissor:
 		pipeline_info.pDynamicState = &DYNAMIC_STATE_VIEWPORT_SCISSOR; break;
+	case DynamicState::DepthBias: {
+		pipeline_info.pDynamicState = &DYNAMIC_STATE_DEPTH_BIAS;
+		rasterization_state = *pipeline_info.pRasterizationState;
+		rasterization_state.depthBiasEnable = VK_TRUE;
+		pipeline_info.pRasterizationState = &rasterization_state;
+	} break;
 	case DynamicState::None: break;
 	}
 
+	assert(!graphics_pass.attachments.empty());
+	uint32_t pass_width = graphics_pass.attachments[0].image.width;
+	uint32_t pass_height = graphics_pass.attachments[0].image.height;
 	std::vector<VkPipelineColorBlendAttachmentState> color_blend_states;
-	for(TransientResource &resource : graphics_pass.attachments) {
-		if(VkUtils::IsDepthFormat(resource.image.format)) {
+	for(TransientResource &attachment : graphics_pass.attachments) {
+		assert(attachment.image.width == pass_width);
+		assert(attachment.image.height == pass_height);
+		if(VkUtils::IsDepthFormat(attachment.image.format)) {
 			continue;
 		}
-		switch(resource.image.color_blend_state) {
+		switch(attachment.image.color_blend_state) {
 		case ColorBlendState::Off: {
 			color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_OFF);
 		} break;
@@ -139,6 +132,30 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		.pAttachments = color_blend_states.data()
 	};
 	pipeline_info.pColorBlendState = &color_blend_state;
+	
+	VkViewport viewport {
+		.width = static_cast<float>(pass_width == 0 ? context.swapchain.extent.width : pass_width),
+		.height = static_cast<float>(pass_height == 0 ? context.swapchain.extent.height : pass_height),
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f
+	};
+	VkRect2D scissor {
+		.extent = (pass_width == 0 || pass_height == 0) ?
+			context.swapchain.extent :
+			VkExtent2D {
+				.width = pass_width,
+				.height = pass_height
+			}
+	};
+	VkPipelineViewportStateCreateInfo viewport_state_info {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.pViewports = &viewport,
+		.scissorCount = 1,
+		.pScissors = &scissor
+	};
+	pipeline_info.pViewportState = &viewport_state_info;
+
 
 	VK_CHECK(vkCreateGraphicsPipelines(context.device, VK_NULL_HANDLE, 1, &pipeline_info,
 		nullptr, &pipeline.handle));

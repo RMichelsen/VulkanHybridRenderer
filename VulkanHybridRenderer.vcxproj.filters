@@ -930,9 +930,6 @@
     <ClInclude Include="src\render_graph\raytracing_execution_context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\render_paths\deferred_render_path.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\render_paths\hybrid_shadows_render_path.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -940,6 +937,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render_paths\rasterized_shadows_render_path.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -1001,9 +1001,6 @@
     <ClCompile Include="src\render_graph\raytracing_execution_context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render_paths\deferred_render_path.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\render_paths\hybrid_shadows_render_path.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -1011,6 +1008,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render_paths\rasterized_shadows_render_path.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1036,6 +1036,10 @@
     <GLSLShader Include="data\shaders\raytraced_shadows\composition.frag" />
     <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.vert" />
     <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.frag" />
+    <GLSLShader Include="data\shaders\rasterized_shadows\default.vert" />
+    <GLSLShader Include="data\shaders\rasterized_shadows\default.frag" />
+    <GLSLShader Include="data\shaders\rasterized_shadows\depth.vert" />
+    <GLSLShader Include="data\shaders\rasterized_shadows\depth.frag" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />
@@ -1453,5 +1457,6 @@
     <None Include="data\shaders\hybrid_shadows\common.glsl" />
     <None Include="data\shaders\raytraced_shadows\common.glsl" />
     <None Include="data\shaders\hybrid_shadows_inline_raytracing\common.glsl" />
+    <None Include="data\shaders\rasterized_shadows\common.glsl" />
   </ItemGroup>
 </Project>

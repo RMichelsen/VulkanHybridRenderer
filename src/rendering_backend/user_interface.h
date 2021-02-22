@@ -1,5 +1,6 @@
 #pragma once
 
+class Renderer;
 class RenderGraph;
 class ResourceManager;
 class VulkanContext;
@@ -8,7 +9,7 @@ public:
 	UserInterface(VulkanContext &context, ResourceManager &resource_manager);
 	void DestroyResources();
 
-	void Update();
+	void Update(Renderer &renderer);
 	void Draw(ResourceManager& resource_manager, VkCommandBuffer command_buffer,
 		uint32_t resource_idx, uint32_t image_idx);
 

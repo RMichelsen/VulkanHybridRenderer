@@ -50,6 +50,7 @@ void RenderGraph::DestroyResources() {
 	readers.clear();
 	writers.clear();
 	passes.clear();
+	pass_descriptions.clear();
 	graphics_pipelines.clear();
 	raytracing_pipelines.clear();
 	images.clear();
@@ -90,8 +91,6 @@ void RenderGraph::AddRaytracingPass(const char *render_pass_name, std::vector<Tr
 }
 
 void RenderGraph::Build() {
-	DestroyResources();
-
 	for(auto &[_, pass_description] : pass_descriptions) {
 		for(TransientResource &resource : pass_description.dependencies) {
 			readers[resource.name].emplace_back(pass_description.name);
@@ -205,8 +204,13 @@ void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 				}
 			} break;
 			case TransientImageType::SampledImage: {
-				descriptors.emplace_back(VkUtils::DescriptorImageInfo(images[resource.name].view,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, resource_manager.default_sampler));
+				descriptors.emplace_back(
+					VkUtils::DescriptorImageInfo(
+						images[resource.name].view,
+						VkUtils::GetImageLayoutFromResourceType(TransientImageType::SampledImage, resource.image.format),
+						resource_manager.default_sampler
+					)
+				);
 				bindings.emplace_back(VkUtils::DescriptorSetLayoutBinding(
 					resource.image.binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT));
@@ -318,8 +322,13 @@ void RenderGraph::CreateRaytracingPass(RenderPassDescription &pass_description) 
 				"Attachment images are not allowed in raytracing passes");
 			switch(resource.image.type) {
 			case TransientImageType::SampledImage: {
-				descriptors.emplace_back(VkUtils::DescriptorImageInfo(images[resource.name].view,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, resource_manager.default_sampler));
+				descriptors.emplace_back(
+					VkUtils::DescriptorImageInfo(
+						images[resource.name].view,
+						VkUtils::GetImageLayoutFromResourceType(TransientImageType::SampledImage, resource.image.format),
+						resource_manager.default_sampler
+					)
+				);
 				bindings.emplace_back(VkUtils::DescriptorSetLayoutBinding(
 					resource.image.binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 
 					VK_SHADER_STAGE_RAYGEN_BIT_KHR));
@@ -490,6 +499,7 @@ void RenderGraph::InsertBarriers(VkCommandBuffer command_buffer, RenderPass &ren
 void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t resource_idx, 
 	uint32_t image_idx, RenderPass &render_pass) {
 	GraphicsPass &graphics_pass = std::get<GraphicsPass>(render_pass.pass);
+
 	VkFramebuffer &framebuffer = graphics_pass.framebuffers[resource_idx];
 
 	// Delete previous framebuffer
@@ -525,13 +535,15 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 		}
 	}
 
+	uint32_t pass_width = graphics_pass.attachments[0].image.width;
+	uint32_t pass_height = graphics_pass.attachments[0].image.height;
 	VkFramebufferCreateInfo framebuffer_info {
 		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 		.renderPass = graphics_pass.handle,
 		.attachmentCount = static_cast<uint32_t>(image_views.size()),
 		.pAttachments = image_views.data(),
-		.width = context.swapchain.extent.width,
-		.height = context.swapchain.extent.height,
+		.width = pass_width == 0 ? context.swapchain.extent.width : pass_width,
+		.height = pass_height == 0 ? context.swapchain.extent.height : pass_height,
 		.layers = 1
 	};
 
@@ -543,7 +555,12 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 		.framebuffer = framebuffer,
 		.renderArea = VkRect2D {
 			.offset = VkOffset2D {.x = 0, .y = 0 },
-			.extent = context.swapchain.extent
+			.extent = (pass_width == 0 || pass_height == 0) ? 
+				context.swapchain.extent : 
+				VkExtent2D {
+					.width = pass_width,
+					.height = pass_height
+				}
 		},
 		.clearValueCount = static_cast<uint32_t>(clear_values.size()),
 		.pClearValues = clear_values.data()
@@ -602,10 +619,12 @@ void RenderGraph::ActualizeResource(TransientResource &resource) {
 	
 	if(!images.contains(resource.name)) {
 		// TODO: Usage is not optimized (tracking usage was cumbersome though...)
-		VkImageUsageFlags usage = VK_IMAGE_USAGE_STORAGE_BIT | 
-			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		VkImageUsageFlags usage;
 		if(VkUtils::IsDepthFormat(resource.image.format)) {
-			usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		}
+		else {
+			usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		}
 
 		// Swapchain-sized image

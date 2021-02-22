@@ -14,6 +14,7 @@ public:
 	void BindIndexBuffer(VkBuffer buffer, VkDeviceSize offset, VkIndexType type);
 	void SetScissor(VkRect2D scissor);
 	void SetViewport(VkViewport viewport);
+	void SetDepthBias(float depth_bias_constant_factor, float depth_bias_clamp, float depth_bias_slope_factor);
 	void DrawIndexed(uint32_t index_count, uint32_t instance_count, uint32_t first_index,
 		uint32_t vertex_offset, uint32_t first_instance);
 	void Draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex,

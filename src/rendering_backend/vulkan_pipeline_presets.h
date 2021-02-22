@@ -14,32 +14,26 @@ inline constexpr VkPipelineVertexInputStateCreateInfo VERTEX_INPUT_STATE_IMGUI {
 	.vertexAttributeDescriptionCount = static_cast<uint32_t>(IMGUI_VERTEX_ATTRIBUTE_DESCRIPTIONS.size()),
 	.pVertexAttributeDescriptions = IMGUI_VERTEX_ATTRIBUTE_DESCRIPTIONS.data()
 };
-inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_FILL {
+
+inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_CULL_CW {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
 	.polygonMode = VK_POLYGON_MODE_FILL,
-	.cullMode = VK_CULL_MODE_FRONT_BIT,
+	.cullMode = VK_CULL_MODE_BACK_BIT,
 	.frontFace = VK_FRONT_FACE_CLOCKWISE,
 	.lineWidth = 1.0f
 };
-inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_WIREFRAME {
-	.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-	.polygonMode = VK_POLYGON_MODE_LINE,
-	.cullMode = VK_CULL_MODE_FRONT_BIT,
-	.frontFace = VK_FRONT_FACE_CLOCKWISE,
-	.lineWidth = 1.0f
-};
-inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_FILL_CULL_CCW {
+inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_CULL_CCW {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
 	.polygonMode = VK_POLYGON_MODE_FILL,
-	.cullMode = VK_CULL_MODE_FRONT_BIT,
+	.cullMode = VK_CULL_MODE_BACK_BIT,
 	.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
 	.lineWidth = 1.0f
 };
-inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_FILL_NOCULL_CCW {
+inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_CULL_NONE {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
 	.polygonMode = VK_POLYGON_MODE_FILL,
 	.cullMode = VK_CULL_MODE_NONE,
-	.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+	.frontFace = VK_FRONT_FACE_CLOCKWISE,
 	.lineWidth = 1.0f
 };
 inline constexpr VkPipelineMultisampleStateCreateInfo MULTISAMPLE_STATE_OFF {
@@ -50,7 +44,7 @@ inline constexpr VkPipelineDepthStencilStateCreateInfo DEPTH_STENCIL_STATE_ON {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
 	.depthTestEnable = VK_TRUE,
 	.depthWriteEnable = VK_TRUE,
-	.depthCompareOp = VK_COMPARE_OP_LESS,
+	.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL,
 };
 inline constexpr VkPipelineDepthStencilStateCreateInfo DEPTH_STENCIL_STATE_OFF {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
@@ -81,5 +75,13 @@ inline constexpr VkPipelineDynamicStateCreateInfo DYNAMIC_STATE_VIEWPORT_SCISSOR
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
 	.dynamicStateCount = static_cast<uint32_t>(VIEWPORT_SCISSOR_STATES.size()),
 	.pDynamicStates = VIEWPORT_SCISSOR_STATES.data()
+};
+inline constexpr std::array<VkDynamicState, 1> DEPTH_BIAS_STATE = {
+	VK_DYNAMIC_STATE_DEPTH_BIAS
+};
+inline constexpr VkPipelineDynamicStateCreateInfo DYNAMIC_STATE_DEPTH_BIAS {
+	.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+	.dynamicStateCount = static_cast<uint32_t>(DEPTH_BIAS_STATE.size()),
+	.pDynamicStates = DEPTH_BIAS_STATE.data()
 };
 

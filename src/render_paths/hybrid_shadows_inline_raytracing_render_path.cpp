@@ -23,7 +23,7 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 				.vertex_shader = "hybrid_shadows_inline_raytracing/default.vert",
 				.fragment_shader = "hybrid_shadows_inline_raytracing/default.frag",
 				.vertex_input_state = VertexInputState::Default,
-				.rasterization_state = RasterizationState::Fill,
+				.rasterization_state = RasterizationState::CullCounterClockwise,
 				.multisample_state = MultisampleState::Off,
 				.depth_stencil_state = DepthStencilState::On,
 				.dynamic_state = DynamicState::None,

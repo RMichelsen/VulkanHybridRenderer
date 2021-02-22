@@ -51,7 +51,7 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 				.vertex_shader = "raytraced_shadows/composition.vert",
 				.fragment_shader = "raytraced_shadows/composition.frag",
 				.vertex_input_state = VertexInputState::Empty,
-				.rasterization_state = RasterizationState::FillCullCCW,
+				.rasterization_state = RasterizationState::CullCounterClockwise,
 				.multisample_state = MultisampleState::Off,
 				.depth_stencil_state = DepthStencilState::On,
 				.dynamic_state = DynamicState::None,

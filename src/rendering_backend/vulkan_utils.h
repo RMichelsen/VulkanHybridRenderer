@@ -272,7 +272,9 @@ inline VkImageLayout GetImageLayoutFromResourceType(TransientImageType type, VkF
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	}
 	case TransientImageType::SampledImage: {
-		return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		return VkUtils::IsDepthFormat(format) ? 
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL :
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
 	case TransientImageType::StorageImage: {
 		return VK_IMAGE_LAYOUT_GENERAL;
