@@ -119,8 +119,7 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 
 	glm::mat4 transform;
 	cgltf_node_transform_world(&node, glm::value_ptr(transform));
-	transform[3][1] *= -1.0f;
-	// TODO: REFLECT Y
+	transform = REFLECT_Y * transform;
 
 	Mesh mesh;
 	for(int i = 0; i < node.mesh->primitives_count; ++i) {

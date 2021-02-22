@@ -39,10 +39,10 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 		[&](ExecuteGraphicsCallback execute_pipeline) {
 			execute_pipeline("Depth Pipeline",
 				[&](GraphicsExecutionContext &execution_context) {
-					glm::mat4 light_perspective = glm::perspective(glm::radians(45.0f), 1.0f, 1.0f, 64.0f);
+					glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 64.0f);
 					light_perspective[1][1] *= -1.0f;
 					glm::mat4 light_view = glm::lookAt(
-						glm::vec3(0.0f, -40.0f, 0.1f),
+						glm::vec3(0.0f, -60.0f, 0.1f),
 						glm::vec3(0.0f, 0.0f, 0.0f),
 						glm::vec3(0.0f, -1.0f, 0.0f)
 					);
@@ -93,10 +93,10 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 		[&](ExecuteGraphicsCallback execute_pipeline) {
 			execute_pipeline("Forward Pipeline",
 				[&](GraphicsExecutionContext &execution_context) {
-					glm::mat4 light_perspective = glm::perspective(glm::radians(45.0f), 1.0f, 1.0f, 64.0f);
+					glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 64.0f);
 					light_perspective[1][1] *= -1.0f;
 					glm::mat4 light_view = glm::lookAt(
-						glm::vec3(0.0f, -40.0f, 0.1f),
+						glm::vec3(0.0f, -60.0f, 0.1f),
 						glm::vec3(0.0f, 0.0f, 0.0f),
 						glm::vec3(0.0f, -1.0f, 0.0f)
 					);
