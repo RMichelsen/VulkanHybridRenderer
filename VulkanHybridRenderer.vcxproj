@@ -184,6 +184,8 @@
     <GLSLShader Include="data\shaders\hybrid_shadows\gbuf.vert" />
     <GLSLShader Include="data\shaders\hybrid_shadows\miss.rmiss" />
     <GLSLShader Include="data\shaders\hybrid_shadows\raygen.rgen" />
+    <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.frag" />
+    <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.vert" />
     <GLSLShader Include="data\shaders\imgui\imgui.frag">
       <FileType>GLSLShader</FileType>
     </GLSLShader>
@@ -480,6 +482,7 @@
     <ClInclude Include="dependencies\vma\vk_mem_alloc.h" />
     <ClInclude Include="dependencies\volk\volk.h" />
     <ClInclude Include="src\render_paths\deferred_render_path.h" />
+    <ClInclude Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.h" />
     <ClInclude Include="src\render_paths\hybrid_shadows_render_path.h" />
     <ClInclude Include="src\render_paths\raytraced_shadows_render_path.h" />
     <ClInclude Include="src\render_graph\raytracing_execution_context.h" />
@@ -534,6 +537,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="src\render_paths\deferred_render_path.cpp" />
+    <ClCompile Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.cpp" />
     <ClCompile Include="src\render_paths\hybrid_shadows_render_path.cpp" />
     <ClCompile Include="src\render_paths\raytraced_shadows_render_path.cpp" />
     <ClCompile Include="src\render_graph\raytracing_execution_context.cpp" />
@@ -565,6 +569,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="data\shaders\hybrid_shadows\common.glsl" />
+    <None Include="data\shaders\hybrid_shadows_inline_raytracing\common.glsl" />
     <None Include="data\shaders\raytraced_shadows\common.glsl" />
     <None Include="dependencies\glm\detail\func_common.inl" />
     <None Include="dependencies\glm\detail\func_common_simd.inl" />

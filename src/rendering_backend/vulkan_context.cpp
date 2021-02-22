@@ -22,7 +22,7 @@ inline constexpr std::array<const char*, 3> INSTANCE_EXTENSIONS {
 	VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 };
 #endif
-inline constexpr std::array<const char*, 8> DEVICE_EXTENSIONS {
+inline constexpr std::array<const char*, 9> DEVICE_EXTENSIONS {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
 	VK_KHR_SPIRV_1_4_EXTENSION_NAME,
@@ -32,7 +32,8 @@ inline constexpr std::array<const char*, 8> DEVICE_EXTENSIONS {
 	VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
 
 	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
+	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+	VK_KHR_RAY_QUERY_EXTENSION_NAME
 };
 
 #define VK_CHECK(x) if((x) != VK_SUCCESS) { 			\
@@ -217,8 +218,13 @@ void VulkanContext::InitLogicalDevice() {
 		}
 	};
 
+	VkPhysicalDeviceRayQueryFeaturesKHR device_ray_query_features {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+		.rayQuery = VK_TRUE
+	};
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR device_as_features {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+		.pNext = &device_ray_query_features,
 		.accelerationStructure = VK_TRUE
 	};
 	VkPhysicalDeviceRayTracingPipelineFeaturesKHR device_rt_pipeline_features {

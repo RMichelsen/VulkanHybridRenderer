@@ -11,6 +11,7 @@
 #include "render_graph/raytracing_execution_context.h"
 #include "render_paths/deferred_render_path.h"
 #include "render_paths/hybrid_shadows_render_path.h"
+#include "render_paths/hybrid_shadows_inline_raytracing_render_path.h"
 #include "render_paths/raytraced_shadows_render_path.h"
 #include "scene/scene_loader.h"
 
@@ -20,7 +21,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
 	resource_manager->LoadScene("Sponza_WithLight.glb");
 
-	EnableRenderPath(RaytracedShadowsRenderPath::Enable);
+	EnableRenderPath(HybridShadowsInlineRaytracingRenderPath::Enable);
 }
 
 Renderer::~Renderer() {

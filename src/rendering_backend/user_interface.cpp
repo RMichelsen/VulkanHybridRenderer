@@ -40,6 +40,9 @@ UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_m
 
 	CreateImGuiRenderPass();
 	CreateImGuiPipeline(resource_manager);
+
+	QueryPerformanceFrequency(reinterpret_cast<LARGE_INTEGER *>(&performance_frequency));
+	QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&global_time));
 }
 
 void UserInterface::DestroyResources() {
@@ -56,10 +59,21 @@ void UserInterface::DestroyResources() {
 }
 
 void UserInterface::Update() {
+	ImGuiIO &io = ImGui::GetIO();
+
+	uint64_t current_time = 0;
+	QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&current_time));
+	io.DeltaTime = (float)(current_time - global_time) / performance_frequency;
+	global_time = current_time;
+
 	ImGui::NewFrame();
 
 	ImGui::BeginMainMenuBar();
 	ImGui::EndMainMenuBar();
+
+	ImGui::Begin("FPS Counter", nullptr, ImGuiWindowFlags_NoTitleBar);
+	ImGui::Text("FPS: %f", io.Framerate);
+	ImGui::End();
 
 	ImGui::EndFrame();
 	ImGui::Render();

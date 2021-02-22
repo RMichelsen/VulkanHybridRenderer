@@ -38,6 +38,8 @@ private:
 	MappedBuffer index_buffer;
 	uint32_t font_texture;
 
+	uint64_t global_time;
+	uint64_t performance_frequency;
 	bool split_view_anchor_drag_active;
 };
 

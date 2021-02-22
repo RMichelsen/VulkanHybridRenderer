@@ -939,6 +939,9 @@
     <ClInclude Include="src\render_paths\raytraced_shadows_render_path.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\dependencies_impl.cpp">
@@ -1007,6 +1010,9 @@
     <ClCompile Include="src\render_paths\raytraced_shadows_render_path.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="misc\glm.natvis" />
@@ -1028,6 +1034,8 @@
     <GLSLShader Include="data\shaders\raytraced_shadows\raygen.rgen" />
     <GLSLShader Include="data\shaders\raytraced_shadows\composition.vert" />
     <GLSLShader Include="data\shaders\raytraced_shadows\composition.frag" />
+    <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.vert" />
+    <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.frag" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />
@@ -1444,5 +1452,6 @@
     </None>
     <None Include="data\shaders\hybrid_shadows\common.glsl" />
     <None Include="data\shaders\raytraced_shadows\common.glsl" />
+    <None Include="data\shaders\hybrid_shadows_inline_raytracing\common.glsl" />
   </ItemGroup>
 </Project>

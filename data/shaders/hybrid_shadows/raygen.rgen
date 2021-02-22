@@ -25,9 +25,9 @@ void main() {
 	vec4 origin = texture(position_texture, uv);
 	vec4 direction = -pfd.directional_light.direction;
 
-	shadow_payload = vec4(0.3, 0.3, 0.3, 1.0);
+	shadow_payload = vec4(0.0, 0.0, 0.0, 0.0);
 	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
-		0xFF, 0, 0, 0, origin.xyz, 0.0001, direction.xyz, 10000.0, 0);
+		0xFF, 0, 0, 0, origin.xyz, 0.001, direction.xyz, 10000.0, 0);
 	
 	imageStore(raytraced_shadows, ivec2(gl_LaunchIDEXT.xy), shadow_payload);
 }
