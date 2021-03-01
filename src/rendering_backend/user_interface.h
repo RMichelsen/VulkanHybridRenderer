@@ -34,12 +34,11 @@ private:
 	VkPipelineLayout pipeline_layout;
 	VkRenderPass render_pass;
 
-	MappedBuffer vertex_buffer;
-	MappedBuffer index_buffer;
+	std::array<MappedBuffer, MAX_FRAMES_IN_FLIGHT> vertex_buffers;
+	std::array<MappedBuffer, MAX_FRAMES_IN_FLIGHT> index_buffers;
 	uint32_t font_texture;
 
 	uint64_t global_time;
 	uint64_t performance_frequency;
-	bool split_view_anchor_drag_active;
 };
 

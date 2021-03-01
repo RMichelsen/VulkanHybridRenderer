@@ -122,17 +122,6 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 		}
 	);
 
-	//glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 64.0f);
-	//light_perspective[1][1] *= -1.0f;
-	//glm::mat4 light_view = glm::lookAt(
-	//	glm::vec3(0.0f, -60.0f, 0.1f),
-	//	glm::vec3(0.0f, 0.0f, 0.0f),
-	//	glm::vec3(0.0f, -1.0f, 0.0f)
-	//);
-	//glm::mat4 light_projview = light_perspective * light_view;
-
-
-
 	VkCommandBufferBeginInfo command_buffer_begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,

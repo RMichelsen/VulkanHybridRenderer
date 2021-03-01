@@ -20,9 +20,7 @@ struct ImGuiPushConstants {
 };
 inline constexpr uint32_t IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE = 32 * 1024 * 1024; // 32MB
 
-UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_manager) : 
-	context(context), 
-	split_view_anchor_drag_active(false) {
+UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_manager) : context(context) {
 	ImGui::CreateContext();
 	ImGuiIO &io = ImGui::GetIO();
 	io.DisplaySize.x = static_cast<float>(context.swapchain.extent.width);
@@ -37,9 +35,13 @@ UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_m
 
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE, 
 		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	vertex_buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+	for(MappedBuffer &buffer : vertex_buffers) {
+		buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+	}
 	buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	index_buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+	for(MappedBuffer &buffer : index_buffers) {
+		buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+	}
 
 	CreateImGuiRenderPass();
 	CreateImGuiPipeline(resource_manager);
@@ -50,8 +52,13 @@ UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_m
 
 void UserInterface::DestroyResources() {
 	VK_CHECK(vkDeviceWaitIdle(context.device));
-	VkUtils::DestroyMappedBuffer(context.allocator, vertex_buffer);
-	VkUtils::DestroyMappedBuffer(context.allocator, index_buffer);
+
+	for(MappedBuffer &buffer : vertex_buffers) {
+		VkUtils::DestroyMappedBuffer(context.allocator, buffer);
+	}
+	for(MappedBuffer &buffer : index_buffers) {
+		VkUtils::DestroyMappedBuffer(context.allocator, buffer);
+	}
 
 	for(VkFramebuffer &framebuffer : framebuffers) {
 		vkDestroyFramebuffer(context.device, framebuffer, nullptr);
@@ -71,59 +78,29 @@ RenderPathState UserInterface::Update(RenderPath &active_render_path) {
 
 	ImGui::NewFrame();
 
-	//ImGui::BeginMainMenuBar();
-	//if(ImGui::BeginMenu("Render Paths"))
-	//{
-	//	// TODO: Ugly
-	//	if(ImGui::MenuItem("Hybrid Render Path")) {
-	//		renderer.active_render_path = std::make_unique<HybridRenderPath>(
-	//			*renderer.context, 
-	//			*renderer.render_graph, 
-	//			*renderer.resource_manager
-	//		);
-	//		renderer.active_render_path->Build();
-	//	}
-	//	if(ImGui::MenuItem("Rayquery Render Path")) {
-	//		renderer.active_render_path = std::make_unique<RayqueryRenderPath>(
-	//			*renderer.context,
-	//			*renderer.render_graph,
-	//			*renderer.resource_manager
-	//		);
-	//		renderer.active_render_path->Build();
-	//	}
-	//	if(ImGui::MenuItem("Raytraced Render Path")) {
-	//		renderer.active_render_path = std::make_unique<RaytracedRenderPath>(
-	//			*renderer.context,
-	//			*renderer.render_graph,
-	//			*renderer.resource_manager
-	//		);
-	//		renderer.active_render_path->Build();
-	//	}
-	//	ImGui::EndMenu();
-	//}
-
-	//ImGui::EndMainMenuBar();
+	ImGui::BeginMainMenuBar();
+	RenderPathState state = RenderPathState::Idle;
+	if(ImGui::BeginMenu("Render Paths"))
+	{
+		if(ImGui::MenuItem("Hybrid Render Path")) {
+			state = RenderPathState::ChangeToHybrid;
+		}
+		if(ImGui::MenuItem("Rayquery Render Path")) {
+			state = RenderPathState::ChangeToRayquery;
+		}
+		if(ImGui::MenuItem("Raytraced Render Path")) {
+			state = RenderPathState::ChangeToRaytraced;
+		}
+		ImGui::EndMenu();
+	}
+	ImGui::EndMainMenuBar();
 
 	ImGui::Begin("Statistics");
 	ImGui::Text("FPS: %f", io.Framerate);
 	ImGui::End();
 
-	ImGui::Begin("Render Path");
-	RenderPathState state = RenderPathState::Idle;
-	static int active_path = 0;
-	int current_path = active_path;
-	if(ImGui::RadioButton("Hybrid Render Path", &active_path, 0) && current_path != 0) {
-		state = RenderPathState::ChangeToHybrid;
-	}
-	if(ImGui::RadioButton("Rayquery Render Path", &active_path, 1) && current_path != 1) {
-		state = RenderPathState::ChangeToRayquery;
-	}
-	if(ImGui::RadioButton("Raytraced Render Path", &active_path, 2) && current_path != 2) {
-		state = RenderPathState::ChangeToRaytraced;
-	}
-
+	ImGui::Begin("Render Path Configuration");
 	ImGui::NewLine();
-	ImGui::Text("Configuration:");
 	active_render_path.ImGuiDrawSettings();
 	ImGui::End();
 
@@ -167,8 +144,8 @@ void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer comm
 	assert(vertex_buffer_size < IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE);
 	assert(index_buffer_size < IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE);
 
-	ImGuiVertex *vertex_data = reinterpret_cast<ImGuiVertex *>(vertex_buffer.mapped_data);
-	uint16_t *index_data = reinterpret_cast<uint16_t *>(index_buffer.mapped_data);
+	ImGuiVertex *vertex_data = reinterpret_cast<ImGuiVertex *>(vertex_buffers[resource_idx].mapped_data);
+	uint16_t *index_data = reinterpret_cast<uint16_t *>(index_buffers[resource_idx].mapped_data);
 
 	for(int i = 0; i < draw_data->CmdListsCount; ++i) {
 		ImDrawList *draw_list = draw_data->CmdLists[i];
@@ -217,8 +194,8 @@ void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer comm
 	std::array<VkDeviceSize, 1> offsets = { 0 };
 	uint32_t vertex_offset = 0;
 	uint32_t index_offset = 0;
-	vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer.handle, offsets.data());
-	vkCmdBindIndexBuffer(command_buffer, index_buffer.handle, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffers[resource_idx].handle, offsets.data());
+	vkCmdBindIndexBuffer(command_buffer, index_buffers[resource_idx].handle, 0, VK_INDEX_TYPE_UINT16);
 	for(int i = 0; i < draw_data->CmdListsCount; ++i) {
 		ImDrawList *draw_list = draw_data->CmdLists[i];
 		for(int j = 0; j < draw_list->CmdBuffer.Size; ++j) {
@@ -269,13 +246,13 @@ void UserInterface::MouseMove(float x, float y) {
 
 void UserInterface::MouseLeftButtonDown() {
 	if(IsHoveringAnchor()) {
-		split_view_anchor_drag_active = true;
+		//split_view_anchor_drag_active = true;
 	}
 	ImGui::GetIO().MouseDown[0] = true;
 }
 
 void UserInterface::MouseLeftButtonUp() {
-	split_view_anchor_drag_active = false;
+	//split_view_anchor_drag_active = false;
 	ImGui::GetIO().MouseDown[0] = false;
 }
 
