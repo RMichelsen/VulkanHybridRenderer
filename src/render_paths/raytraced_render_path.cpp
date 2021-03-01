@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "raytraced_shadows_render_path.h"
+#include "raytraced_render_path.h"
 
 #include "rendering_backend/resource_manager.h"
 #include "rendering_backend/vulkan_context.h"
@@ -8,8 +8,7 @@
 #include "render_graph/raytracing_execution_context.h"
 #include "render_graph/render_graph.h"
 
-namespace RaytracedShadowsRenderPath {
-void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGraph &render_graph) {
+void RaytracedRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
 	render_graph.AddRaytracingPass("Raytracing Pass",
 		{},
 		{
@@ -17,13 +16,13 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 		},
 		RaytracingPipelineDescription {
 			.name = "Raytracing Pipeline",
-			.raygen_shader = "raytraced_shadows/raygen.rgen",
+			.raygen_shader = "raytraced_render_path/raygen.rgen",
 			.miss_shaders = {
-				"raytraced_shadows/miss.rmiss",
-				"raytraced_shadows/shadow_miss.rmiss"
+				"raytraced_render_path/miss.rmiss",
+				"raytraced_render_path/shadow_miss.rmiss"
 			},
 			.hit_shaders = {
-				"raytraced_shadows/closesthit.rchit"
+				"raytraced_render_path/closesthit.rchit"
 			}
 		},
 		[&](ExecuteRaytracingCallback execute_pipeline) {
@@ -48,8 +47,8 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 		{
 			GraphicsPipelineDescription {
 				.name = "Composition Pipeline",
-				.vertex_shader = "raytraced_shadows/composition.vert",
-				.fragment_shader = "raytraced_shadows/composition.frag",
+				.vertex_shader = "raytraced_render_path/composition.vert",
+				.fragment_shader = "raytraced_render_path/composition.frag",
 				.vertex_input_state = VertexInputState::Empty,
 				.rasterization_state = RasterizationState::CullCounterClockwise,
 				.multisample_state = MultisampleState::Off,
@@ -67,4 +66,5 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 		}
 	);
 }
-}
+
+void RaytracedRenderPath::ImGuiDrawSettings() {}

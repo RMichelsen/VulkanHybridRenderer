@@ -178,14 +178,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <GLSLShader Include="data\shaders\hybrid_shadows\composition.frag" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\composition.vert" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\gbuf.frag" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\gbuf.vert" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\miss.rmiss" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\raygen.rgen" />
-    <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.frag" />
-    <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.vert" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\composition.frag" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\composition.vert" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\depth_prepass.frag" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\depth_prepass.vert" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\gbuf.frag" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\gbuf.vert" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rmiss" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rgen" />
     <GLSLShader Include="data\shaders\imgui\imgui.frag">
       <FileType>GLSLShader</FileType>
     </GLSLShader>
@@ -481,10 +481,9 @@
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="dependencies\vma\vk_mem_alloc.h" />
     <ClInclude Include="dependencies\volk\volk.h" />
-    <ClInclude Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.h" />
-    <ClInclude Include="src\render_paths\hybrid_shadows_render_path.h" />
-    <ClInclude Include="src\render_paths\rasterized_shadows_render_path.h" />
-    <ClInclude Include="src\render_paths\raytraced_shadows_render_path.h" />
+    <ClInclude Include="src\render_paths\hybrid_render_path.h" />
+    <ClInclude Include="src\render_paths\rayquery_render_path.h" />
+    <ClInclude Include="src\render_paths\raytraced_render_path.h" />
     <ClInclude Include="src\render_graph\raytracing_execution_context.h" />
     <ClInclude Include="src\render_graph\graphics_execution_context.h" />
     <ClInclude Include="src\rendering_backend\user_interface.h" />
@@ -493,21 +492,20 @@
     <ClInclude Include="src\rendering_backend\renderer.h" />
     <ClInclude Include="src\render_graph\render_graph.h" />
     <ClInclude Include="src\rendering_backend\resource_manager.h" />
+    <ClInclude Include="src\render_paths\render_path.h" />
     <ClInclude Include="src\scene\scene_loader.h" />
     <ClInclude Include="src\rendering_backend\vulkan_common.h" />
     <ClInclude Include="src\rendering_backend\vulkan_context.h" />
     <ClInclude Include="src\rendering_backend\vulkan_pipeline_presets.h" />
     <ClInclude Include="src\rendering_backend\vulkan_utils.h" />
-    <GLSLShader Include="data\shaders\rasterized_shadows\default.frag" />
-    <GLSLShader Include="data\shaders\rasterized_shadows\default.vert" />
-    <GLSLShader Include="data\shaders\rasterized_shadows\depth.frag" />
-    <GLSLShader Include="data\shaders\rasterized_shadows\depth.vert" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\closesthit.rchit" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\composition.frag" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\composition.vert" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\miss.rmiss" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\raygen.rgen" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\shadow_miss.rmiss" />
+    <GLSLShader Include="data\shaders\rayquery_render_path\default.frag" />
+    <GLSLShader Include="data\shaders\rayquery_render_path\default.vert" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\closesthit.rchit" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\composition.frag" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\composition.vert" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\miss.rmiss" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\raygen.rgen" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\shadow_miss.rmiss" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dependencies\glm\detail\glm.cpp">
@@ -540,10 +538,9 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.cpp" />
-    <ClCompile Include="src\render_paths\hybrid_shadows_render_path.cpp" />
-    <ClCompile Include="src\render_paths\rasterized_shadows_render_path.cpp" />
-    <ClCompile Include="src\render_paths\raytraced_shadows_render_path.cpp" />
+    <ClCompile Include="src\render_paths\hybrid_render_path.cpp" />
+    <ClCompile Include="src\render_paths\rayquery_render_path.cpp" />
+    <ClCompile Include="src\render_paths\raytraced_render_path.cpp" />
     <ClCompile Include="src\render_graph\raytracing_execution_context.cpp" />
     <ClCompile Include="src\dependencies_impl.cpp" />
     <ClCompile Include="src\render_graph\graphics_execution_context.cpp" />
@@ -558,6 +555,7 @@
     <ClCompile Include="src\rendering_backend\renderer.cpp" />
     <ClCompile Include="src\render_graph\render_graph.cpp" />
     <ClCompile Include="src\rendering_backend\resource_manager.cpp" />
+    <ClCompile Include="src\render_paths\render_path.cpp" />
     <ClCompile Include="src\scene\scene_loader.cpp" />
     <ClCompile Include="src\rendering_backend\user_interface.cpp" />
     <ClCompile Include="src\rendering_backend\vulkan_context.cpp" />
@@ -572,10 +570,7 @@
     <Xml Include="misc\glsl.xml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="data\shaders\hybrid_shadows\common.glsl" />
-    <None Include="data\shaders\hybrid_shadows_inline_raytracing\common.glsl" />
-    <None Include="data\shaders\rasterized_shadows\common.glsl" />
-    <None Include="data\shaders\raytraced_shadows\common.glsl" />
+    <None Include="data\shaders\common.glsl" />
     <None Include="dependencies\glm\detail\func_common.inl" />
     <None Include="dependencies\glm\detail\func_common_simd.inl" />
     <None Include="dependencies\glm\detail\func_exponential.inl" />

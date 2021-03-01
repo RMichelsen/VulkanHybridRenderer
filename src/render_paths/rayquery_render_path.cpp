@@ -1,15 +1,14 @@
 #include "pch.h"
-#include "hybrid_shadows_inline_raytracing_render_path.h"
+#include "rayquery_render_path.h"
 
-#include "rendering_backend/resource_manager.h"
-#include "rendering_backend/vulkan_context.h"
-#include "rendering_backend/vulkan_utils.h"
 #include "render_graph/graphics_execution_context.h"
 #include "render_graph/raytracing_execution_context.h"
 #include "render_graph/render_graph.h"
+#include "rendering_backend/resource_manager.h"
+#include "rendering_backend/vulkan_context.h"
+#include "rendering_backend/vulkan_utils.h"
 
-namespace HybridShadowsInlineRaytracingRenderPath {
-void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGraph &render_graph) {
+void RayqueryRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
 	render_graph.AddGraphicsPass("Forward Pass",
 		{
 		},
@@ -20,8 +19,8 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 		{
 			GraphicsPipelineDescription {
 				.name = "Forward Pipeline",
-				.vertex_shader = "hybrid_shadows_inline_raytracing/default.vert",
-				.fragment_shader = "hybrid_shadows_inline_raytracing/default.frag",
+				.vertex_shader = "rayquery_render_path/default.vert",
+				.fragment_shader = "rayquery_render_path/default.frag",
 				.vertex_input_state = VertexInputState::Default,
 				.rasterization_state = RasterizationState::CullCounterClockwise,
 				.multisample_state = MultisampleState::Off,
@@ -53,4 +52,5 @@ void Enable(VulkanContext &context, ResourceManager &resource_manager, RenderGra
 		}
 	);
 }
-}
+
+void RayqueryRenderPath::ImGuiDrawSettings() {}

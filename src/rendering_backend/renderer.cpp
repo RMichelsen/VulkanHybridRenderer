@@ -9,7 +9,9 @@
 #include "render_graph/render_graph.h"
 #include "render_graph/graphics_execution_context.h"
 #include "render_graph/raytracing_execution_context.h"
-#include "render_paths/hybrid_shadows_render_path.h"
+#include "render_paths/hybrid_render_path.h"
+#include "render_paths/rayquery_render_path.h"
+#include "render_paths/raytraced_render_path.h"
 #include "scene/scene_loader.h"
 
 Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<VulkanContext>(hinstance, hwnd)) {
@@ -18,7 +20,10 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
 	resource_manager->LoadScene("Sponza_WithLight.glb");
 
-	EnableRenderPath(HybridShadowsRenderPath::Enable);
+	active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
+	active_render_path->Build();
+
+	active_render_path_state = RenderPathState::Idle;
 }
 
 Renderer::~Renderer() {
@@ -29,7 +34,7 @@ Renderer::~Renderer() {
 }
 
 void Renderer::Update() {
-	user_interface->Update(*this);
+	active_render_path_state = user_interface->Update(*active_render_path);
 }
 
 void Renderer::Present(HWND hwnd) {
@@ -45,7 +50,7 @@ void Renderer::Present(HWND hwnd) {
 	if(result == VK_ERROR_OUT_OF_DATE_KHR) {
 		context->Resize(hwnd);
 		user_interface->ResizeToSwapchain();
-		render_graph->Build();
+		active_render_path->Build();
 		return;
 	}
 	VK_CHECK(result);
@@ -79,13 +84,31 @@ void Renderer::Present(HWND hwnd) {
 	if(!((result == VK_SUCCESS) || (result == VK_SUBOPTIMAL_KHR))) {
 		if(result == VK_ERROR_OUT_OF_DATE_KHR) {
 			context->Resize(hwnd);
-			render_graph->Build();
+			active_render_path->Build();
 			return;
 		}
 	}
 	VK_CHECK(result);
 
 	resource_idx = (resource_idx + 1) % MAX_FRAMES_IN_FLIGHT;
+
+	switch(active_render_path_state) {
+	case RenderPathState::ChangeToHybrid: {
+		active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
+		active_render_path->Build();
+	} break;
+	case RenderPathState::ChangeToRayquery: {
+		active_render_path = std::make_unique<RayqueryRenderPath>(*context, *render_graph, *resource_manager);
+		active_render_path->Build();
+	} break;
+	case RenderPathState::ChangeToRaytraced: {
+		active_render_path = std::make_unique<RaytracedRenderPath>(*context, *render_graph, *resource_manager);
+		active_render_path->Build();
+	} break;
+	case RenderPathState::Idle:
+	default: {
+	}
+	}
 }
 
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {
@@ -96,9 +119,19 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 			.camera_view_inverse = glm::inverse(resource_manager->scene.camera.view),
 			.camera_proj_inverse = glm::inverse(resource_manager->scene.camera.perspective),
 			.directional_light = resource_manager->scene.directional_light,
-			.split_view_anchor = user_interface->split_view_anchor
 		}
 	);
+
+	//glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 64.0f);
+	//light_perspective[1][1] *= -1.0f;
+	//glm::mat4 light_view = glm::lookAt(
+	//	glm::vec3(0.0f, -60.0f, 0.1f),
+	//	glm::vec3(0.0f, 0.0f, 0.0f),
+	//	glm::vec3(0.0f, -1.0f, 0.0f)
+	//);
+	//glm::mat4 light_projview = light_perspective * light_view;
+
+
 
 	VkCommandBufferBeginInfo command_buffer_begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -117,12 +150,5 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	vkCmdEndDebugUtilsLabelEXT(resources.command_buffer);
 
 	VK_CHECK(vkEndCommandBuffer(resources.command_buffer));
-}
-
-void Renderer::EnableRenderPath(void(*EnableRenderPath)(VulkanContext &context, 
-	ResourceManager &resource_manager, RenderGraph &render_grpah)) {
-	render_graph->DestroyResources();
-	EnableRenderPath(*context, *resource_manager, *render_graph);
-	render_graph->Build();
 }
 

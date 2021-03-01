@@ -930,16 +930,16 @@
     <ClInclude Include="src\render_graph\raytracing_execution_context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\render_paths\hybrid_shadows_render_path.h">
+    <ClInclude Include="src\render_paths\render_path.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\render_paths\raytraced_shadows_render_path.h">
+    <ClInclude Include="src\render_paths\hybrid_render_path.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.h">
+    <ClInclude Include="src\render_paths\rayquery_render_path.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\render_paths\rasterized_shadows_render_path.h">
+    <ClInclude Include="src\render_paths\raytraced_render_path.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -1001,16 +1001,16 @@
     <ClCompile Include="src\render_graph\raytracing_execution_context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render_paths\hybrid_shadows_render_path.cpp">
+    <ClCompile Include="src\render_paths\hybrid_render_path.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render_paths\raytraced_shadows_render_path.cpp">
+    <ClCompile Include="src\render_paths\render_path.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render_paths\hybrid_shadows_inline_raytracing_render_path.cpp">
+    <ClCompile Include="src\render_paths\rayquery_render_path.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\render_paths\rasterized_shadows_render_path.cpp">
+    <ClCompile Include="src\render_paths\raytraced_render_path.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1022,24 +1022,22 @@
     <GLSLShader Include="data\shaders\imgui\imgui.frag">
       <Filter>Header Files</Filter>
     </GLSLShader>
-    <GLSLShader Include="data\shaders\hybrid_shadows\composition.frag" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\composition.vert" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\gbuf.frag" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\gbuf.vert" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\miss.rmiss" />
-    <GLSLShader Include="data\shaders\hybrid_shadows\raygen.rgen" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\shadow_miss.rmiss" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\closesthit.rchit" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\miss.rmiss" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\raygen.rgen" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\composition.vert" />
-    <GLSLShader Include="data\shaders\raytraced_shadows\composition.frag" />
-    <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.vert" />
-    <GLSLShader Include="data\shaders\hybrid_shadows_inline_raytracing\default.frag" />
-    <GLSLShader Include="data\shaders\rasterized_shadows\default.vert" />
-    <GLSLShader Include="data\shaders\rasterized_shadows\default.frag" />
-    <GLSLShader Include="data\shaders\rasterized_shadows\depth.vert" />
-    <GLSLShader Include="data\shaders\rasterized_shadows\depth.frag" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\depth_prepass.frag" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\depth_prepass.vert" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rgen" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rmiss" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\gbuf.vert" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\gbuf.frag" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\composition.vert" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\composition.frag" />
+    <GLSLShader Include="data\shaders\rayquery_render_path\default.frag" />
+    <GLSLShader Include="data\shaders\rayquery_render_path\default.vert" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\shadow_miss.rmiss" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\closesthit.rchit" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\composition.frag" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\composition.vert" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\miss.rmiss" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\raygen.rgen" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />
@@ -1454,9 +1452,6 @@
     <None Include="dependencies\glm\gtx\wrap.inl">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="data\shaders\hybrid_shadows\common.glsl" />
-    <None Include="data\shaders\raytraced_shadows\common.glsl" />
-    <None Include="data\shaders\hybrid_shadows_inline_raytracing\common.glsl" />
-    <None Include="data\shaders\rasterized_shadows\common.glsl" />
+    <None Include="data\shaders\common.glsl" />
   </ItemGroup>
 </Project>

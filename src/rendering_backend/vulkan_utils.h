@@ -427,5 +427,17 @@ inline TransientResource CreateTransientStorageImage(const char *name, uint32_t 
 		}
 	};
 }
+
+inline std::vector<VkSpecializationMapEntry> CreateSpecializationMapEntries(uint32_t num_integers) {
+	std::vector<VkSpecializationMapEntry> specialization_map_entries;
+	for(uint32_t i = 0; i < num_integers; ++i) {
+		specialization_map_entries.emplace_back(VkSpecializationMapEntry {
+			.constantID = i,
+			.offset = i * sizeof(int),
+			.size = sizeof(int)
+		});
+	}
+	return specialization_map_entries;
+}
 }
 

@@ -2,6 +2,7 @@
 
 class Renderer;
 class RenderGraph;
+class RenderPath;
 class ResourceManager;
 class VulkanContext;
 class UserInterface {
@@ -9,7 +10,7 @@ public:
 	UserInterface(VulkanContext &context, ResourceManager &resource_manager);
 	void DestroyResources();
 
-	void Update(Renderer &renderer);
+	RenderPathState Update(RenderPath &active_render_path);
 	void Draw(ResourceManager& resource_manager, VkCommandBuffer command_buffer,
 		uint32_t resource_idx, uint32_t image_idx);
 
@@ -21,8 +22,6 @@ public:
 	void MouseRightButtonDown();
 	void MouseRightButtonUp();
 	void MouseScroll(float delta);
-
-	float split_view_anchor;
 
 private:
 	void CreateImGuiRenderPass();

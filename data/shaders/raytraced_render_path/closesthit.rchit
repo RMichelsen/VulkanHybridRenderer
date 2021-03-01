@@ -4,7 +4,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_scalar_block_layout : require
 
-#include "common.glsl"
+#include "../common.glsl"
 
 layout(set = 0, binding = 0, scalar) buffer Vertices { Vertex vertices[]; };
 layout(set = 0, binding = 1) buffer Indices { uint indices[]; };
@@ -18,7 +18,6 @@ layout(set = 1, binding = 0) uniform PerFrameData {
 	mat4 camera_view_inverse;
 	mat4 camera_proj_inverse;
 	DirectionalLight directional_light;
-	float split_view_anchor;
 } pfd;
 
 layout(location = 0) rayPayloadInEXT vec4 payload;

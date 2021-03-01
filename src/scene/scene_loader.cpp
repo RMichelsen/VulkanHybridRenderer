@@ -107,7 +107,17 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		glm::mat4 node_transform;
 		cgltf_node_transform_world(&node, glm::value_ptr(node_transform));
 		node_transform = REFLECT_Y * node_transform;
+
+		// TODO: Get bounding box for shadowmap
+		glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 64.0f);
+		light_perspective[1][1] *= -1.0f;
+		glm::mat4 light_view = glm::lookAt(
+			glm::vec3(0.0f, -60.0f, 0.1f),
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			glm::vec3(0.0f, -1.0f, 0.0f)
+		);
 		scene.directional_light = DirectionalLight {
+			.projview = light_perspective * light_view,
 			.direction = glm::vec4(glm::mat3(node_transform) * glm::vec3(0.0f, 0.0f, -1.0f), 1.0f),
 			.color = glm::vec4(glm::make_vec3(node.light->color), 1.0f)
 		};
@@ -117,9 +127,9 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		return;
 	}
 
+	// TODO: Fix reflection in Y plane
 	glm::mat4 transform;
 	cgltf_node_transform_world(&node, glm::value_ptr(transform));
-	transform = REFLECT_Y * transform;
 
 	Mesh mesh;
 	for(int i = 0; i < node.mesh->primitives_count; ++i) {

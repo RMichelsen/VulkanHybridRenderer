@@ -8,10 +8,10 @@
 #include "rendering_backend/vulkan_utils.h"
 #include "render_graph/graphics_execution_context.h"
 #include "render_graph/render_graph.h"
-#include "render_paths/hybrid_shadows_render_path.h"
-#include "render_paths/hybrid_shadows_inline_raytracing_render_path.h"
-#include "render_paths/rasterized_shadows_render_path.h"
-#include "render_paths/raytraced_shadows_render_path.h"
+#include "render_paths/render_path.h"
+#include "render_paths/hybrid_render_path.h"
+#include "render_paths/rayquery_render_path.h"
+#include "render_paths/raytraced_render_path.h"
 
 struct ImGuiPushConstants {
 	glm::vec2 scale;
@@ -19,11 +19,9 @@ struct ImGuiPushConstants {
 	uint32_t font_texture;
 };
 inline constexpr uint32_t IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE = 32 * 1024 * 1024; // 32MB
-inline constexpr float ANCHOR_WIDTH = 0.001f;
 
 UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_manager) : 
 	context(context), 
-	split_view_anchor(0.5f),
 	split_view_anchor_drag_active(false) {
 	ImGui::CreateContext();
 	ImGuiIO &io = ImGui::GetIO();
@@ -63,7 +61,7 @@ void UserInterface::DestroyResources() {
 	vkDestroyRenderPass(context.device, render_pass, nullptr);
 }
 
-void UserInterface::Update(Renderer &renderer) {
+RenderPathState UserInterface::Update(RenderPath &active_render_path) {
 	ImGuiIO &io = ImGui::GetIO();
 
 	uint64_t current_time = 0;
@@ -73,29 +71,66 @@ void UserInterface::Update(Renderer &renderer) {
 
 	ImGui::NewFrame();
 
-	ImGui::BeginMainMenuBar();
-	ImGui::EndMainMenuBar();
+	//ImGui::BeginMainMenuBar();
+	//if(ImGui::BeginMenu("Render Paths"))
+	//{
+	//	// TODO: Ugly
+	//	if(ImGui::MenuItem("Hybrid Render Path")) {
+	//		renderer.active_render_path = std::make_unique<HybridRenderPath>(
+	//			*renderer.context, 
+	//			*renderer.render_graph, 
+	//			*renderer.resource_manager
+	//		);
+	//		renderer.active_render_path->Build();
+	//	}
+	//	if(ImGui::MenuItem("Rayquery Render Path")) {
+	//		renderer.active_render_path = std::make_unique<RayqueryRenderPath>(
+	//			*renderer.context,
+	//			*renderer.render_graph,
+	//			*renderer.resource_manager
+	//		);
+	//		renderer.active_render_path->Build();
+	//	}
+	//	if(ImGui::MenuItem("Raytraced Render Path")) {
+	//		renderer.active_render_path = std::make_unique<RaytracedRenderPath>(
+	//			*renderer.context,
+	//			*renderer.render_graph,
+	//			*renderer.resource_manager
+	//		);
+	//		renderer.active_render_path->Build();
+	//	}
+	//	ImGui::EndMenu();
+	//}
 
-	ImGui::Begin("Configuration");
+	//ImGui::EndMainMenuBar();
+
+	ImGui::Begin("Statistics");
 	ImGui::Text("FPS: %f", io.Framerate);
+	ImGui::End();
+
+	ImGui::Begin("Render Path");
+	RenderPathState state = RenderPathState::Idle;
 	static int active_path = 0;
 	int current_path = active_path;
-	if(ImGui::RadioButton("Hybrid Shadows", &active_path, 0) && current_path != 0) {
-		renderer.EnableRenderPath(HybridShadowsRenderPath::Enable);
+	if(ImGui::RadioButton("Hybrid Render Path", &active_path, 0) && current_path != 0) {
+		state = RenderPathState::ChangeToHybrid;
 	}
-	if(ImGui::RadioButton("Hybrid Shadows Inline Raytracing", &active_path, 1) && current_path != 1) {
-		renderer.EnableRenderPath(HybridShadowsInlineRaytracingRenderPath::Enable);
+	if(ImGui::RadioButton("Rayquery Render Path", &active_path, 1) && current_path != 1) {
+		state = RenderPathState::ChangeToRayquery;
 	}
-	if(ImGui::RadioButton("Rasterized Shadows", &active_path, 2) && current_path != 2) {
-		renderer.EnableRenderPath(RasterizedShadowsRenderPath::Enable);
+	if(ImGui::RadioButton("Raytraced Render Path", &active_path, 2) && current_path != 2) {
+		state = RenderPathState::ChangeToRaytraced;
 	}
-	if(ImGui::RadioButton("Raytraced Shadows", &active_path, 3) && current_path != 3) {
-		renderer.EnableRenderPath(RaytracedShadowsRenderPath::Enable);
-	}
+
+	ImGui::NewLine();
+	ImGui::Text("Configuration:");
+	active_render_path.ImGuiDrawSettings();
 	ImGui::End();
 
 	ImGui::EndFrame();
 	ImGui::Render();
+
+	return state;
 }
 
 void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer command_buffer, 
@@ -117,24 +152,6 @@ void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer comm
 		.layers = 1
 	};
 	VK_CHECK(vkCreateFramebuffer(context.device, &framebuffer_info, nullptr, &framebuffer));
-
-	VkRenderPassBeginInfo render_pass_begin_info {
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		.renderPass = render_pass,
-		.framebuffer = framebuffer,
-		.renderArea = VkRect2D {
-			.offset = VkOffset2D {.x = 0, .y = 0 },
-			.extent = context.swapchain.extent
-		}
-	};
-
-	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-
-	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		pipeline_layout, 0, 1, &resource_manager.global_descriptor_set, 0, nullptr);
-	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		pipeline_layout, 1, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
 
 	ImDrawData *draw_data = ImGui::GetDrawData();
 	if(!draw_data || draw_data->CmdListsCount == 0) {
@@ -160,6 +177,23 @@ void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer comm
 		vertex_data += draw_list->VtxBuffer.Size;
 		index_data += draw_list->IdxBuffer.Size;
 	}
+
+	VkRenderPassBeginInfo render_pass_begin_info {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = render_pass,
+		.framebuffer = framebuffer,
+		.renderArea = VkRect2D {
+			.offset = VkOffset2D {.x = 0, .y = 0 },
+			.extent = context.swapchain.extent
+		}
+	};
+	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		pipeline_layout, 0, 1, &resource_manager.global_descriptor_set, 0, nullptr);
+	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		pipeline_layout, 1, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
 
 	ImGuiPushConstants push_constants {
 		.scale = glm::vec2 { 
@@ -189,6 +223,7 @@ void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer comm
 		ImDrawList *draw_list = draw_data->CmdLists[i];
 		for(int j = 0; j < draw_list->CmdBuffer.Size; ++j) {
 			ImDrawCmd &cmd = draw_list->CmdBuffer[j];
+
 			VkRect2D scissor_rect {
 				.offset = VkOffset2D {
 					.x = std::max(static_cast<int>(cmd.ClipRect.x), 0),
@@ -217,19 +252,19 @@ void UserInterface::ResizeToSwapchain() {
 
 bool UserInterface::IsHoveringAnchor() {
 	ImGuiIO& io = ImGui::GetIO();
-	float target = io.MousePos.x / static_cast<float>(context.swapchain.extent.width);
-	if(fabs(split_view_anchor - target) < ANCHOR_WIDTH * 4.0f) {
-		return true;
-	}
+	//float target = io.MousePos.x / static_cast<float>(context.swapchain.extent.width);
+	//if(fabs(split_view_anchor - target) < ANCHOR_WIDTH * 4.0f) {
+	//	return true;
+	//}
 	return false;
 }
 
 void UserInterface::MouseMove(float x, float y) {
 	ImGuiIO& io = ImGui::GetIO();
 	io.MousePos = ImVec2 { x, y };
-	if(io.MouseDown[0] && split_view_anchor_drag_active) {
-		split_view_anchor = x / static_cast<float>(context.swapchain.extent.width);
-	}
+	//if(io.MouseDown[0] && split_view_anchor_drag_active) {
+	//	split_view_anchor = x / static_cast<float>(context.swapchain.extent.width);
+	//}
 }
 
 void UserInterface::MouseLeftButtonDown() {
@@ -261,7 +296,7 @@ void UserInterface::CreateImGuiRenderPass() {
 	VkAttachmentDescription {
 		.format = context.swapchain.format,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -313,11 +348,10 @@ void UserInterface::CreateImGuiPipeline(ResourceManager &resource_manager) {
 		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
 	};
 	VkViewport viewport {
-		//.y = static_cast<float>(context.swapchain.extent.height),
-		//.width = static_cast<float>(context.swapchain.extent.width),
-		//.height = -static_cast<float>(context.swapchain.extent.height),
-		//.minDepth = 0.0f,
-		//.maxDepth = 1.0f
+		.width = static_cast<float>(context.swapchain.extent.width),
+		.height = static_cast<float>(context.swapchain.extent.height),
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f
 	};
 	VkRect2D scissor {
 		.extent = context.swapchain.extent

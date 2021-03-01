@@ -22,6 +22,26 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 			VK_SHADER_STAGE_FRAGMENT_BIT)
 	};
 
+	uint32_t num_spec_constants = 
+		static_cast<uint32_t>(description.specialization_constants_description.specialization_constants.size());
+	std::vector<VkSpecializationMapEntry> specialization_map_entries;
+	VkSpecializationInfo specialization_info;
+	if(num_spec_constants > 0) {
+		specialization_map_entries = VkUtils::CreateSpecializationMapEntries(num_spec_constants);
+
+		specialization_info.mapEntryCount = static_cast<uint32_t>(specialization_map_entries.size());
+		specialization_info.pMapEntries = specialization_map_entries.data();
+		specialization_info.dataSize = sizeof(int) * num_spec_constants;
+		specialization_info.pData = description.specialization_constants_description.specialization_constants.data();
+
+		if(description.specialization_constants_description.shader_stage & VK_SHADER_STAGE_VERTEX_BIT) {
+			shader_stage_infos[0].pSpecializationInfo = &specialization_info;
+		}
+		if(description.specialization_constants_description.shader_stage & VK_SHADER_STAGE_FRAGMENT_BIT) {
+			shader_stage_infos[1].pSpecializationInfo = &specialization_info;
+		}
+	}
+
 	VkPipelineVertexInputStateCreateInfo vertex_input_state_info {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
 	};

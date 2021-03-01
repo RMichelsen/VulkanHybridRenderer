@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
-#include "common.glsl"
+#include "../common.glsl"
 
 layout(set = 0, binding = 2, std430) buffer Primitives { Primitive primitives[]; };
 layout(set = 1, binding = 0) uniform PerFrameData {
@@ -11,7 +11,6 @@ layout(set = 1, binding = 0) uniform PerFrameData {
 	mat4 camera_view_inverse;
 	mat4 camera_proj_inverse;
 	DirectionalLight directional_light;
-	float split_view_anchor;
 } pfd;
 
 layout(push_constant) uniform PushConstants {

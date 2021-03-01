@@ -56,8 +56,8 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 
 	VkSamplerCreateInfo sampler_info {
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-		.magFilter = VK_FILTER_LINEAR,
-		.minFilter = VK_FILTER_LINEAR,
+		.magFilter = VK_FILTER_NEAREST,
+		.minFilter = VK_FILTER_NEAREST,
 		.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,

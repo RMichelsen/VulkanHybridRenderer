@@ -47,6 +47,7 @@ struct Mesh {
 };
 
 struct DirectionalLight {
+	glm::mat4 projview;
 	glm::vec4 direction;
 	glm::vec4 color;
 };
@@ -63,7 +64,6 @@ struct PerFrameData {
 	glm::mat4 camera_view_inverse;
 	glm::mat4 camera_proj_inverse;
 	DirectionalLight directional_light;
-	float split_view_anchor;
 };
 
 struct PushConstants {
@@ -193,6 +193,11 @@ inline constexpr PushConstantDescription PUSHCONSTANTS_NONE {
 	.pipeline_stage = 0
 };
 
+struct SpecializationConstantsDescription {
+	VkShaderStageFlags shader_stage;
+	std::vector<int> specialization_constants;
+};
+
 enum class TransientResourceType {
 	Image,
 	Buffer
@@ -239,6 +244,7 @@ struct GraphicsPipelineDescription {
 	DepthStencilState depth_stencil_state;
 	DynamicState dynamic_state;
 	PushConstantDescription push_constants;
+	SpecializationConstantsDescription specialization_constants_description;
 };
 
 struct GraphicsPipeline {
@@ -322,3 +328,9 @@ struct RenderPassDescription {
 	std::variant<GraphicsPassDescription, RaytracingPassDescription> description;
 };
 
+enum class RenderPathState {
+	Idle,
+	ChangeToHybrid,
+	ChangeToRayquery,
+	ChangeToRaytraced
+};

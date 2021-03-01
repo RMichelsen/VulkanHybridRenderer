@@ -33,7 +33,7 @@ inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_CULL
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
 	.polygonMode = VK_POLYGON_MODE_FILL,
 	.cullMode = VK_CULL_MODE_NONE,
-	.frontFace = VK_FRONT_FACE_CLOCKWISE,
+	.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
 	.lineWidth = 1.0f
 };
 inline constexpr VkPipelineMultisampleStateCreateInfo MULTISAMPLE_STATE_OFF {
@@ -61,8 +61,8 @@ inline constexpr VkPipelineColorBlendAttachmentState COLOR_BLEND_ATTACHMENT_STAT
 	.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
 	.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
 	.colorBlendOp = VK_BLEND_OP_ADD,
-	.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-	.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+	.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+	.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
 	.alphaBlendOp = VK_BLEND_OP_ADD,
 	.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
 		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
