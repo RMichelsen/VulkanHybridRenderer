@@ -16,7 +16,7 @@
 struct ImGuiPushConstants {
 	glm::vec2 scale;
 	glm::vec2 translate;
-	uint32_t font_texture;
+	uint32_t texture;
 };
 inline constexpr uint32_t IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE = 32 * 1024 * 1024; // 32MB
 
@@ -32,6 +32,15 @@ UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_m
 	io.Fonts->GetTexDataAsRGBA32(&font_data, &width, &height);
 	font_texture = resource_manager.UploadTextureFromData(width, height, font_data);
 	io.Fonts->TexID = reinterpret_cast<ImTextureID>(static_cast<uint64_t>(font_texture));
+	free(font_data);
+
+	uint8_t *empty_data = static_cast<uint8_t *>(calloc(4096 * 4096, sizeof(uint64_t)));
+	debug_textures[VK_FORMAT_B8G8R8A8_UNORM] = resource_manager.UploadTextureFromData(4096, 4096, empty_data, VK_FORMAT_B8G8R8A8_UNORM);
+	debug_textures[VK_FORMAT_R8G8B8A8_UNORM] = resource_manager.UploadTextureFromData(4096, 4096, empty_data, VK_FORMAT_R8G8B8A8_UNORM);
+	debug_textures[VK_FORMAT_D32_SFLOAT] = resource_manager.UploadTextureFromData(4096, 4096, empty_data, VK_FORMAT_B8G8R8A8_UNORM);
+	debug_textures[VK_FORMAT_R16G16B16A16_SFLOAT] = resource_manager.UploadTextureFromData(4096, 4096, empty_data, VK_FORMAT_R16G16B16A16_SFLOAT);
+	free(empty_data);
+	active_debug_texture = debug_textures[VK_FORMAT_B8G8R8A8_UNORM];
 
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE, 
 		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -68,7 +77,8 @@ void UserInterface::DestroyResources() {
 	vkDestroyRenderPass(context.device, render_pass, nullptr);
 }
 
-RenderPathState UserInterface::Update(RenderPath &active_render_path) {
+UserInterfaceState UserInterface::Update(RenderPath &active_render_path, 
+	std::vector<std::string> current_color_attachments) {
 	ImGuiIO &io = ImGui::GetIO();
 
 	uint64_t current_time = 0;
@@ -79,17 +89,17 @@ RenderPathState UserInterface::Update(RenderPath &active_render_path) {
 	ImGui::NewFrame();
 
 	ImGui::BeginMainMenuBar();
-	RenderPathState state = RenderPathState::Idle;
+	RenderPathState render_path_state = RenderPathState::Idle;
 	if(ImGui::BeginMenu("Render Paths"))
 	{
 		if(ImGui::MenuItem("Hybrid Render Path")) {
-			state = RenderPathState::ChangeToHybrid;
+			render_path_state = RenderPathState::ChangeToHybrid;
 		}
 		if(ImGui::MenuItem("Rayquery Render Path")) {
-			state = RenderPathState::ChangeToRayquery;
+			render_path_state = RenderPathState::ChangeToRayquery;
 		}
 		if(ImGui::MenuItem("Raytraced Render Path")) {
-			state = RenderPathState::ChangeToRaytraced;
+			render_path_state = RenderPathState::ChangeToRaytraced;
 		}
 		ImGui::EndMenu();
 	}
@@ -100,14 +110,37 @@ RenderPathState UserInterface::Update(RenderPath &active_render_path) {
 	ImGui::End();
 
 	ImGui::Begin("Render Path Configuration");
-	ImGui::NewLine();
 	active_render_path.ImGuiDrawSettings();
+	ImGui::End();
+
+	ImGui::Begin("Debug Texture");
+	static std::string current_texture = "";
+	if(ImGui::BeginCombo("##texture_combo", current_texture.c_str()))
+	{
+		for(std::string &texture : current_color_attachments) {
+			bool is_selected = texture == current_texture;
+			if(ImGui::Selectable(texture.c_str(), is_selected)) {
+				current_texture = texture;
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	ImGui::Image(
+		reinterpret_cast<ImTextureID>(static_cast<uint64_t>(active_debug_texture)), 
+		ImGui::GetContentRegionAvail(),
+		ImVec2(0, 0),
+		ImVec2(io.DisplaySize.x / 4096, io.DisplaySize.y / 4096)
+	);
 	ImGui::End();
 
 	ImGui::EndFrame();
 	ImGui::Render();
 
-	return state;
+	return UserInterfaceState {
+		.render_path_state = render_path_state,
+		.debug_texture = current_texture
+	};
 }
 
 void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer command_buffer, 
@@ -178,10 +211,8 @@ void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer comm
 			2.0f / draw_data->DisplaySize.y
 		},
 		.translate = glm::vec2 { -1.0f, -1.0f },
-		.font_texture = font_texture
+		.texture = font_texture
 	};
-	vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | 
-		VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ImGuiPushConstants), &push_constants);
 
 	VkViewport viewport {
 		.width = draw_data->DisplaySize.x,
@@ -201,6 +232,10 @@ void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer comm
 		for(int j = 0; j < draw_list->CmdBuffer.Size; ++j) {
 			ImDrawCmd &cmd = draw_list->CmdBuffer[j];
 
+			push_constants.texture = static_cast<uint32_t>(reinterpret_cast<uint64_t>(cmd.TextureId));
+			vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | 
+				VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ImGuiPushConstants), &push_constants);
+
 			VkRect2D scissor_rect {
 				.offset = VkOffset2D {
 					.x = std::max(static_cast<int>(cmd.ClipRect.x), 0),
@@ -219,6 +254,11 @@ void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer comm
 	}
 
 	vkCmdEndRenderPass(command_buffer);
+}
+
+uint32_t UserInterface::SetActiveDebugTexture(VkFormat format) {
+	active_debug_texture = debug_textures[format];
+	return active_debug_texture;
 }
 
 void UserInterface::ResizeToSwapchain() {

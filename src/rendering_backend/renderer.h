@@ -23,6 +23,6 @@ private:
 	std::unique_ptr<ResourceManager> resource_manager;
 	std::unique_ptr<RenderGraph> render_graph;
 	std::unique_ptr<RenderPath> active_render_path;
-	RenderPathState active_render_path_state;
+	UserInterfaceState user_interface_state;
 };
 

@@ -259,7 +259,7 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 		uint32_t image_idx;
 		#pragma omp critical
 		{
-			image_idx = resource_manager.UploadTextureFromData(x, y, image_data, &sampler_info);
+			image_idx = resource_manager.UploadTextureFromData(x, y, image_data, VK_FORMAT_R8G8B8A8_UNORM, &sampler_info);
 			textures[data->textures[i].image->name] = image_idx;
 			free(image_data);
 		}

@@ -125,6 +125,23 @@ inline bool IsDepthFormat(VkFormat format) {
 	}
 }
 
+inline uint32_t FormatStride(VkFormat format) {
+	switch(format) {
+	case VK_FORMAT_R8G8B8A8_UNORM: return 4;
+	case VK_FORMAT_B8G8R8A8_UNORM: return 4;
+	case VK_FORMAT_R16G16B16A16_SFLOAT: return 8;
+	case VK_FORMAT_D16_UNORM: return 2;
+	case VK_FORMAT_D16_UNORM_S8_UINT: return 3;
+	case VK_FORMAT_D24_UNORM_S8_UINT: return 4;
+	case VK_FORMAT_D32_SFLOAT: return 4;
+	case VK_FORMAT_D32_SFLOAT_S8_UINT: return 4;
+	default:
+		// TODO: Implement more?
+		assert(false);
+		return 0;
+	}
+}
+
 inline VkImageCreateInfo ImageCreateInfo2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage) {
 	return VkImageCreateInfo {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,

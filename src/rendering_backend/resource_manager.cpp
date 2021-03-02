@@ -143,23 +143,23 @@ Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat f
 }
 
 uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data, 
-	SamplerInfo *sampler_info) {
+	VkFormat format, SamplerInfo *sampler_info) {
 	Image texture;
 
 	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, 
-		VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+		format, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 	VmaAllocationCreateInfo image_alloc_info {
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY
 	};
 	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
 		&texture.handle, &texture.allocation, nullptr);
 
-	// TODO: Assuming RGBA, 8-bit each
-	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(static_cast<VkDeviceSize>(width) * 
-		static_cast<VkDeviceSize>(height) * 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+
+	VkDeviceSize buffer_size = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * VkUtils::FormatStride(format);
+	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
 	MappedBuffer buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
-	memcpy(buffer.mapped_data, data, static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
+	memcpy(buffer.mapped_data, data, buffer_size);
 
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, 
 		context.command_pool, [&](VkCommandBuffer command_buffer) {
@@ -182,7 +182,7 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 	VkUtils::DestroyMappedBuffer(context.allocator, buffer);
 
 	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(texture.handle, 
-		VK_FORMAT_R8G8B8A8_UNORM);
+		format);
 	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.view));
 	
 	VkSampler texture_sampler = sampler_info ?

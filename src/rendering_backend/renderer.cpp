@@ -23,7 +23,10 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
 	active_render_path->Build();
 
-	active_render_path_state = RenderPathState::Idle;
+	user_interface_state = {
+		.render_path_state = RenderPathState::Idle,
+		.debug_texture = ""
+	};
 }
 
 Renderer::~Renderer() {
@@ -34,7 +37,7 @@ Renderer::~Renderer() {
 }
 
 void Renderer::Update() {
-	active_render_path_state = user_interface->Update(*active_render_path);
+	user_interface_state = user_interface->Update(*active_render_path, render_graph->GetColorAttachments());
 }
 
 void Renderer::Present(HWND hwnd) {
@@ -84,6 +87,7 @@ void Renderer::Present(HWND hwnd) {
 	if(!((result == VK_SUCCESS) || (result == VK_SUBOPTIMAL_KHR))) {
 		if(result == VK_ERROR_OUT_OF_DATE_KHR) {
 			context->Resize(hwnd);
+			user_interface->ResizeToSwapchain();
 			active_render_path->Build();
 			return;
 		}
@@ -92,7 +96,7 @@ void Renderer::Present(HWND hwnd) {
 
 	resource_idx = (resource_idx + 1) % MAX_FRAMES_IN_FLIGHT;
 
-	switch(active_render_path_state) {
+	switch(user_interface_state.render_path_state) {
 	case RenderPathState::ChangeToHybrid: {
 		active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
 		active_render_path->Build();
@@ -129,6 +133,16 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	VK_CHECK(vkBeginCommandBuffer(resources.command_buffer, &command_buffer_begin_info));
 	
 	render_graph->Execute(resources.command_buffer, resource_idx, image_idx);
+
+	if(!user_interface_state.debug_texture.empty()) {
+		VkFormat format = render_graph->GetImageFormat(user_interface_state.debug_texture);
+		uint32_t active_debug_texture = user_interface->SetActiveDebugTexture(format);
+		render_graph->CopyImage(
+			resources.command_buffer,
+			user_interface_state.debug_texture,
+			resource_manager->textures[active_debug_texture]
+		);
+	}
 
 	VkDebugUtilsLabelEXT pass_label {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,

@@ -136,6 +136,76 @@ void RenderGraph::Execute(VkCommandBuffer command_buffer, uint32_t resource_idx,
 	}
 }
 
+void RenderGraph::CopyImage(VkCommandBuffer command_buffer, std::string src_image_name, Image dst_image) {
+	assert(images.contains(src_image_name));
+	assert(image_access.contains(src_image_name));
+	Image &src_image = images[src_image_name];
+	ImageAccess current_access = image_access[src_image_name];
+
+	if(image_access[src_image_name].layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+		VkUtils::InsertImageBarrier(
+			command_buffer, src_image.handle, VK_IMAGE_ASPECT_COLOR_BIT,
+			current_access.layout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, current_access.stage_flags,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, current_access.access_flags, VK_ACCESS_TRANSFER_READ_BIT
+		);
+	}
+	image_access[src_image_name] = ImageAccess {
+		.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		.access_flags = VK_ACCESS_TRANSFER_READ_BIT,
+		.stage_flags = VK_PIPELINE_STAGE_TRANSFER_BIT
+	};
+
+	VkUtils::InsertImageBarrier(command_buffer, dst_image.handle, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0, VK_ACCESS_TRANSFER_WRITE_BIT);
+
+	VkImageCopy image_copy {
+		.srcSubresource = VkImageSubresourceLayers {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.layerCount = 1
+		},
+		.dstSubresource = VkImageSubresourceLayers {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.layerCount = 1
+		},
+		.extent = VkExtent3D {
+			.width = src_image.width,
+			.height = src_image.height,
+			.depth = 1
+		}
+	};
+	vkCmdCopyImage(
+		command_buffer,
+		src_image.handle,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		dst_image.handle,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&image_copy
+	);
+
+	VkUtils::InsertImageBarrier(command_buffer, dst_image.handle, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+}
+
+VkFormat RenderGraph::GetImageFormat(std::string image_name) {
+	assert(images.contains(image_name));
+	return images[image_name].format;
+}
+
+std::vector<std::string> RenderGraph::GetColorAttachments() {
+	std::vector<std::string> color_attachment_names;
+	for(auto &[name, image] : images) {
+		if(!VkUtils::IsDepthFormat(image.format)) {
+			color_attachment_names.emplace_back(name);
+		}
+	}
+	return color_attachment_names;
+}
+
 void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 	GraphicsPassDescription &graphics_pass_description =
 		std::get<GraphicsPassDescription>(pass_description.description);
@@ -621,10 +691,12 @@ void RenderGraph::ActualizeResource(TransientResource &resource) {
 		// TODO: Usage is not optimized (tracking usage was cumbersome though...)
 		VkImageUsageFlags usage;
 		if(VkUtils::IsDepthFormat(resource.image.format)) {
-			usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | 
+				    VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		}
 		else {
-			usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+			usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | 
+				    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		}
 
 		// Swapchain-sized image

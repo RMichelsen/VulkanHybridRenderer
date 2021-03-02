@@ -16,6 +16,9 @@ public:
 
 	void Build();
 	void Execute(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx);
+	void CopyImage(VkCommandBuffer command_buffer, std::string src_image_name, Image dst_image);
+	VkFormat GetImageFormat(std::string image_name);
+	std::vector<std::string> GetColorAttachments();
 
 private:
 	void CreateGraphicsPass(RenderPassDescription &pass_description);
@@ -40,5 +43,7 @@ private:
 	std::unordered_map<std::string, RaytracingPipeline> raytracing_pipelines;
 	std::unordered_map<std::string, Image> images;
 	std::unordered_map<std::string, ImageAccess> image_access;
+
+	friend class RenderPath;
 };
 

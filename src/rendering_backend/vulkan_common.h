@@ -334,3 +334,8 @@ enum class RenderPathState {
 	ChangeToRayquery,
 	ChangeToRaytraced
 };
+
+struct UserInterfaceState {
+	RenderPathState render_path_state;
+	std::string debug_texture;
+};

@@ -10,9 +10,10 @@ public:
 	UserInterface(VulkanContext &context, ResourceManager &resource_manager);
 	void DestroyResources();
 
-	RenderPathState Update(RenderPath &active_render_path);
+	UserInterfaceState Update(RenderPath &active_render_path, std::vector<std::string> current_color_attachments);
 	void Draw(ResourceManager& resource_manager, VkCommandBuffer command_buffer,
 		uint32_t resource_idx, uint32_t image_idx);
+	uint32_t SetActiveDebugTexture(VkFormat format);
 
 	void ResizeToSwapchain();
 	bool IsHoveringAnchor();
@@ -37,6 +38,9 @@ private:
 	std::array<MappedBuffer, MAX_FRAMES_IN_FLIGHT> vertex_buffers;
 	std::array<MappedBuffer, MAX_FRAMES_IN_FLIGHT> index_buffers;
 	uint32_t font_texture;
+
+	uint32_t active_debug_texture;
+	std::unordered_map<VkFormat, uint32_t> debug_textures;
 
 	uint64_t global_time;
 	uint64_t performance_frequency;
