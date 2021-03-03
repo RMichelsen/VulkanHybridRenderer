@@ -11,6 +11,31 @@ constexpr glm::mat4 REFLECT_Y {
 	0.0f, 0.0f, 0.0f, 1.0f
 };
 
+void DecomposeMatrix(glm::mat4 M, glm::mat4 *T, glm::mat4 *R, glm::mat4 *S) {
+	glm::vec3 translation = glm::vec3(M[3][0], M[3][1], M[3][2]);
+	M[3][0] = 0.0f;
+	M[3][1] = 0.0f;
+	M[3][2] = 0.0f;
+	glm::vec3 scale = glm::vec3(
+		glm::length(glm::vec3(M[0][0], M[0][1], M[0][2])),
+		glm::length(glm::vec3(M[1][0], M[1][1], M[1][2])),
+		glm::length(glm::vec3(M[2][0], M[2][1], M[2][2]))
+	);
+	M[0][0] /= scale.x;
+	M[0][1] /= scale.x;
+	M[0][2] /= scale.x;
+	M[1][0] /= scale.y;
+	M[1][1] /= scale.y;
+	M[1][2] /= scale.y;
+	M[2][0] /= scale.z;
+	M[2][1] /= scale.z;
+	M[2][2] /= scale.z;
+
+	*T = glm::translate(glm::mat4(1.0f), translation);
+	*R = M;
+	*S = glm::scale(glm::mat4(1.0f), scale);
+}
+
 VkFilter GetVkFilter(cgltf_int filter) {
 	switch(filter) {
 	case 0x2600:
@@ -101,24 +126,31 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		return;
 	}
 
-	if(node.light) {
-		assert(node.light->type == cgltf_light_type_directional);
-
+	if(node.light && node.light->type == cgltf_light_type_directional) {
 		glm::mat4 node_transform;
 		cgltf_node_transform_world(&node, glm::value_ptr(node_transform));
-		node_transform = REFLECT_Y * node_transform;
+
+		glm::vec3 translation;
+		glm::vec3 skew;
+		glm::vec3 scale;
+		glm::quat rot;
+		glm::vec4 persp;
+		glm::decompose(node_transform, scale, rot, translation, skew, persp);
 
 		// TODO: Get bounding box for shadowmap
 		glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 64.0f);
+		glm::vec3 light_direction = glm::rotate(rot, glm::vec3(0.0f, 0.0f, -1.0f));
+		light_direction.y = -light_direction.y;
+
 		light_perspective[1][1] *= -1.0f;
 		glm::mat4 light_view = glm::lookAt(
-			glm::vec3(0.0f, -60.0f, 0.1f),
+			-light_direction * 60.0f,
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			glm::vec3(0.0f, -1.0f, 0.0f)
 		);
 		scene.directional_light = DirectionalLight {
 			.projview = light_perspective * light_view,
-			.direction = glm::vec4(glm::mat3(node_transform) * glm::vec3(0.0f, 0.0f, -1.0f), 1.0f),
+			.direction = glm::vec4(light_direction, 1.0f),
 			.color = glm::vec4(glm::make_vec3(node.light->color), 1.0f)
 		};
 	}
@@ -272,9 +304,16 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 		ParseNode(data->nodes[i], scene, textures, vertices, indices);
 	}
 
-	if(data->lights_count == 0) {
-		scene.directional_light = DirectionalLight{
-			.direction = glm::vec4(0.45f, -1.0f, 0.45f, 0.0f),
+	uint32_t num_directional_lights = 0;
+	for(int i = 0; i < data->lights_count; ++i) {
+		if(data->lights[i].type == cgltf_light_type_directional) {
+			num_directional_lights++;
+		}
+	}
+
+	if(num_directional_lights == 0) {
+		scene.directional_light = DirectionalLight {
+			.direction = glm::vec4(0.0f, -1.0f, 0.01f, 0.0f),
 			.color = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f)
 		};
 	}

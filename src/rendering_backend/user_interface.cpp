@@ -89,17 +89,21 @@ UserInterfaceState UserInterface::Update(RenderPath &active_render_path,
 	ImGui::NewFrame();
 
 	ImGui::BeginMainMenuBar();
+	static std::string current_texture = "";
 	RenderPathState render_path_state = RenderPathState::Idle;
 	if(ImGui::BeginMenu("Render Paths"))
 	{
 		if(ImGui::MenuItem("Hybrid Render Path")) {
 			render_path_state = RenderPathState::ChangeToHybrid;
+			current_texture = "";
 		}
 		if(ImGui::MenuItem("Rayquery Render Path")) {
 			render_path_state = RenderPathState::ChangeToRayquery;
+			current_texture = "";
 		}
 		if(ImGui::MenuItem("Raytraced Render Path")) {
 			render_path_state = RenderPathState::ChangeToRaytraced;
+			current_texture = "";
 		}
 		ImGui::EndMenu();
 	}
@@ -114,7 +118,6 @@ UserInterfaceState UserInterface::Update(RenderPath &active_render_path,
 	ImGui::End();
 
 	ImGui::Begin("Debug Texture");
-	static std::string current_texture = "";
 	if(ImGui::BeginCombo("##texture_combo", current_texture.c_str()))
 	{
 		for(std::string &texture : current_color_attachments) {
@@ -126,12 +129,14 @@ UserInterfaceState UserInterface::Update(RenderPath &active_render_path,
 		ImGui::EndCombo();
 	}
 
-	ImGui::Image(
-		reinterpret_cast<ImTextureID>(static_cast<uint64_t>(active_debug_texture)), 
-		ImGui::GetContentRegionAvail(),
-		ImVec2(0, 0),
-		ImVec2(io.DisplaySize.x / 4096, io.DisplaySize.y / 4096)
-	);
+	if(!current_texture.empty()) {
+		ImGui::Image(
+			reinterpret_cast<ImTextureID>(static_cast<uint64_t>(active_debug_texture)),
+			ImGui::GetContentRegionAvail(),
+			ImVec2(0, 0),
+			ImVec2(io.DisplaySize.x / 4096, io.DisplaySize.y / 4096)
+		);
+	}
 	ImGui::End();
 
 	ImGui::EndFrame();

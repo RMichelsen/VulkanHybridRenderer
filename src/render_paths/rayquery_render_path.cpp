@@ -36,11 +36,13 @@ void RayqueryRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_g
 			execute_pipeline("Forward Pipeline",
 				[&](GraphicsExecutionContext &execution_context) {
 					execution_context.BindGlobalVertexAndIndexBuffers();
+					// TODO: Fix
+					int object_id = 0;
 					for(Mesh &mesh : resource_manager.scene.meshes) {
 						for(int i = 0; i < mesh.primitives.size(); ++i) {
 							Primitive &primitive = mesh.primitives[i];
 							PushConstants push_constants {
-								.object_id = i
+								.object_id = object_id++
 							};
 							execution_context.PushConstants(push_constants);
 							execution_context.DrawIndexed(primitive.index_count, 1, primitive.index_offset,

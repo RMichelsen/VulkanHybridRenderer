@@ -10,7 +10,7 @@ inline constexpr uint32_t MAX_TRANSIENT_SETS = 128;
 
 inline constexpr uint32_t MAX_PER_FRAME_UBOS = MAX_FRAMES_IN_FLIGHT;
 
-inline constexpr uint32_t MAX_VERTEX_AND_INDEX_BUFSIZE = 128 * 1024 * 1024; // 128MB
+inline constexpr uint32_t MAX_VERTEX_AND_INDEX_BUFSIZE = 256 * 1024 * 1024; // 256MB
 
 ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(MAX_VERTEX_AND_INDEX_BUFSIZE, 
