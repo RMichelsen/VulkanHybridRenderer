@@ -41,7 +41,7 @@ inline constexpr std::array<const char*, 9> DEVICE_EXTENSIONS {
 	printf("Vulkan error: %s:%i", __FILE__, __LINE__); 	\
 }
 
-VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) {
+VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) : hwnd(hwnd) {
 	VK_CHECK(volkInitialize());
 
 	VkApplicationInfo application_info {
@@ -85,7 +85,7 @@ VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) {
 	VK_CHECK(vkCreateCommandPool(device, &command_pool_info, nullptr, &command_pool));
 
 	InitFrameResources();
-	InitSwapchain(hwnd);
+	InitSwapchain();
 }
 
 void VulkanContext::DestroyResources() {
@@ -115,8 +115,8 @@ void VulkanContext::DestroyResources() {
 	vkDestroyInstance(instance, nullptr);
 }
 
-void VulkanContext::Resize(HWND hwnd) {
-	InitSwapchain(hwnd);
+void VulkanContext::Resize() {
+	InitSwapchain();
 }
 
 #ifndef NDEBUG
@@ -303,7 +303,7 @@ void VulkanContext::InitFrameResources() {
 	}	
 }
 
-void VulkanContext::InitSwapchain(HWND hwnd) {
+void VulkanContext::InitSwapchain() {
 	VK_CHECK(vkDeviceWaitIdle(device));
 	VkSwapchainKHR old_swapchain = swapchain.handle;
 
@@ -328,7 +328,7 @@ void VulkanContext::InitSwapchain(HWND hwnd) {
 		.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, // TODO: Hardcoded
 		.imageExtent = extent,
 		.imageArrayLayers = 1,
-		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR, // TODO: Hardcoded
 		.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,

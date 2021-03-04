@@ -38,6 +38,53 @@ Renderer::~Renderer() {
 
 void Renderer::Update() {
 	user_interface_state = user_interface->Update(*active_render_path, render_graph->GetColorAttachments());
+
+	ImGuiIO &io = ImGui::GetIO();
+	Camera &camera = resource_manager->scene.camera;
+	float camera_speed = 1.0f;
+	float movement_speed = 50.0f;
+
+	bool w_down = (GetKeyState((int)'W') & 0x8000);
+	bool a_down = (GetKeyState((int)'A') & 0x8000);
+	bool s_down = (GetKeyState((int)'S') & 0x8000);
+	bool d_down = (GetKeyState((int)'D') & 0x8000);
+	if(w_down || a_down || s_down || d_down) {
+		glm::vec3 forward = glm::normalize(glm::row(camera.view, 2));
+		glm::vec3 position = glm::vec3(glm::column(camera.transform, 3));
+
+		glm::vec3 new_position = position;
+		if(w_down) {
+			new_position -= (forward * movement_speed * io.DeltaTime);
+		}
+		if(s_down) {
+			new_position += (forward * movement_speed * io.DeltaTime);
+		}
+		if(a_down) {
+			new_position += (glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)) * movement_speed * io.DeltaTime);
+		}
+		if(d_down) {
+			new_position -= (glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)) * movement_speed * io.DeltaTime);
+		}
+
+		camera.transform[3][0] = new_position.x;
+		camera.transform[3][1] = new_position.y;
+		camera.transform[3][2] = new_position.z;
+		camera.view = glm::inverse(camera.transform);
+	}
+	if(io.MouseDown[1] && (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f)) {
+		camera.yaw -= io.MouseDelta.x * camera_speed * io.DeltaTime;
+		camera.pitch -= io.MouseDelta.y * camera_speed * io.DeltaTime;
+		if(camera.pitch > 1.55f) {
+			camera.pitch = 1.55f;
+		}
+		if(camera.pitch < -1.55f) {
+			camera.pitch = -1.55f;
+		}
+		glm::mat4 R = glm::yawPitchRoll(camera.yaw, camera.pitch, camera.roll);
+		glm::mat4 T = glm::translate(glm::mat4(1.0f), glm::vec3(glm::column(camera.transform, 3)));
+		camera.transform = T * R;
+		camera.view = glm::inverse(camera.transform);
+	}
 }
 
 void Renderer::Present(HWND hwnd) {
@@ -51,7 +98,7 @@ void Renderer::Present(HWND hwnd) {
 	VkResult result = vkAcquireNextImageKHR(context->device, context->swapchain.handle, 
 		UINT64_MAX, resources.image_available, VK_NULL_HANDLE, &image_idx);
 	if(result == VK_ERROR_OUT_OF_DATE_KHR) {
-		context->Resize(hwnd);
+		context->Resize();
 		user_interface->ResizeToSwapchain();
 		active_render_path->Build();
 		return;
@@ -86,7 +133,7 @@ void Renderer::Present(HWND hwnd) {
 	result = vkQueuePresentKHR(context->graphics_queue, &present_info);
 	if(!((result == VK_SUCCESS) || (result == VK_SUBOPTIMAL_KHR))) {
 		if(result == VK_ERROR_OUT_OF_DATE_KHR) {
-			context->Resize(hwnd);
+			context->Resize();
 			user_interface->ResizeToSwapchain();
 			active_render_path->Build();
 			return;
@@ -116,12 +163,13 @@ void Renderer::Present(HWND hwnd) {
 }
 
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {
+	Camera &camera = resource_manager->scene.camera;
 	resource_manager->UpdatePerFrameUBO(resource_idx, 
 		PerFrameData {
-			.camera_view = resource_manager->scene.camera.view,
-			.camera_proj = resource_manager->scene.camera.perspective,
-			.camera_view_inverse = glm::inverse(resource_manager->scene.camera.view),
-			.camera_proj_inverse = glm::inverse(resource_manager->scene.camera.perspective),
+			.camera_view = camera.view,
+			.camera_proj = camera.perspective,
+			.camera_view_inverse = camera.transform,
+			.camera_proj_inverse = glm::inverse(camera.perspective),
 			.directional_light = resource_manager->scene.directional_light,
 		}
 	);

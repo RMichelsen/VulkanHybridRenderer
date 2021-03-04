@@ -12,7 +12,7 @@ void RaytracedRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_
 	render_graph.AddRaytracingPass("Raytracing Pass",
 		{},
 		{
-			VkUtils::CreateTransientStorageImage("RaytracedOutput", VK_FORMAT_B8G8R8A8_UNORM, 0)
+			VkUtils::CreateTransientStorageImage("RaytracedOutput", VK_FORMAT_B8G8R8A8_UNORM, 0),
 		},
 		RaytracingPipelineDescription {
 			.name = "Raytracing Pipeline",
@@ -50,7 +50,6 @@ void RaytracedRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_
 				.vertex_shader = "raytraced_render_path/composition.vert",
 				.fragment_shader = "raytraced_render_path/composition.frag",
 				.vertex_input_state = VertexInputState::Empty,
-				.rasterization_state = RasterizationState::CullCounterClockwise,
 				.multisample_state = MultisampleState::Off,
 				.depth_stencil_state = DepthStencilState::On,
 				.dynamic_state = DynamicState::None,

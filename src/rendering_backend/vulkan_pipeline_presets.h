@@ -14,15 +14,7 @@ inline constexpr VkPipelineVertexInputStateCreateInfo VERTEX_INPUT_STATE_IMGUI {
 	.vertexAttributeDescriptionCount = static_cast<uint32_t>(IMGUI_VERTEX_ATTRIBUTE_DESCRIPTIONS.size()),
 	.pVertexAttributeDescriptions = IMGUI_VERTEX_ATTRIBUTE_DESCRIPTIONS.data()
 };
-
-inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_CULL_CW {
-	.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-	.polygonMode = VK_POLYGON_MODE_FILL,
-	.cullMode = VK_CULL_MODE_BACK_BIT,
-	.frontFace = VK_FRONT_FACE_CLOCKWISE,
-	.lineWidth = 1.0f
-};
-inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_CULL_CCW {
+inline constexpr VkPipelineRasterizationStateCreateInfo RASTERIZATION_STATE_DEFAULT {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
 	.polygonMode = VK_POLYGON_MODE_FILL,
 	.cullMode = VK_CULL_MODE_BACK_BIT,

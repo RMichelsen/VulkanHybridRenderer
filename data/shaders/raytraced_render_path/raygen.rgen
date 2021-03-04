@@ -28,8 +28,6 @@ void main() {
 	payload = vec4(0.0);
 	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, origin.xyz, 0.001, direction.xyz, 10000.0, 0);
 	
-	ivec2 out_coords = ivec2(gl_LaunchIDEXT.xy);
-	out_coords.y = int((gl_LaunchSizeEXT.y - 1) - out_coords.y);
-	imageStore(output_image, out_coords, payload);
+	imageStore(output_image, ivec2(gl_LaunchIDEXT.xy), payload);
 }
 

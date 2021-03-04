@@ -80,6 +80,11 @@ void UserInterface::DestroyResources() {
 UserInterfaceState UserInterface::Update(RenderPath &active_render_path, 
 	std::vector<std::string> current_color_attachments) {
 	ImGuiIO &io = ImGui::GetIO();
+	POINT p;
+	GetCursorPos(&p);
+	ScreenToClient(context.hwnd, &p);
+	io.MousePos.x = static_cast<float>(p.x);
+	io.MousePos.y = static_cast<float>(p.y);
 
 	uint64_t current_time = 0;
 	QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&current_time));
@@ -133,8 +138,8 @@ UserInterfaceState UserInterface::Update(RenderPath &active_render_path,
 		ImGui::Image(
 			reinterpret_cast<ImTextureID>(static_cast<uint64_t>(active_debug_texture)),
 			ImGui::GetContentRegionAvail(),
-			ImVec2(0, 0),
-			ImVec2(io.DisplaySize.x / 4096, io.DisplaySize.y / 4096)
+			ImVec2(0, io.DisplaySize.y / 4096),
+			ImVec2(io.DisplaySize.x / 4096, 0) 
 		);
 	}
 	ImGui::End();

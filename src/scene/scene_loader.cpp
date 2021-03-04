@@ -4,38 +4,6 @@
 #include "rendering_backend/resource_manager.h"
 
 namespace SceneLoader {
-constexpr glm::mat4 REFLECT_Y {
-	1.0f, 0.0f, 0.0f, 0.0f,
-	0.0f, -1.0f, 0.0f, 0.0f,
-	0.0f, 0.0f, 1.0f, 0.0f,
-	0.0f, 0.0f, 0.0f, 1.0f
-};
-
-void DecomposeMatrix(glm::mat4 M, glm::mat4 *T, glm::mat4 *R, glm::mat4 *S) {
-	glm::vec3 translation = glm::vec3(M[3][0], M[3][1], M[3][2]);
-	M[3][0] = 0.0f;
-	M[3][1] = 0.0f;
-	M[3][2] = 0.0f;
-	glm::vec3 scale = glm::vec3(
-		glm::length(glm::vec3(M[0][0], M[0][1], M[0][2])),
-		glm::length(glm::vec3(M[1][0], M[1][1], M[1][2])),
-		glm::length(glm::vec3(M[2][0], M[2][1], M[2][2]))
-	);
-	M[0][0] /= scale.x;
-	M[0][1] /= scale.x;
-	M[0][2] /= scale.x;
-	M[1][0] /= scale.y;
-	M[1][1] /= scale.y;
-	M[1][2] /= scale.y;
-	M[2][0] /= scale.z;
-	M[2][1] /= scale.z;
-	M[2][2] /= scale.z;
-
-	*T = glm::translate(glm::mat4(1.0f), translation);
-	*R = M;
-	*S = glm::scale(glm::mat4(1.0f), scale);
-}
-
 VkFilter GetVkFilter(cgltf_int filter) {
 	switch(filter) {
 	case 0x2600:
@@ -90,39 +58,26 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 				node.camera->data.orthographic.zfar
 			);
 		}
-		cgltf_node_transform_world(&node, glm::value_ptr(scene.camera.view));
-		scene.camera.perspective[1][1] *= -1.0f;
+		cgltf_node_transform_world(&node, glm::value_ptr(scene.camera.transform));
+		//scene.camera.view = glm::inverse(scene.camera.transform);
+		glm::mat4 Test = glm::inverse(scene.camera.transform);
 
-		// TODO: Decompose matrix into TRS to allow camera controls to work from a given initial view.
-		//glm::vec3 translation = glm::vec3(scene.camera.view[3][0], scene.camera.view[3][1], scene.camera.view[3][2]);
-		//scene.camera.view[3][0] = 0.0f;
-		//scene.camera.view[3][1] = 0.0f;
-		//scene.camera.view[3][2] = 0.0f;
-		//glm::vec3 scale = glm::vec3(
-		//	glm::length(glm::vec3(scene.camera.view[0][0], scene.camera.view[0][1], scene.camera.view[0][2])),
-		//	glm::length(glm::vec3(scene.camera.view[1][0], scene.camera.view[1][1], scene.camera.view[1][2])),
-		//	glm::length(glm::vec3(scene.camera.view[2][0], scene.camera.view[2][1], scene.camera.view[2][2]))
-		//);
-		//scene.camera.view[0][0] /= scale.x;
-		//scene.camera.view[0][1] /= scale.x;
-		//scene.camera.view[0][2] /= scale.x;
-		//scene.camera.view[1][0] /= scale.y;
-		//scene.camera.view[1][1] /= scale.y;
-		//scene.camera.view[1][2] /= scale.y;
-		//scene.camera.view[2][0] /= scale.z;
-		//scene.camera.view[2][1] /= scale.z;
-		//scene.camera.view[2][2] /= scale.z;
-
-		////scene.camera.view[0][0] *= -1.0f;
-		////scene.camera.view[0][1] *= -1.0f;
-		////scene.camera.view[0][2] *= -1.0f;
-
-		//glm::mat4 T = glm::translate(glm::mat4(1.0f), translation);
-		//glm::mat4 R = scene.camera.view;
-		//glm::mat4 S = glm::scale(glm::mat4(1.0f), scale);
-		
-		// Reflect transformation matrix in Y axis
-		scene.camera.view = glm::inverse(REFLECT_Y * scene.camera.view);
+		glm::vec3 translation;
+		glm::vec3 skew;
+		glm::vec3 scale;
+		glm::quat rot;
+		glm::vec4 persp;
+		glm::decompose(scene.camera.transform, scale, rot, translation, skew, persp);
+		//scene.camera.position = translation;
+		float yaw, pitch, roll;
+		glm::extractEulerAngleYXZ(scene.camera.transform, yaw, pitch, roll);
+		glm::mat4 R = glm::yawPitchRoll(yaw, pitch, roll);
+		glm::mat4 T = glm::translate(glm::mat4(1.0f), translation);
+		scene.camera.transform = T * R;
+		scene.camera.view = glm::inverse(scene.camera.transform);
+		scene.camera.yaw = yaw;
+		scene.camera.pitch = pitch;
+		scene.camera.roll = roll;
 		return;
 	}
 
@@ -140,19 +95,20 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		// TODO: Get bounding box for shadowmap
 		glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 64.0f);
 		glm::vec3 light_direction = glm::rotate(rot, glm::vec3(0.0f, 0.0f, -1.0f));
-		light_direction.y = -light_direction.y;
+		//light_direction.y = -light_direction.y;
 
-		light_perspective[1][1] *= -1.0f;
+		//light_perspective[1][1] *= -1.0f;
 		glm::mat4 light_view = glm::lookAt(
 			-light_direction * 60.0f,
 			glm::vec3(0.0f, 0.0f, 0.0f),
-			glm::vec3(0.0f, -1.0f, 0.0f)
+			glm::vec3(0.0f, 1.0f, 0.0f)
 		);
 		scene.directional_light = DirectionalLight {
 			.projview = light_perspective * light_view,
 			.direction = glm::vec4(light_direction, 1.0f),
 			.color = glm::vec4(glm::make_vec3(node.light->color), 1.0f)
 		};
+		return;
 	}
 
 	if(!node.mesh) {
@@ -203,11 +159,11 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 			Vertex v {};
 			cgltf_accessor_read_float(position_accessor, j, 
 				reinterpret_cast<cgltf_float *>(glm::value_ptr(v.pos)), 3);
-			v.pos.y *= -1.0f;
+			//v.pos.y *= -1.0f;
 			if(normal_accessor) {
 				cgltf_accessor_read_float(normal_accessor, j, 
 					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.normal)), 3);
-				v.normal.y *= -1.0f;
+				//v.normal.y *= -1.0f;
 			}
 			if(uv0_accessor) {
 				cgltf_accessor_read_float(uv0_accessor, j, 

@@ -30,8 +30,9 @@ class VulkanContext {
 public:
 	VulkanContext(HINSTANCE hinstance, HWND hwnd);
 	void DestroyResources();
-	void Resize(HWND hwnd);
+	void Resize();
 
+	HWND hwnd = NULL;
 	VkInstance instance = VK_NULL_HANDLE;
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
 	VkDevice device = VK_NULL_HANDLE;
@@ -54,6 +55,6 @@ private:
 	void InitLogicalDevice();
 	void InitAllocator();
 	void InitFrameResources();
-	void InitSwapchain(HWND hwnd);
+	void InitSwapchain();
 };
 

@@ -95,14 +95,17 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		.subpass = 0
 	};
 
-	switch(description.rasterization_state) {
-	case RasterizationState::CullClockwise:
-		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_CW; break;
-	case RasterizationState::CullCounterClockwise:
-		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_CCW; break;
-	case RasterizationState::CullNone:
-		pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_NONE; break;
-	}
+	//switch(description.rasterization_state) {
+	//case RasterizationState::CullClockwise:
+	//	pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_CW; break;
+	//case RasterizationState::CullCounterClockwise:
+	//	pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_CCW; break;
+	//case RasterizationState::CullNone:
+	//	pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_NONE; break;
+	//}
+	
+	VkPipelineRasterizationStateCreateInfo rasterization_state = RASTERIZATION_STATE_DEFAULT;
+	pipeline_info.pRasterizationState = &rasterization_state;
 	switch(description.multisample_state) {
 	case MultisampleState::Off:
 		pipeline_info.pMultisampleState = &MULTISAMPLE_STATE_OFF; break;
@@ -114,7 +117,6 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		pipeline_info.pDepthStencilState = &DEPTH_STENCIL_STATE_OFF; break;
 	}
 
-	VkPipelineRasterizationStateCreateInfo rasterization_state;
 	switch(description.dynamic_state) {
 	case DynamicState::ViewportScissor:
 		pipeline_info.pDynamicState = &DYNAMIC_STATE_VIEWPORT_SCISSOR; break;
@@ -127,11 +129,15 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	case DynamicState::None: break;
 	}
 
+	bool contains_render_output = false;
 	assert(!graphics_pass.attachments.empty());
 	uint32_t pass_width = graphics_pass.attachments[0].image.width;
 	uint32_t pass_height = graphics_pass.attachments[0].image.height;
 	std::vector<VkPipelineColorBlendAttachmentState> color_blend_states;
 	for(TransientResource &attachment : graphics_pass.attachments) {
+		if(!strcmp(attachment.name, "RENDER_OUTPUT")) {
+			contains_render_output = true;
+		}
 		assert(attachment.image.width == pass_width);
 		assert(attachment.image.height == pass_height);
 		if(VkUtils::IsDepthFormat(attachment.image.format)) {
@@ -167,6 +173,17 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 				.height = pass_height
 			}
 	};
+
+	// Flip front face for offscreen passes
+	if(!contains_render_output) {
+		rasterization_state.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	}
+	// Flip viewport for final presentation
+	if(contains_render_output) {
+		viewport.y = viewport.height;
+		viewport.height = -viewport.height;
+	}
+
 	VkPipelineViewportStateCreateInfo viewport_state_info {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
 		.viewportCount = 1,

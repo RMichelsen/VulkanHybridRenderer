@@ -31,7 +31,16 @@ struct Sampler {
 
 struct Camera {
 	glm::mat4 perspective;
+	glm::mat4 transform;
 	glm::mat4 view;
+
+	float yaw;
+	float pitch;
+	float roll;
+	//glm::vec3 front;
+	//glm::vec3 position;
+	//float yaw;
+	//float pitch;
 };
 
 struct Primitive {
@@ -239,7 +248,6 @@ struct GraphicsPipelineDescription {
 	const char *vertex_shader;
 	const char *fragment_shader;
 	VertexInputState vertex_input_state;
-	RasterizationState rasterization_state;
 	MultisampleState multisample_state;
 	DepthStencilState depth_stencil_state;
 	DynamicState dynamic_state;
