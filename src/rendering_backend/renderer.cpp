@@ -41,15 +41,15 @@ void Renderer::Update() {
 
 	ImGuiIO &io = ImGui::GetIO();
 	Camera &camera = resource_manager->scene.camera;
-	float camera_speed = 1.0f;
-	float movement_speed = 50.0f;
+	float camera_speed = 0.75f;
+	float movement_speed = 10.0f;
 
-	bool w_down = (GetKeyState((int)'W') & 0x8000);
-	bool a_down = (GetKeyState((int)'A') & 0x8000);
-	bool s_down = (GetKeyState((int)'S') & 0x8000);
-	bool d_down = (GetKeyState((int)'D') & 0x8000);
+	bool w_down = (GetKeyState(static_cast<int>('W')) & 0x8000);
+	bool a_down = (GetKeyState(static_cast<int>('A')) & 0x8000);
+	bool s_down = (GetKeyState(static_cast<int>('S')) & 0x8000);
+	bool d_down = (GetKeyState(static_cast<int>('D')) & 0x8000);
 	if(w_down || a_down || s_down || d_down) {
-		glm::vec3 forward = glm::normalize(glm::row(camera.view, 2));
+		glm::vec3 forward = glm::normalize(glm::vec3(glm::row(camera.view, 2)));
 		glm::vec3 position = glm::vec3(glm::column(camera.transform, 3));
 
 		glm::vec3 new_position = position;
