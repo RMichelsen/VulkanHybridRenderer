@@ -34,7 +34,6 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 				execute_pipeline("Depth Prepass Pipeline",
 					[&](GraphicsExecutionContext &execution_context) {
 						execution_context.BindGlobalVertexAndIndexBuffers();
-						// TODO: Provide a better solution than object_id relying on iteration order
 						int object_id = 0;
 						for(Mesh &mesh : resource_manager.scene.meshes) {
 							for(int i = 0; i < mesh.primitives.size(); ++i) {

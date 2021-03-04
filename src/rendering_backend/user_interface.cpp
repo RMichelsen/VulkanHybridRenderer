@@ -277,32 +277,11 @@ void UserInterface::ResizeToSwapchain() {
 	io.DisplaySize.y = static_cast<float>(context.swapchain.extent.height);
 }
 
-bool UserInterface::IsHoveringAnchor() {
-	ImGuiIO& io = ImGui::GetIO();
-	//float target = io.MousePos.x / static_cast<float>(context.swapchain.extent.width);
-	//if(fabs(split_view_anchor - target) < ANCHOR_WIDTH * 4.0f) {
-	//	return true;
-	//}
-	return false;
-}
-
-void UserInterface::MouseMove(float x, float y) {
-	ImGuiIO& io = ImGui::GetIO();
-	io.MousePos = ImVec2 { x, y };
-	//if(io.MouseDown[0] && split_view_anchor_drag_active) {
-	//	split_view_anchor = x / static_cast<float>(context.swapchain.extent.width);
-	//}
-}
-
 void UserInterface::MouseLeftButtonDown() {
-	if(IsHoveringAnchor()) {
-		//split_view_anchor_drag_active = true;
-	}
 	ImGui::GetIO().MouseDown[0] = true;
 }
 
 void UserInterface::MouseLeftButtonUp() {
-	//split_view_anchor_drag_active = false;
 	ImGui::GetIO().MouseDown[0] = false;
 }
 

@@ -36,7 +36,6 @@ void RayqueryRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_g
 			execute_pipeline("Forward Pipeline",
 				[&](GraphicsExecutionContext &execution_context) {
 					execution_context.BindGlobalVertexAndIndexBuffers();
-					// TODO: Fix
 					int object_id = 0;
 					for(Mesh &mesh : resource_manager.scene.meshes) {
 						for(int i = 0; i < mesh.primitives.size(); ++i) {

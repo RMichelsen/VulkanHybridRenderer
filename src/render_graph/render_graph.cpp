@@ -688,16 +688,11 @@ void RenderGraph::ActualizeResource(TransientResource &resource) {
 	}
 	
 	if(!images.contains(resource.name)) {
-		// TODO: Usage is not optimized (tracking usage was cumbersome though...)
-		VkImageUsageFlags usage;
-		if(VkUtils::IsDepthFormat(resource.image.format)) {
-			usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | 
-				    VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		}
-		else {
-			usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | 
-				    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		}
+		VkImageUsageFlags usage = VkUtils::IsDepthFormat(resource.image.format) ?
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | 
+			VK_IMAGE_USAGE_TRANSFER_SRC_BIT :
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | 
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
 		// Swapchain-sized image
 		if(resource.image.width == 0 && resource.image.height == 0) {

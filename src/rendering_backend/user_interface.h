@@ -16,8 +16,6 @@ public:
 	uint32_t SetActiveDebugTexture(VkFormat format);
 
 	void ResizeToSwapchain();
-	bool IsHoveringAnchor();
-	void MouseMove(float x, float y);
 	void MouseLeftButtonDown();
 	void MouseLeftButtonUp();
 	void MouseRightButtonDown();

@@ -37,10 +37,6 @@ struct Camera {
 	float yaw;
 	float pitch;
 	float roll;
-	//glm::vec3 front;
-	//glm::vec3 position;
-	//float yaw;
-	//float pitch;
 };
 
 struct Primitive {

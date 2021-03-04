@@ -59,20 +59,10 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 			);
 		}
 		cgltf_node_transform_world(&node, glm::value_ptr(scene.camera.transform));
-		//scene.camera.view = glm::inverse(scene.camera.transform);
-		glm::mat4 Test = glm::inverse(scene.camera.transform);
-
-		glm::vec3 translation;
-		glm::vec3 skew;
-		glm::vec3 scale;
-		glm::quat rot;
-		glm::vec4 persp;
-		glm::decompose(scene.camera.transform, scale, rot, translation, skew, persp);
-		//scene.camera.position = translation;
 		float yaw, pitch, roll;
 		glm::extractEulerAngleYXZ(scene.camera.transform, yaw, pitch, roll);
 		glm::mat4 R = glm::yawPitchRoll(yaw, pitch, roll);
-		glm::mat4 T = glm::translate(glm::mat4(1.0f), translation);
+		glm::mat4 T = glm::translate(glm::mat4(1.0f), glm::vec3(glm::column(scene.camera.transform, 3)));
 		scene.camera.transform = T * R;
 		scene.camera.view = glm::inverse(scene.camera.transform);
 		scene.camera.yaw = yaw;
@@ -92,14 +82,11 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		glm::vec4 persp;
 		glm::decompose(node_transform, scale, rot, translation, skew, persp);
 
-		// TODO: Get bounding box for shadowmap
+		// TODO: Might want to compute bounding box of scene
 		glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 64.0f);
 		glm::vec3 light_direction = glm::rotate(rot, glm::vec3(0.0f, 0.0f, -1.0f));
-		//light_direction.y = -light_direction.y;
-
-		//light_perspective[1][1] *= -1.0f;
 		glm::mat4 light_view = glm::lookAt(
-			-light_direction * 60.0f,
+			-glm::normalize(light_direction) * 60.0f,
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			glm::vec3(0.0f, 1.0f, 0.0f)
 		);
@@ -115,7 +102,6 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		return;
 	}
 
-	// TODO: Fix reflection in Y plane
 	glm::mat4 transform;
 	cgltf_node_transform_world(&node, glm::value_ptr(transform));
 
@@ -159,11 +145,9 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 			Vertex v {};
 			cgltf_accessor_read_float(position_accessor, j, 
 				reinterpret_cast<cgltf_float *>(glm::value_ptr(v.pos)), 3);
-			//v.pos.y *= -1.0f;
 			if(normal_accessor) {
 				cgltf_accessor_read_float(normal_accessor, j, 
 					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.normal)), 3);
-				//v.normal.y *= -1.0f;
 			}
 			if(uv0_accessor) {
 				cgltf_accessor_read_float(uv0_accessor, j, 
@@ -211,8 +195,7 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 	scene.meshes.push_back(mesh);
 }
 
-void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *data,
-	Scene &scene) {
+void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *data, Scene &scene) {
 	cgltf_options options {};
 	cgltf_load_buffers(&options, data, path);
 
@@ -279,7 +262,6 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 
 Scene LoadScene(ResourceManager &resource_manager, const char *path) {
 	Scene scene {};
-
 	cgltf_options options {};
 	cgltf_data *data = nullptr;
 	cgltf_result result = cgltf_parse_file(&options, path, &data);
@@ -289,7 +271,6 @@ Scene LoadScene(ResourceManager &resource_manager, const char *path) {
 	else {
 		printf("Error Parsing glTF 2.0 File\n");
 	}
-
 	return scene;
 }
 }

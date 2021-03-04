@@ -3,7 +3,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_scalar_block_layout : require
 
-#include "common.glsl"
+#include "../common.glsl"
 
 layout(set = 0, binding = 2, scalar) buffer Primitives { Primitive primitives[]; };
 layout(set = 0, binding = 4) uniform sampler2D textures[];

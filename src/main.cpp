@@ -23,31 +23,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	case WM_DESTROY: {
 		PostQuitMessage(0);
 	} return 0;
-	case WM_SETCURSOR: {
-		if(renderer->user_interface->IsHoveringAnchor()) {
-			SetCursor(LoadCursor(NULL, IDC_SIZEWE));
-		}
-		else {
-			return DefWindowProc(hwnd, msg, wparam, lparam);
-		}
-	} return 0;
-	case WM_MOUSEMOVE: {
-		//float x = static_cast<float>(GET_X_LPARAM(lparam));
-		//float y = static_cast<float>(GET_Y_LPARAM(lparam));
-		//if(dragging) {
-		//	//renderer->RotateYawPitch(cached_x - x, cached_y - y);
-		//	cached_x = x;
-		//	cached_y = y;
-		//}
-		//renderer->user_interface->MouseMove(x, y);
-	} return 0;
 	case WM_LBUTTONDOWN: {
 		renderer->user_interface->MouseLeftButtonDown();
 	} return 0;
 	case WM_RBUTTONDOWN: {
 		cached_x = static_cast<float>(GET_X_LPARAM(lparam));
 		cached_y = static_cast<float>(GET_Y_LPARAM(lparam));
-		ShowCursor(false);
+		while(ShowCursor(false) >= 0);
 		SetCapture(hwnd);
 		renderer->user_interface->MouseRightButtonDown();
 		dragging = true;
@@ -55,7 +37,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	case WM_LBUTTONUP: {
 		renderer->user_interface->MouseLeftButtonUp();
 	} return 0;
-	case WM_RBUTTONUP: {
+	case WM_RBUTTONUP:
+	case WM_KILLFOCUS: {
+		if(msg == WM_KILLFOCUS && !dragging) {
+			return 0;
+		}
 		POINT p {
 			.x = static_cast<long>(cached_x),
 			.y = static_cast<long>(cached_y)
@@ -67,29 +53,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 		renderer->user_interface->MouseRightButtonUp();
 		dragging = false;
 	} return 0;
-	case WM_KILLFOCUS: {
-		if(dragging) {
-			POINT p {
-				.x = static_cast<long>(cached_x),
-				.y = static_cast<long>(cached_y)
-			};
-			ClientToScreen(hwnd, &p);
-			SetCursorPos(p.x, p.y);
-			ShowCursor(true);
-			ReleaseCapture();
-			renderer->user_interface->MouseRightButtonUp();
-			dragging = false;
-		}
-	} return 0;
 	case WM_MOUSEWHEEL: {
 		float delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(wparam)) / 100.0f;
 		renderer->user_interface->MouseScroll(delta);
 	} return 0;
-	case WM_KEYDOWN: {
-		//if(wparam == 0x57) {
-		//	renderer->MoveForward();
-		//}
-	}
 	}
 
 	return DefWindowProc(hwnd, msg, wparam, lparam);
