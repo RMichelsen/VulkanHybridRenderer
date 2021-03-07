@@ -3,16 +3,24 @@
 struct Vertex {
 	vec3 pos;
 	vec3 normal;
+	vec4 tangent;
 	vec2 uv0;
 	vec2 uv1;
 };
 
+struct Material {
+	int base_color_texture;
+	int normal_map;
+	int alpha_mask;
+	float alpha_cutoff;
+};
+
 struct Primitive {
 	mat4 transform;
-	int vertex_offset;
-	int index_offset;
-	int index_count;
-	int texture_idx;
+	Material material;
+	uint vertex_offset;
+	uint index_offset;
+	uint index_count;
 };
 
 struct DirectionalLight {

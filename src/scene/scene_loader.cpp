@@ -115,6 +115,7 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 
 		cgltf_accessor *position_accessor = nullptr;
 		cgltf_accessor *normal_accessor = nullptr;
+		cgltf_accessor *tangent_accessor = nullptr;
 		cgltf_accessor *uv0_accessor = nullptr;
 		cgltf_accessor *uv1_accessor = nullptr;
 
@@ -128,6 +129,10 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 			else if(primitive->attributes[j].type == cgltf_attribute_type_normal) {
 				normal_accessor = accessor;
 				assert(accessor->type == cgltf_type_vec3);
+			}
+			else if(primitive->attributes[j].type == cgltf_attribute_type_tangent) {
+				tangent_accessor = accessor;
+				assert(accessor->type == cgltf_type_vec4);
 			}
 			else if(primitive->attributes[j].type == cgltf_attribute_type_texcoord) {
 				if(primitive->attributes[j].index == 0) {
@@ -149,6 +154,10 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 				cgltf_accessor_read_float(normal_accessor, j, 
 					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.normal)), 3);
 			}
+			if(tangent_accessor) {
+				cgltf_accessor_read_float(tangent_accessor, j,
+					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.tangent)), 4);
+			}
 			if(uv0_accessor) {
 				cgltf_accessor_read_float(uv0_accessor, j, 
 					reinterpret_cast<cgltf_float *>(glm::value_ptr(v.uv0)), 2);
@@ -167,28 +176,45 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 			indices.emplace_back(index);
 		}
 
-		int texture = -1;
+		Material material {
+			.base_color_texture = -1,
+			.normal_map = -1,
+			.alpha_mask = 0,
+			.alpha_cutoff = 0.0f
+		};
+
 		if(primitive->material->has_pbr_metallic_roughness) {
 			cgltf_texture_view albedo = 
 				primitive->material->pbr_metallic_roughness.base_color_texture;
 			if(albedo.texture) {
-				texture = textures[albedo.texture->image->name];
+				material.base_color_texture = textures[albedo.texture->image->name];
 			}
 		}
 		else if(primitive->material->has_pbr_specular_glossiness) {
 			cgltf_texture_view albedo = 
 				primitive->material->pbr_specular_glossiness.diffuse_texture;
 			if(albedo.texture) {
-				texture = textures[albedo.texture->image->name];
+				//material.base_color_texture = textures[albedo.texture->image->name];
+				material.base_color_texture = -1;
 			}
+		}
+		if(primitive->material->normal_texture.texture) {
+			material.normal_map = textures[primitive->material->normal_texture.texture->image->name];
+
+			// TODO: Handle case of no vertex tangents, but normal map present
+			assert(tangent_accessor);
+		}
+		if(primitive->material->alpha_mode == cgltf_alpha_mode_mask) {
+			material.alpha_mask = 1;
+			material.alpha_cutoff = primitive->material->alpha_cutoff;
 		}
 
 		mesh.primitives.push_back(Primitive {
 			.transform = transform,
+			.material = material,
 			.vertex_offset = vertex_offset,
 			.index_offset = index_offset,
-			.index_count = static_cast<uint32_t>(primitive->indices->count),
-			.texture = texture
+			.index_count = static_cast<uint32_t>(primitive->indices->count)
 		});
 	}
 

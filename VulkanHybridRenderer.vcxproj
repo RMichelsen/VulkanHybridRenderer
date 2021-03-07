@@ -570,7 +570,9 @@
     <Xml Include="misc\glsl.xml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="data\shaders\common.glsl" />
+    <None Include="data\shaders\common.glsl">
+      <FileType>Document</FileType>
+    </None>
     <None Include="dependencies\glm\detail\func_common.inl" />
     <None Include="dependencies\glm\detail\func_common_simd.inl" />
     <None Include="dependencies\glm\detail\func_exponential.inl" />

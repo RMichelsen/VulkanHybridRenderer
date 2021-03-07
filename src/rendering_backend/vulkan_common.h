@@ -39,12 +39,19 @@ struct Camera {
 	float roll;
 };
 
+struct Material {
+	int base_color_texture;
+	int normal_map;
+	int alpha_mask;
+	float alpha_cutoff;
+};
+
 struct Primitive {
 	glm::mat4 transform;
+	Material material;
 	uint32_t vertex_offset;
 	uint32_t index_offset;
 	uint32_t index_count;
-	int texture;
 };
 
 struct Mesh {
@@ -78,6 +85,7 @@ struct PushConstants {
 struct Vertex {
 	glm::vec3 pos;
 	glm::vec3 normal;
+	glm::vec4 tangent;
 	glm::vec2 uv0;
 	glm::vec2 uv1;
 };
@@ -86,7 +94,7 @@ constexpr VkVertexInputBindingDescription DEFAULT_VERTEX_BINDING_DESCRIPTION {
 	.stride = sizeof(Vertex),
 	.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
 };
-constexpr std::array<VkVertexInputAttributeDescription, 4> DEFAULT_VERTEX_ATTRIBUTE_DESCRIPTIONS {
+constexpr std::array<VkVertexInputAttributeDescription, 5> DEFAULT_VERTEX_ATTRIBUTE_DESCRIPTIONS {
 	VkVertexInputAttributeDescription {
 		.location = 0,
 		.binding = 0,
@@ -102,11 +110,17 @@ constexpr std::array<VkVertexInputAttributeDescription, 4> DEFAULT_VERTEX_ATTRIB
 	VkVertexInputAttributeDescription {
 		.location = 2,
 		.binding = 0,
+		.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+		.offset = offsetof(Vertex, tangent)
+	},
+	VkVertexInputAttributeDescription {
+		.location = 3,
+		.binding = 0,
 		.format = VK_FORMAT_R32G32_SFLOAT,
 		.offset = offsetof(Vertex, uv0)
 	},
 	VkVertexInputAttributeDescription {
-		.location = 3,
+		.location = 4,
 		.binding = 0,
 		.format = VK_FORMAT_R32G32_SFLOAT,
 		.offset = offsetof(Vertex, uv1)
