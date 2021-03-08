@@ -373,31 +373,34 @@ void ResourceManager::CreateGlobalDescriptorSet() {
 			.binding = 0,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
+			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR
 		},
 		VkDescriptorSetLayoutBinding {
 			.binding = 1,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
+			.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR
 		},
 		VkDescriptorSetLayoutBinding {
 			.binding = 2,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | 
+						  VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR
 		},
 		VkDescriptorSetLayoutBinding {
 			.binding = 3,
 			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
 			.descriptorCount = 1,
-			.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_FRAGMENT_BIT
+			.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | 
+						  VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_FRAGMENT_BIT
 		},
 		VkDescriptorSetLayoutBinding {
 			.binding = 4,
 			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.descriptorCount = MAX_GLOBAL_TEXTURES,
-			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | 
+						  VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR
 		}
 	};
 	std::array<VkDescriptorBindingFlags, 5> descriptor_binding_flags {
@@ -543,7 +546,7 @@ void ResourceManager::UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &
 					.transformData = VkUtils::GetDeviceAddressConst(context.device, transform_data_buffer.handle)
 				}
 			},
-			.flags = VK_GEOMETRY_OPAQUE_BIT_KHR
+			.flags = VK_GEOMETRY_OPAQUE_BIT_KHR | VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR
 		});
 
 		acceleration_structure_build_range_infos.emplace_back(VkAccelerationStructureBuildRangeInfoKHR {
@@ -647,7 +650,7 @@ void ResourceManager::UpdateTLAS(std::vector<Primitive> &primitives) {
 				.data = VkUtils::GetDeviceAddressConst(context.device, instances_buffer.handle)
 			}
 		},
-		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR
+		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR | VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR
 	};
 
 	VkAccelerationStructureBuildGeometryInfoKHR acceleration_structure_build_geometry_info {

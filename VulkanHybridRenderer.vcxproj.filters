@@ -1038,6 +1038,8 @@
     <GLSLShader Include="data\shaders\raytraced_render_path\composition.vert" />
     <GLSLShader Include="data\shaders\raytraced_render_path\miss.rmiss" />
     <GLSLShader Include="data\shaders\raytraced_render_path\raygen.rgen" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rahit" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\shadow_anyhit.rahit" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />

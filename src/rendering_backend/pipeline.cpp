@@ -95,15 +95,6 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		.subpass = 0
 	};
 
-	//switch(description.rasterization_state) {
-	//case RasterizationState::CullClockwise:
-	//	pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_CW; break;
-	//case RasterizationState::CullCounterClockwise:
-	//	pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_CCW; break;
-	//case RasterizationState::CullNone:
-	//	pipeline_info.pRasterizationState = &RASTERIZATION_STATE_CULL_NONE; break;
-	//}
-	
 	VkPipelineRasterizationStateCreateInfo rasterization_state = RASTERIZATION_STATE_DEFAULT;
 	pipeline_info.pRasterizationState = &rasterization_state;
 	switch(description.multisample_state) {
@@ -240,16 +231,30 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 			.intersectionShader = VK_SHADER_UNUSED_KHR
 		});
 	}
-	for(const char *hit_shader : description.hit_shaders) {
-		shader_stage_infos.emplace_back(
-			VkUtils::PipelineShaderStageCreateInfo(context.device, hit_shader, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
-		);
+	uint32_t hit_shader_count = 0;
+	for(HitShader hit_shader : description.hit_shaders) {
+		uint32_t closest_hit_shader_slot = VK_SHADER_UNUSED_KHR;
+		uint32_t any_hit_shader_slot = VK_SHADER_UNUSED_KHR;
+		if(hit_shader.closest_hit) {
+			shader_stage_infos.emplace_back(
+				VkUtils::PipelineShaderStageCreateInfo(context.device, hit_shader.closest_hit, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+			);
+			closest_hit_shader_slot = shader_slot++;
+			++hit_shader_count;
+		}
+		if(hit_shader.any_hit) {
+			shader_stage_infos.emplace_back(
+				VkUtils::PipelineShaderStageCreateInfo(context.device, hit_shader.any_hit, VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
+			);
+			any_hit_shader_slot = shader_slot++;
+			++hit_shader_count;
+		}
 		shader_groups.emplace_back(VkRayTracingShaderGroupCreateInfoKHR {
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 			.generalShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = shader_slot++,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = closest_hit_shader_slot,
+			.anyHitShader = any_hit_shader_slot,
 			.intersectionShader = VK_SHADER_UNUSED_KHR
 		});
 	}
@@ -320,7 +325,7 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 
 	pipeline.raygen_sbt = create_shader_binding_table(0, 1);
 	pipeline.miss_sbt = create_shader_binding_table(1, description.miss_shaders.size());
-	pipeline.hit_sbt = create_shader_binding_table(1 + description.miss_shaders.size(), description.hit_shaders.size());
+	pipeline.hit_sbt = create_shader_binding_table(1 + description.miss_shaders.size(), hit_shader_count);
 
 	for(VkPipelineShaderStageCreateInfo &pipeline_shader_stage_info : shader_stage_infos) {
 		vkDestroyShaderModule(context.device, pipeline_shader_stage_info.module, nullptr);

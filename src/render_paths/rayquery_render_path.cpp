@@ -22,7 +22,6 @@ void RayqueryRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_g
 				.vertex_shader = "rayquery_render_path/default.vert",
 				.fragment_shader = "rayquery_render_path/default.frag",
 				.vertex_input_state = VertexInputState::Default,
-				//.rasterization_state = RasterizationState::CullCounterClockwise,
 				.multisample_state = MultisampleState::Off,
 				.depth_stencil_state = DepthStencilState::On,
 				.dynamic_state = DynamicState::None,

@@ -22,7 +22,10 @@ void RaytracedRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_
 				"raytraced_render_path/shadow_miss.rmiss"
 			},
 			.hit_shaders = {
-				"raytraced_render_path/closesthit.rchit"
+				HitShader {
+					.closest_hit = "raytraced_render_path/closesthit.rchit",
+					.any_hit = "raytraced_render_path/shadow_anyhit.rahit"
+				}
 			}
 		},
 		[&](ExecuteRaytracingCallback execute_pipeline) {

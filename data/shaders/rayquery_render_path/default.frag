@@ -45,12 +45,12 @@ void main() {
 	vec3 light_color = pfd.directional_light.color.rgb;
 
 	rayQueryEXT ray_query;
-	rayQueryInitializeEXT(ray_query, TLAS, gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, in_pos, 0.001, light_dir, 10000.0);
+	rayQueryInitializeEXT(ray_query, TLAS, gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, in_pos, 0.1, light_dir, 10000.0);
 
 	while(rayQueryProceedEXT(ray_query)) {}
 
 	vec3 in_shadow = vec3(1.0, 1.0, 1.0);
-	if(rayQueryGetIntersectionTypeEXT(ray_query, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
+	if(rayQueryGetIntersectionTypeEXT(ray_query, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
 		in_shadow = vec3(0.0, 0.0, 0.0);
 	}
 

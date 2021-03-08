@@ -62,9 +62,13 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 				.name = "Raytraced Shadows Pipeline",
 				.raygen_shader = "hybrid_render_path/shadows.rgen",
 				.miss_shaders = {
-					"hybrid_render_path/shadows.rmiss",
+					"hybrid_render_path/shadows.rmiss"
 				},
-				.hit_shaders = {}
+				.hit_shaders = { 
+					HitShader {
+						.any_hit = "hybrid_render_path/shadows.rahit"
+					}
+				}
 			},
 			[&](ExecuteRaytracingCallback execute_pipeline) {
 				execute_pipeline("Raytraced Shadows Pipeline",

@@ -56,8 +56,8 @@ void main() {
 	vec3 albedo_lighting = 0.4 * albedo;
 
 	shadow_payload = true;
-	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT, 
-		0xFF, 0, 0, 1, position, 0.001, light_dir, 10000.0, 1);
+	traceRayEXT(TLAS, gl_RayFlagsNoOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 
+		0xFF, 0, 0, 1, position, 0.1, light_dir, 10000.0, 1);
 
 	if(!shadow_payload) {
 		payload = vec4(albedo_lighting + max(dot(N, light_dir), 0.0) * albedo * light_color, 1.0);

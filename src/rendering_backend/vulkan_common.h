@@ -271,11 +271,16 @@ struct GraphicsPipeline {
 	VkPipelineLayout layout;
 };
 
+struct HitShader {
+	const char *closest_hit;
+	const char *any_hit;
+};
+
 struct RaytracingPipelineDescription {
 	const char *name;
 	const char *raygen_shader;
 	std::vector<const char *> miss_shaders;
-	std::vector<const char *> hit_shaders;
+	std::vector<HitShader> hit_shaders;
 };
 
 struct ShaderBindingTable {
