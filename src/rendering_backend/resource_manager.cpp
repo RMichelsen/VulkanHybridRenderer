@@ -56,8 +56,8 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 
 	VkSamplerCreateInfo sampler_info {
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-		.magFilter = VK_FILTER_NEAREST,
-		.minFilter = VK_FILTER_NEAREST,
+		.magFilter = VK_FILTER_LINEAR,
+		.minFilter = VK_FILTER_LINEAR,
 		.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
@@ -163,21 +163,21 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue, 
 		context.command_pool, [&](VkCommandBuffer command_buffer) {
+			VkUtils::InsertImageBarrier(command_buffer, texture.handle, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, VK_ACCESS_TRANSFER_WRITE_BIT);	
 
-		VkUtils::InsertImageBarrier(command_buffer, texture.handle, VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0, VK_ACCESS_TRANSFER_WRITE_BIT);	
+			VkBufferImageCopy buffer_image_copy = VkUtils::BufferImageCopy2D(width, height);
+			vkCmdCopyBufferToImage(command_buffer, buffer.handle, texture.handle, 
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
 
-		VkBufferImageCopy buffer_image_copy = VkUtils::BufferImageCopy2D(width, height);
-		vkCmdCopyBufferToImage(command_buffer, buffer.handle, texture.handle, 
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
-
-		VkUtils::InsertImageBarrier(command_buffer, texture.handle, VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
-			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);	
-	});
+			VkUtils::InsertImageBarrier(command_buffer, texture.handle, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);	
+		}
+	);
 
 	VkUtils::DestroyMappedBuffer(context.allocator, buffer);
 
@@ -216,6 +216,98 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 				.handle = texture_sampler,
 				.info = *sampler_info
 			});
+		}
+	}
+
+	// TODO: OPTIMIZE
+	for(uint32_t i = 0; i < MAX_GLOBAL_TEXTURES; ++i) {
+		if(textures[i].handle == VK_NULL_HANDLE) {
+			textures[i] = texture;
+
+			VkDescriptorImageInfo descriptor {
+				.sampler = texture_sampler,
+				.imageView = texture.view,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			};
+
+			VkWriteDescriptorSet write_descriptor_set {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = global_descriptor_set,
+				.dstBinding = 4,
+				.dstArrayElement = i,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.pImageInfo = &descriptor
+			};
+
+			vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
+			return i;
+		}
+	}
+
+	assert(false && "No free texture slots left!");
+	return static_cast<uint32_t>(-1);
+}
+
+uint32_t ResourceManager::UploadEmptyTexture(uint32_t width, uint32_t height, VkFormat format, SamplerInfo *sampler_info) {
+	Image texture;
+
+	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height,
+		format, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+	VmaAllocationCreateInfo image_alloc_info {
+		.usage = VMA_MEMORY_USAGE_GPU_ONLY
+	};
+	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
+		&texture.handle, &texture.allocation, nullptr);
+
+
+	VkDeviceSize buffer_size = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * VkUtils::FormatStride(format);
+	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+
+	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue,
+		context.command_pool, [&](VkCommandBuffer command_buffer) {
+			VkUtils::InsertImageBarrier(command_buffer, texture.handle, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, VK_ACCESS_TRANSFER_WRITE_BIT);
+		}
+	);
+
+	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(texture.handle,
+		format);
+	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.view));
+
+	VkSampler texture_sampler = sampler_info ?
+		VK_NULL_HANDLE :
+		default_sampler;
+
+	if(texture_sampler == VK_NULL_HANDLE) {
+		for(Sampler &sampler : samplers) {
+			if(sampler.info.mag_filter == sampler_info->mag_filter &&
+				sampler.info.min_filter == sampler_info->min_filter &&
+				sampler.info.address_mode_u == sampler_info->address_mode_u &&
+				sampler.info.address_mode_v == sampler_info->address_mode_v) {
+				texture_sampler = sampler.handle;
+			}
+		}
+
+		if(texture_sampler == VK_NULL_HANDLE) {
+			VkSamplerCreateInfo vk_sampler_info {
+				.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+				.magFilter = sampler_info->mag_filter,
+				.minFilter = sampler_info->min_filter,
+				.addressModeU = sampler_info->address_mode_u,
+				.addressModeV = sampler_info->address_mode_v,
+				.addressModeW = sampler_info->address_mode_v,
+				.anisotropyEnable = VK_TRUE,
+				.maxAnisotropy = context.gpu.properties.properties.limits.maxSamplerAnisotropy,
+				.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK
+			};
+			vkCreateSampler(context.device, &vk_sampler_info, nullptr, &texture_sampler);
+			samplers.emplace_back(Sampler {
+				.handle = texture_sampler,
+				.info = *sampler_info
+				});
 		}
 	}
 

@@ -164,6 +164,8 @@ void Renderer::Present(HWND hwnd) {
 
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {
 	Camera &camera = resource_manager->scene.camera;
+
+	static uint32_t frame_index = 0;
 	resource_manager->UpdatePerFrameUBO(resource_idx, 
 		PerFrameData {
 			.camera_view = camera.view,
@@ -171,6 +173,7 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 			.camera_view_inverse = camera.transform,
 			.camera_proj_inverse = glm::inverse(camera.perspective),
 			.directional_light = resource_manager->scene.directional_light,
+			.frame_index = frame_index++
 		}
 	);
 

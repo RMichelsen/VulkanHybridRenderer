@@ -34,12 +34,11 @@ UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_m
 	io.Fonts->TexID = reinterpret_cast<ImTextureID>(static_cast<uint64_t>(font_texture));
 	free(font_data);
 
-	uint8_t *empty_data = static_cast<uint8_t *>(calloc(4096 * 4096, sizeof(uint64_t)));
-	debug_textures[VK_FORMAT_B8G8R8A8_UNORM] = resource_manager.UploadTextureFromData(4096, 4096, empty_data, VK_FORMAT_B8G8R8A8_UNORM);
-	debug_textures[VK_FORMAT_R8G8B8A8_UNORM] = resource_manager.UploadTextureFromData(4096, 4096, empty_data, VK_FORMAT_R8G8B8A8_UNORM);
-	debug_textures[VK_FORMAT_D32_SFLOAT] = resource_manager.UploadTextureFromData(4096, 4096, empty_data, VK_FORMAT_B8G8R8A8_UNORM);
-	debug_textures[VK_FORMAT_R16G16B16A16_SFLOAT] = resource_manager.UploadTextureFromData(4096, 4096, empty_data, VK_FORMAT_R16G16B16A16_SFLOAT);
-	free(empty_data);
+	debug_textures[VK_FORMAT_B8G8R8A8_UNORM] = resource_manager.UploadEmptyTexture(4096, 4096, VK_FORMAT_B8G8R8A8_UNORM);
+	debug_textures[VK_FORMAT_R8G8B8A8_UNORM] = resource_manager.UploadEmptyTexture(4096, 4096, VK_FORMAT_R8G8B8A8_UNORM);
+	debug_textures[VK_FORMAT_D32_SFLOAT] = resource_manager.UploadEmptyTexture(4096, 4096, VK_FORMAT_B8G8R8A8_UNORM);
+	debug_textures[VK_FORMAT_R16G16B16A16_SFLOAT] = resource_manager.UploadEmptyTexture(4096, 4096,VK_FORMAT_R16G16B16A16_SFLOAT);
+	debug_textures[VK_FORMAT_R32G32B32A32_SFLOAT] = resource_manager.UploadEmptyTexture(4096, 4096, VK_FORMAT_R32G32B32A32_SFLOAT);
 	active_debug_texture = debug_textures[VK_FORMAT_B8G8R8A8_UNORM];
 
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(IMGUI_MAX_VERTEX_AND_INDEX_BUFSIZE, 

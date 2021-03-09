@@ -5,13 +5,7 @@
 #include "../common.glsl"
 
 layout(set = 0, binding = 3) uniform accelerationStructureEXT TLAS;
-layout(set = 1, binding = 0) uniform PerFrameData {
-	mat4 camera_view;
-	mat4 camera_proj;
-	mat4 camera_view_inverse;
-	mat4 camera_proj_inverse;
-	DirectionalLight directional_light;
-} pfd;
+layout(set = 1, binding = 0) uniform PFD { PerFrameData pfd; };
 layout(set = 2, binding = 0) uniform sampler2D position_texture;
 layout(set = 2, binding = 1, rgba8) uniform image2D raytraced_shadows;
 
@@ -22,11 +16,16 @@ void main() {
 	vec2 uv = pixel_center / vec2(gl_LaunchSizeEXT.xy);
 
 	vec4 origin = texture(position_texture, uv);
-	vec4 direction = -pfd.directional_light.direction;
+	vec4 light_direction = -pfd.directional_light.direction;
+
+	float rnd1 = gold_noise(pixel_center, pfd.frame_index);
+	float rnd2 = gold_noise(uv, pfd.frame_index);
+	vec3 cone_dir = uniform_sample_cone(vec2(rnd1, rnd2), 0.09);
+	mat3x3 R = onb_from_unit_vector(light_direction.xyz);
 
 	shadow_payload = vec4(0.0, 0.0, 0.0, 0.0);
 	traceRayEXT(TLAS, gl_RayFlagsNoOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 
-		0xFF, 0, 0, 0, origin.xyz, 0.1, direction.xyz, 10000.0, 0);
+		0xFF, 0, 0, 0, origin.xyz, 0.1, R * cone_dir, 10000.0, 0);
 	
 	imageStore(raytraced_shadows, ivec2(gl_LaunchIDEXT.xy), shadow_payload);
 }

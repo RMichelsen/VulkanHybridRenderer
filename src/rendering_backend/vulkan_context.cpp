@@ -273,6 +273,7 @@ void VulkanContext::InitAllocator() {
 		.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
 		.physicalDevice = gpu.handle,
 		.device = device,
+		.preferredLargeHeapBlockSize = 1024 * 1024 * 1024, // 1GB
 		.instance = instance,
 		.vulkanApiVersion = VK_API_VERSION_1_2
 	};

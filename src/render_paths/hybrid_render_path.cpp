@@ -89,7 +89,8 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 			VkUtils::CreateTransientAttachmentImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
 			VkUtils::CreateTransientAttachmentImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
-			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 3)
+			VkUtils::CreateTransientAttachmentImage("ViewSpaceNormal", VK_FORMAT_R32G32B32A32_SFLOAT, 3),
+			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 4)
 		},
 		{
 			GraphicsPipelineDescription {

@@ -6,13 +6,7 @@
 #include "../common.glsl"
 
 layout(set = 0, binding = 2, scalar) buffer Primitives { Primitive primitives[]; };
-layout(set = 1, binding = 0) uniform PerFrameData {
-	mat4 camera_view;
-	mat4 camera_proj;
-	mat4 camera_view_inverse;
-	mat4 camera_proj_inverse;
-	DirectionalLight directional_light;
-} pfd;
+layout(set = 1, binding = 0) uniform PFD { PerFrameData pfd; };
 
 layout(push_constant) uniform PushConstants {
 	int object_id;

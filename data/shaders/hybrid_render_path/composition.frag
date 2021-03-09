@@ -5,14 +5,7 @@
 
 layout(constant_id = SHADOW_MODE_SPEC_CONST_INDEX) const int shadow_mode = 0;
 
-layout(set = 1, binding = 0) uniform PerFrameData {
-	mat4 camera_view;
-	mat4 camera_proj;
-	mat4 camera_view_inverse;
-	mat4 camera_proj_inverse;
-	DirectionalLight directional_light;
-} pfd;
-
+layout(set = 1, binding = 0) uniform PFD { PerFrameData pfd; };
 layout(set = 2, binding = 0) uniform sampler2D position_texture;
 layout(set = 2, binding = 1) uniform sampler2D normal_texture;
 layout(set = 2, binding = 2) uniform sampler2D albedo_texture;

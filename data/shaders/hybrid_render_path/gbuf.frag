@@ -12,14 +12,16 @@ layout(push_constant) uniform PushConstants {
 	int object_id;
 } pc;
 
-layout(location = 0) in vec3 in_pos;
+layout(location = 0) in vec3 in_world_space_pos;
 layout(location = 1) in vec3 in_normal;
 layout(location = 2) in vec4 in_tangent;
 layout(location = 3) in vec2 in_uv;
+layout(location = 4) in vec3 in_view_space_normal;
 
 layout(location = 0) out vec4 out_pos;
 layout(location = 1) out vec4 out_normal;
 layout(location = 2) out vec4 out_albedo;
+layout(location = 3) out vec4 out_view_space_normal;
 
 void main() {
 	Primitive primitive = primitives[pc.object_id];
@@ -29,7 +31,7 @@ void main() {
 		discard;
 	}
 
-	out_pos = vec4(in_pos, 1.0);
+	out_pos = vec4(in_world_space_pos, 1.0);
 	vec3 N = in_normal;
 	if(primitive.material.normal_map >= 0) {
 		vec3 tangent_space_normal = normalize(texture(textures[primitive.material.normal_map], in_uv).xyz * 2.0 - 1.0);
@@ -39,5 +41,6 @@ void main() {
 	}
 	out_normal = vec4(N, 1.0);
 	out_albedo = albedo;
+	out_view_space_normal = vec4(in_view_space_normal, 1.0);
 }
 
