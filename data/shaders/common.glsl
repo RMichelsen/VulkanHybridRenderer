@@ -58,11 +58,41 @@ vec3 uniform_sample_cone(vec2 u, float cos_theta_max) {
 	return vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
 }
 
-float PHI = 1.61803398874989484820459;  
-float gold_noise(vec2 xy, float seed){
-       return fract(tan(distance(xy * PHI, xy) * seed) * xy.x);
+// Random Number Generation
+// https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
+// Create an initial random number for this thread
+uint seed_thread(uint seed) {
+	// Thomas Wang hash 
+	// Ref: http://www.burtleburtle.net/bob/hash/integer.html
+	seed = (seed ^ 61) ^ (seed >> 16);
+	seed *= 9;
+	seed = seed ^ (seed >> 4);
+	seed *= 0x27d4eb2d;
+	seed = seed ^ (seed >> 15);
+	return seed;
+}
+// Generate a random 32-bit integer
+uint random(inout uint state) {
+	// Xorshift algorithm from George Marsaglia's paper.
+	state ^= (state << 13);
+	state ^= (state >> 17);
+	state ^= (state << 5);
+	return state;
+}
+// Generate a random float in the range [0.0f, 1.0f)
+float random01(inout uint state) {
+	return uintBitsToFloat(0x3f800000 | random(state) >> 9) - 1.0;
+}
+// Generate a random float in the range [0.0f, 1.0f]
+float random01_inclusive(inout uint state) {
+	return random(state) / float(0xffffffff);
+}
+// Generate a random integer in the range [lower, upper]
+uint random(inout uint state, uint lower, uint upper) {
+	return lower + uint(float(upper - lower + 1) * random01(state));
 }
 
+// Create an orthonormal basis given a unit vector
 // https://backend.orbit.dtu.dk/ws/portalfiles/portal/126824972/onb_frisvad_jgt2012_v2.pdf
 mat3x3 onb_from_unit_vector(vec3 n) {
 	mat3x3 M;

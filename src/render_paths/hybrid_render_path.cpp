@@ -56,7 +56,7 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 			{},
 			{
 				VkUtils::CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-				VkUtils::CreateTransientStorageImage("RaytracedShadows", VK_FORMAT_B8G8R8A8_UNORM, 1)
+				VkUtils::CreateTransientStorageImage("RaytracedShadows", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
 			},
 			RaytracingPipelineDescription {
 				.name = "Raytraced Shadows Pipeline",
@@ -135,7 +135,7 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 			VkUtils::CreateTransientSampledImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
 			VkUtils::CreateTransientSampledImage("ShadowMap", 4096, 4096, VK_FORMAT_D32_SFLOAT, 3),
-			VkUtils::CreateTransientSampledImage("RaytracedShadows", VK_FORMAT_B8G8R8A8_UNORM, 4)
+			VkUtils::CreateTransientSampledImage("RaytracedShadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4)
 		},
 		{
 			VkUtils::CreateTransientRenderOutput(0, ColorBlendState::Off),

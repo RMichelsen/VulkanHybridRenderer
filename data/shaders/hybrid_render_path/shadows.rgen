@@ -18,9 +18,10 @@ void main() {
 	vec4 origin = texture(position_texture, uv);
 	vec4 light_direction = -pfd.directional_light.direction;
 
-	float rnd1 = gold_noise(pixel_center, pfd.frame_index);
-	float rnd2 = gold_noise(uv, pfd.frame_index);
-	vec3 cone_dir = uniform_sample_cone(vec2(rnd1, rnd2), 0.09);
+	uint rng_state = seed_thread((gl_LaunchIDEXT.y * gl_LaunchSizeEXT.y + gl_LaunchIDEXT.x) * pfd.frame_index);
+	float rnd1 = random01(rng_state);
+	float rnd2 = random01(rng_state);
+	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.9999));
 	mat3x3 R = onb_from_unit_vector(light_direction.xyz);
 
 	shadow_payload = vec4(0.0, 0.0, 0.0, 0.0);
