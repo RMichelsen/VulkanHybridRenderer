@@ -9,6 +9,7 @@
 #include "render_graph/render_graph.h"
 #include "render_graph/graphics_execution_context.h"
 #include "render_graph/raytracing_execution_context.h"
+#include "render_paths/forward_raster_render_path.h"
 #include "render_paths/hybrid_render_path.h"
 #include "render_paths/rayquery_render_path.h"
 #include "render_paths/raytraced_render_path.h"
@@ -18,7 +19,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context, *resource_manager);
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
-	resource_manager->LoadScene("BistroExterior.glb");
+	resource_manager->LoadScene("Sponza.glb");
 
 	active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
 	active_render_path->Build();
@@ -44,10 +45,16 @@ void Renderer::Update() {
 	float camera_speed = 0.75f;
 	float movement_speed = 10.0f;
 
-	bool w_down = (GetKeyState(static_cast<int>('W')) & 0x8000);
-	bool a_down = (GetKeyState(static_cast<int>('A')) & 0x8000);
-	bool s_down = (GetKeyState(static_cast<int>('S')) & 0x8000);
-	bool d_down = (GetKeyState(static_cast<int>('D')) & 0x8000);
+	bool w_down = false;
+	bool a_down = false;
+	bool s_down = false;
+	bool d_down = false;
+	if(context->hwnd == GetFocus()) {
+		w_down = (GetKeyState(static_cast<int>('W')) & 0x8000);
+		a_down = (GetKeyState(static_cast<int>('A')) & 0x8000);
+		s_down = (GetKeyState(static_cast<int>('S')) & 0x8000);
+		d_down = (GetKeyState(static_cast<int>('D')) & 0x8000);
+	}
 	if(w_down || a_down || s_down || d_down) {
 		glm::vec3 forward = glm::normalize(glm::vec3(glm::row(camera.view, 2)));
 		glm::vec3 position = glm::vec3(glm::column(camera.transform, 3));
@@ -154,6 +161,10 @@ void Renderer::Present(HWND hwnd) {
 	} break;
 	case RenderPathState::ChangeToRaytraced: {
 		active_render_path = std::make_unique<RaytracedRenderPath>(*context, *render_graph, *resource_manager);
+		active_render_path->Build();
+	} break;
+	case RenderPathState::ChangeToForwardRaster: {
+		active_render_path = std::make_unique<ForwardRasterRenderPath>(*context, *render_graph, *resource_manager);
 		active_render_path->Build();
 	} break;
 	case RenderPathState::Idle:

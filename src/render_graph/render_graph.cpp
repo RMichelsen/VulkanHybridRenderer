@@ -60,6 +60,29 @@ void RenderGraph::DestroyResources() {
 void RenderGraph::AddGraphicsPass(const char *render_pass_name, std::vector<TransientResource> dependencies, 
 	std::vector<TransientResource> outputs, std::vector<GraphicsPipelineDescription> pipelines, 
 	GraphicsPassCallback callback) {
+	bool set = false;
+	bool multisampled_pass = false;
+	for(TransientResource &output : outputs) {
+		if(output.type == TransientResourceType::Image) {
+			if(set) {
+				assert(multisampled_pass == output.image.multisampled);
+			}
+			else {
+				multisampled_pass = output.image.multisampled;
+				set = true;
+			}
+		}
+	}
+	for(GraphicsPipelineDescription &pipeline_description : pipelines) {
+		if(set) {
+			assert(multisampled_pass == (pipeline_description.multisample_state == MultisampleState::On ? true : false));
+		}
+		else {
+			multisampled_pass = (pipeline_description.multisample_state == MultisampleState::On ? true : false);
+			set = true;
+		}
+	}
+	
 	RenderPassDescription pass_description {
 		.name = render_pass_name,
 		.dependencies = dependencies,
@@ -94,11 +117,11 @@ void RenderGraph::Build() {
 	for(auto &[_, pass_description] : pass_descriptions) {
 		for(TransientResource &resource : pass_description.dependencies) {
 			readers[resource.name].emplace_back(pass_description.name);
-			ActualizeResource(resource);
+			ActualizeResource(resource, pass_description.name);
 		}
 		for(TransientResource &resource : pass_description.outputs) {
 			writers[resource.name].emplace_back(pass_description.name);
-			ActualizeResource(resource);
+			ActualizeResource(resource, pass_description.name);
 		}
 		if(std::holds_alternative<GraphicsPassDescription>(pass_description.description)) {
 			CreateGraphicsPass(pass_description);
@@ -199,7 +222,7 @@ VkFormat RenderGraph::GetImageFormat(std::string image_name) {
 std::vector<std::string> RenderGraph::GetColorAttachments() {
 	std::vector<std::string> color_attachment_names;
 	for(auto &[name, image] : images) {
-		if(!VkUtils::IsDepthFormat(image.format)) {
+		if(!VkUtils::IsDepthFormat(image.format) && !name.ends_with("_MSAA")) {
 			color_attachment_names.emplace_back(name);
 		}
 	}
@@ -249,13 +272,17 @@ void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 				graphics_pass.attachments[resource.image.binding] = resource;
 				attachments[resource.image.binding] = VkAttachmentDescription {
 					.format = is_render_output ? context.swapchain.format : resource.image.format,
-					.samples = VK_SAMPLE_COUNT_1_BIT,
+					.samples = resource.image.multisampled ? VK_SAMPLE_COUNT_8_BIT : VK_SAMPLE_COUNT_1_BIT,
 					.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 					.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-					.finalLayout = is_render_output ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : layout
+					.finalLayout = is_render_output ? (
+						resource.image.multisampled ? 
+						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : 
+						VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+					) : layout
 				};
 
 				if(VkUtils::IsDepthFormat(resource.image.format)) {
@@ -302,8 +329,32 @@ void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 	for(TransientResource &dependency : pass_description.dependencies) {
 		add_resource_to_pass(dependency, true);
 	}
+
+	bool is_multisampled_pass = false;
 	for(TransientResource &output : pass_description.outputs) {
 		add_resource_to_pass(output, false);
+		if(output.type == TransientResourceType::Image) {
+			if(output.image.multisampled) {
+				is_multisampled_pass = true;
+			}
+		}
+	}
+
+	VkAttachmentReference color_attachment_resolve_ref;
+	if(is_multisampled_pass) {
+		attachments.emplace_back(VkAttachmentDescription {
+			.format = context.swapchain.format,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+		});
+		color_attachment_resolve_ref.attachment = static_cast<uint32_t>(attachments.size()) - 1;
+		color_attachment_resolve_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		subpass_description.pResolveAttachments = &color_attachment_resolve_ref;
 	}
 
 	if(!bindings.empty()) {
@@ -578,11 +629,18 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 		framebuffer = VK_NULL_HANDLE;
 	}
 
+	bool is_multisampled_pass = false;
 	std::vector<VkImageView> image_views;
 	std::vector<VkClearValue> clear_values;
 	for(TransientResource &attachment : graphics_pass.attachments) {
 		if(!strcmp(attachment.name, "RENDER_OUTPUT")) {
-			image_views.emplace_back(context.swapchain.image_views[image_idx]);
+			if(attachment.image.multisampled) {
+				image_views.emplace_back(images[std::string(render_pass.name) + "_MSAA"].view);
+				is_multisampled_pass = true;
+			}
+			else {
+				image_views.emplace_back(context.swapchain.image_views[image_idx]);
+			}
 		}
 		else {
 			image_views.emplace_back(images[attachment.name].view);
@@ -603,6 +661,9 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 				}
 			});
 		}
+	}
+	if(is_multisampled_pass) {
+		image_views.emplace_back(context.swapchain.image_views[image_idx]);
 	}
 
 	uint32_t pass_width = graphics_pass.attachments[0].image.width;
@@ -682,8 +743,33 @@ void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPa
 	);
 }
 
-void RenderGraph::ActualizeResource(TransientResource &resource) {
+void RenderGraph::ActualizeResource(TransientResource &resource, const char *render_pass_name) {
+	VkSampleCountFlagBits max_multisample_count = VkUtils::GetMaxMultisampleCount(
+		context.gpu.properties.properties.limits.framebufferColorSampleCounts,
+		context.gpu.properties.properties.limits.framebufferDepthSampleCounts
+	);
+
 	if(!strcmp(resource.name, "RENDER_OUTPUT")) {
+		assert(resource.type == TransientResourceType::Image);
+		// If the render output is multisampled, create MSAA image to resolve from
+		if(resource.image.multisampled) {
+			std::string msaa_image_name = std::string(render_pass_name) + "_MSAA";
+			images[msaa_image_name] = resource_manager.Create2DImage(
+				context.swapchain.extent.width,
+				context.swapchain.extent.height, 
+				context.swapchain.format, 
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				max_multisample_count
+			);
+			image_access[msaa_image_name] = ImageAccess {
+				.layout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.access_flags = 0,
+				.stage_flags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
+			};
+			resource_manager.TagImage(images[msaa_image_name], msaa_image_name.c_str());
+		}
+
 		return;
 	}
 	
@@ -697,11 +783,13 @@ void RenderGraph::ActualizeResource(TransientResource &resource) {
 		// Swapchain-sized image
 		if(resource.image.width == 0 && resource.image.height == 0) {
 			images[resource.name] = resource_manager.Create2DImage(context.swapchain.extent.width,
-				context.swapchain.extent.height, resource.image.format, usage, VK_IMAGE_LAYOUT_GENERAL);
+				context.swapchain.extent.height, resource.image.format, usage, VK_IMAGE_LAYOUT_GENERAL,
+				resource.image.multisampled ? max_multisample_count : VK_SAMPLE_COUNT_1_BIT);
 		}
 		else {
 			images[resource.name] = resource_manager.Create2DImage(resource.image.width,
-				resource.image.height, resource.image.format, usage, VK_IMAGE_LAYOUT_GENERAL);
+				resource.image.height, resource.image.format, usage, VK_IMAGE_LAYOUT_GENERAL,
+				resource.image.multisampled ? max_multisample_count : VK_SAMPLE_COUNT_1_BIT);
 		}
 		image_access[resource.name] = ImageAccess {
 			.layout = VK_IMAGE_LAYOUT_GENERAL,

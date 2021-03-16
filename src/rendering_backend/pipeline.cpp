@@ -97,9 +97,17 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 
 	VkPipelineRasterizationStateCreateInfo rasterization_state = RASTERIZATION_STATE_DEFAULT;
 	pipeline_info.pRasterizationState = &rasterization_state;
+
+	VkPipelineMultisampleStateCreateInfo multisample_state = MULTISAMPLE_STATE_OFF;
+	pipeline_info.pMultisampleState = &multisample_state;
 	switch(description.multisample_state) {
 	case MultisampleState::Off:
-		pipeline_info.pMultisampleState = &MULTISAMPLE_STATE_OFF; break;
+		break;
+	case MultisampleState::On:
+		multisample_state.rasterizationSamples = VkUtils::GetMaxMultisampleCount(
+			context.gpu.properties.properties.limits.framebufferColorSampleCounts,
+			context.gpu.properties.properties.limits.framebufferDepthSampleCounts
+		);
 	}
 	switch(description.depth_stencil_state) {
 	case DepthStencilState::On:

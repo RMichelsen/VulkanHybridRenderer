@@ -8,7 +8,4 @@ public:
 	using RenderPath::RenderPath;
 	virtual void AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager);
 	virtual void ImGuiDrawSettings();
-
-private:
-	int shadow_mode = 0;
 };

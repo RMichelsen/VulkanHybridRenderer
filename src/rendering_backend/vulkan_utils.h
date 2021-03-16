@@ -143,7 +143,8 @@ inline uint32_t FormatStride(VkFormat format) {
 	}
 }
 
-inline VkImageCreateInfo ImageCreateInfo2D(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage) {
+inline VkImageCreateInfo ImageCreateInfo2D(uint32_t width, uint32_t height, VkFormat format, 
+	VkImageUsageFlags usage, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT) {
 	return VkImageCreateInfo {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = VK_IMAGE_TYPE_2D,
@@ -155,7 +156,7 @@ inline VkImageCreateInfo ImageCreateInfo2D(uint32_t width, uint32_t height, VkFo
 		},
 		.mipLevels = 1,
 		.arrayLayers = 1,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.samples = sample_count,
 		.tiling = VK_IMAGE_TILING_OPTIMAL,
 		.usage = usage,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -339,7 +340,7 @@ inline VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(uint32_t binding,
 	};
 }
 
-inline TransientResource CreateTransientRenderOutput(uint32_t binding, ColorBlendState color_blend_state) {
+inline TransientResource CreateTransientRenderOutput(uint32_t binding, ColorBlendState color_blend_state, bool multisampled = false) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = "RENDER_OUTPUT",
@@ -349,13 +350,14 @@ inline TransientResource CreateTransientRenderOutput(uint32_t binding, ColorBlen
 			.height = 0,
 			.format = VK_FORMAT_UNDEFINED,
 			.binding = binding,
-			.color_blend_state = color_blend_state
+			.color_blend_state = color_blend_state,
+			.multisampled = multisampled
 		}
 	};
 }
 
 inline TransientResource CreateTransientAttachmentImage(const char *name, VkFormat format, uint32_t binding,
-	ColorBlendState color_blend_state = ColorBlendState::Off) {
+	ColorBlendState color_blend_state = ColorBlendState::Off, bool multisampled = false) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = name,
@@ -365,13 +367,15 @@ inline TransientResource CreateTransientAttachmentImage(const char *name, VkForm
 			.height = 0,
 			.format = format,
 			.binding = binding,
-			.color_blend_state = color_blend_state
+			.color_blend_state = color_blend_state,
+			.multisampled = multisampled
 		}
 	};
 }
 
 inline TransientResource CreateTransientAttachmentImage(const char *name, uint32_t width, uint32_t height,
-	VkFormat format, uint32_t binding, ColorBlendState color_blend_state = ColorBlendState::Off) {
+	VkFormat format, uint32_t binding, ColorBlendState color_blend_state = ColorBlendState::Off, 
+	bool multisampled = false) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = name,
@@ -381,7 +385,8 @@ inline TransientResource CreateTransientAttachmentImage(const char *name, uint32
 			.height = height,
 			.format = format,
 			.binding = binding,
-			.color_blend_state = color_blend_state
+			.color_blend_state = color_blend_state,
+			.multisampled = multisampled
 		}
 	};
 }
@@ -456,6 +461,17 @@ inline std::vector<VkSpecializationMapEntry> CreateSpecializationMapEntries(uint
 		});
 	}
 	return specialization_map_entries;
+}
+
+inline VkSampleCountFlagBits GetMaxMultisampleCount(VkSampleCountFlags color_sample_counts, VkSampleCountFlags depth_sample_count) {
+	VkSampleCountFlags compatible_counts = color_sample_counts & depth_sample_count;
+	if(compatible_counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+	if(compatible_counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+	if(compatible_counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+	if(compatible_counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+	if(compatible_counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+	if(compatible_counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+	return VK_SAMPLE_COUNT_1_BIT;
 }
 }
 

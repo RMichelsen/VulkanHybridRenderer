@@ -109,6 +109,10 @@ UserInterfaceState UserInterface::Update(RenderPath &active_render_path,
 			render_path_state = RenderPathState::ChangeToRaytraced;
 			current_texture = "";
 		}
+		if(ImGui::MenuItem("Forward Rasterized Render Path")) {
+			render_path_state = RenderPathState::ChangeToForwardRaster;
+			current_texture = "";
+		}
 		ImGui::EndMenu();
 	}
 	ImGui::EndMainMenuBar();

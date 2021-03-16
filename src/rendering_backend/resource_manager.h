@@ -11,7 +11,7 @@ public:
 	void LoadScene(const char* scene_path);
 
 	Image Create2DImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, 
-		VkImageLayout initial_layout);
+		VkImageLayout initial_layout, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT);
 	uint32_t UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM, SamplerInfo *sampler_info = nullptr);
 	uint32_t UploadEmptyTexture(uint32_t width, uint32_t height, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM, SamplerInfo *sampler_info = nullptr);
 

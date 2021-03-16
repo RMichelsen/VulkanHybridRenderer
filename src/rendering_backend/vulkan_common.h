@@ -187,7 +187,8 @@ enum class RasterizationState {
 	CullNone
 };
 enum class MultisampleState {
-	Off
+	Off,
+	On
 };
 enum class DepthStencilState {
 	Off,
@@ -237,6 +238,7 @@ struct TransientImage {
 	uint32_t binding;
 	
 	ColorBlendState color_blend_state;
+	bool multisampled;
 };
 
 struct TransientBuffer {
@@ -356,7 +358,8 @@ enum class RenderPathState {
 	Idle,
 	ChangeToHybrid,
 	ChangeToRayquery,
-	ChangeToRaytraced
+	ChangeToRaytraced,
+	ChangeToForwardRaster
 };
 
 struct UserInterfaceState {

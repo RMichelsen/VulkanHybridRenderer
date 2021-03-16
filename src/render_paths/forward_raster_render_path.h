@@ -3,7 +3,7 @@
 
 class RenderGraph;
 class ResourceManager;
-class RaytracedRenderPath : public RenderPath {
+class ForwardRasterRenderPath : public RenderPath {
 public:
 	using RenderPath::RenderPath;
 	virtual void AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager);

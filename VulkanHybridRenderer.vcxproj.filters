@@ -942,6 +942,9 @@
     <ClInclude Include="src\render_paths\raytraced_render_path.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\render_paths\forward_raster_render_path.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\dependencies_impl.cpp">
@@ -1013,6 +1016,9 @@
     <ClCompile Include="src\render_paths\raytraced_render_path.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\render_paths\forward_raster_render_path.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="misc\glm.natvis" />
@@ -1040,6 +1046,10 @@
     <GLSLShader Include="data\shaders\raytraced_render_path\raygen.rgen" />
     <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rahit" />
     <GLSLShader Include="data\shaders\raytraced_render_path\shadow_anyhit.rahit" />
+    <GLSLShader Include="data\shaders\forward_raster_render_path\default.vert" />
+    <GLSLShader Include="data\shaders\forward_raster_render_path\default.frag" />
+    <GLSLShader Include="data\shaders\forward_raster_render_path\depth_prepass.vert" />
+    <GLSLShader Include="data\shaders\forward_raster_render_path\depth_prepass.frag" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />

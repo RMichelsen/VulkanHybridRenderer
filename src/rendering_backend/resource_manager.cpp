@@ -106,14 +106,14 @@ void ResourceManager::LoadScene(const char* scene_path) {
 }
 
 Image ResourceManager::Create2DImage(uint32_t width, uint32_t height, VkFormat format, 
-	VkImageUsageFlags usage, VkImageLayout initial_layout) {
+	VkImageUsageFlags usage, VkImageLayout initial_layout, VkSampleCountFlagBits sample_count) {
 	Image image {
 		.width = width,
 		.height = height,
 		.format = format,
 		.usage = usage
 	};
-	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, format, usage);
+	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height, format, usage, sample_count);
 
 	VmaAllocationCreateInfo image_alloc_info {
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY
