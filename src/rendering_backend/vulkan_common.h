@@ -73,9 +73,13 @@ struct Scene {
 struct PerFrameData {
 	glm::mat4 camera_view;
 	glm::mat4 camera_proj;
+	glm::mat4 camera_view_prev_frame;
+	glm::mat4 camera_proj_prev_frame;
 	glm::mat4 camera_view_inverse;
 	glm::mat4 camera_proj_inverse;
 	DirectionalLight directional_light;
+	glm::vec2 display_size;
+	glm::vec2 inv_display_size;
 	uint32_t frame_index;
 };
 
@@ -207,11 +211,11 @@ enum class DynamicState {
 
 struct PushConstantDescription {
 	uint32_t size;
-	VkPipelineStageFlags pipeline_stage;
+	VkShaderStageFlags shader_stage;
 };
 inline constexpr PushConstantDescription PUSHCONSTANTS_NONE {
 	.size = 0,
-	.pipeline_stage = 0
+	.shader_stage = 0
 };
 
 struct SpecializationConstantsDescription {
@@ -301,6 +305,22 @@ struct RaytracingPipeline {
 	VkPipelineLayout layout;
 };
 
+struct ComputeKernel {
+	const char *shader;
+	const char *entry;
+};
+
+struct ComputePipelineDescription {
+	std::vector<ComputeKernel> kernels;
+	PushConstantDescription push_constant_description;
+};
+
+struct ComputePipeline {
+	VkPipeline handle;
+	VkPipelineLayout layout;
+	PushConstantDescription push_constant_description;
+};
+
 class GraphicsExecutionContext;
 using GraphicsExecutionCallback = std::function<void(GraphicsExecutionContext &)>;
 using ExecuteGraphicsCallback = std::function<void(std::string, GraphicsExecutionCallback)>;
@@ -310,6 +330,9 @@ class RaytracingExecutionContext;
 using RaytracingExecutionCallback = std::function<void(RaytracingExecutionContext &)>;
 using ExecuteRaytracingCallback = std::function<void(std::string, RaytracingExecutionCallback)>;
 using RaytracingPassCallback = std::function<void(ExecuteRaytracingCallback)>;
+
+class ComputeExecutionContext;
+using ComputePassCallback = std::function<void(ComputeExecutionContext &)>;
 
 struct GraphicsPass {
 	VkRenderPass handle;
@@ -328,12 +351,21 @@ struct RaytracingPass {
 	RaytracingPassCallback callback;
 };
 
+struct ComputePass {
+	ComputePassCallback callback;
+};
+
 struct RenderPass {
 	const char *name;
 
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkDescriptorSet descriptor_set;
-	std::variant<GraphicsPass, RaytracingPass> pass;
+	std::variant<GraphicsPass, RaytracingPass, ComputePass> pass;
+};
+
+struct ComputePassDescription {
+	ComputePipelineDescription pipeline_description;
+	ComputePassCallback callback;
 };
 
 struct GraphicsPassDescription {
@@ -351,7 +383,7 @@ struct RenderPassDescription {
 	std::vector<TransientResource> dependencies;
 	std::vector<TransientResource> outputs;
 
-	std::variant<GraphicsPassDescription, RaytracingPassDescription> description;
+	std::variant<GraphicsPassDescription, RaytracingPassDescription, ComputePassDescription> description;
 };
 
 enum class RenderPathState {

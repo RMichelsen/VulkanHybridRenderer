@@ -10,13 +10,13 @@
 layout(set = 0, binding = 2, scalar) buffer Primitives { Primitive primitives[]; };
 layout(set = 0, binding = 3) uniform accelerationStructureEXT TLAS;
 layout(set = 0, binding = 4) uniform sampler2D textures[];
-layout(set = 1, binding = 0) uniform PFD { PerFrameData pfd; };
+layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
 
 layout(push_constant) uniform PushConstants {
 	int object_id;
 } pc;
 
-layout(set = 2, binding = 0) uniform sampler2D shadow_map;
+layout(set = 3, binding = 0) uniform sampler2D shadow_map;
 
 layout(location = 0) in vec3 in_pos;
 layout(location = 1) in vec3 in_normal;

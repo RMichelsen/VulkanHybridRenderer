@@ -214,9 +214,7 @@ void UserInterface::Draw(ResourceManager &resource_manager, VkCommandBuffer comm
 
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		pipeline_layout, 0, 1, &resource_manager.global_descriptor_set, 0, nullptr);
-	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		pipeline_layout, 1, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
+		pipeline_layout, 0, 1, &resource_manager.global_descriptor_set0, 0, nullptr);
 
 	ImGuiPushConstants push_constants {
 		.scale = glm::vec2 { 
@@ -381,9 +379,8 @@ void UserInterface::CreateImGuiPipeline(ResourceManager &resource_manager) {
 		}
 	};
 
-	std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts {
-		resource_manager.global_descriptor_set_layout,
-		resource_manager.per_frame_descriptor_set_layout,
+	std::array<VkDescriptorSetLayout, 1> descriptor_set_layouts {
+		resource_manager.global_descriptor_set_layout0
 	};
 	VkPipelineLayoutCreateInfo layout_info {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,

@@ -5,9 +5,9 @@
 #include "../common.glsl"
 
 layout(set = 0, binding = 3) uniform accelerationStructureEXT TLAS;
-layout(set = 1, binding = 0) uniform PFD { PerFrameData pfd; };
-layout(set = 2, binding = 0) uniform sampler2D position_texture;
-layout(set = 2, binding = 1, rgba8) uniform image2D raytraced_shadows;
+layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
+layout(set = 3, binding = 0) uniform sampler2D position_texture;
+layout(set = 3, binding = 1, rgba16f) uniform image2D raytraced_shadows;
 
 layout(location = 0) rayPayloadEXT vec4 shadow_payload;
 
@@ -21,7 +21,7 @@ void main() {
 	uint rng_state = seed_thread((gl_LaunchIDEXT.y * gl_LaunchSizeEXT.y + gl_LaunchIDEXT.x) * pfd.frame_index);
 	float rnd1 = random01(rng_state);
 	float rnd2 = random01(rng_state);
-	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.9999));
+	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.9997));
 	mat3x3 R = onb_from_unit_vector(light_direction.xyz);
 
 	shadow_payload = vec4(0.0, 0.0, 0.0, 0.0);

@@ -60,7 +60,7 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	if(description.push_constants.size > 0) {
 		push_constants.emplace_back(
 			VkPushConstantRange {
-				.stageFlags = description.push_constants.pipeline_stage,
+				.stageFlags = description.push_constants.shader_stage,
 				.offset = 0,
 				.size = description.push_constants.size
 			}
@@ -68,7 +68,8 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 	}
 
 	std::vector<VkDescriptorSetLayout> descriptor_set_layouts { 
-		resource_manager.global_descriptor_set_layout,
+		resource_manager.global_descriptor_set_layout0,
+		resource_manager.global_descriptor_set_layout1,
 		resource_manager.per_frame_descriptor_set_layout,
 	};
 	if(render_pass.descriptor_set_layout != VK_NULL_HANDLE) {
@@ -268,7 +269,8 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 	}
 
 	std::vector<VkDescriptorSetLayout> descriptor_set_layouts { 
-		resource_manager.global_descriptor_set_layout,
+		resource_manager.global_descriptor_set_layout0,
+		resource_manager.global_descriptor_set_layout1,
 		resource_manager.per_frame_descriptor_set_layout
 	};
 	if(render_pass.descriptor_set_layout != VK_NULL_HANDLE) {
@@ -339,6 +341,54 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 		vkDestroyShaderModule(context.device, pipeline_shader_stage_info.module, nullptr);
 	}
 
+	return pipeline;
+}
+
+ComputePipeline CreateComputePipeline(VulkanContext &context, ResourceManager &resource_manager,
+	RenderPass &render_pass, PushConstantDescription push_constant_description, ComputeKernel kernel) {
+	ComputePipeline pipeline {
+		.push_constant_description = push_constant_description
+	};
+
+	std::vector<VkPushConstantRange> push_constants;
+	if(push_constant_description.size > 0) {
+		push_constants.emplace_back(
+			VkPushConstantRange {
+				.stageFlags = push_constant_description.shader_stage,
+				.offset = 0,
+				.size = push_constant_description.size
+			}
+		);
+	}
+
+	std::vector<VkDescriptorSetLayout> descriptor_set_layouts { 
+		resource_manager.global_descriptor_set_layout0,
+		resource_manager.global_descriptor_set_layout1,
+		resource_manager.per_frame_descriptor_set_layout,
+	};
+	if(render_pass.descriptor_set_layout != VK_NULL_HANDLE) {
+		descriptor_set_layouts.emplace_back(render_pass.descriptor_set_layout);
+	}
+	VkPipelineLayoutCreateInfo layout_info {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.setLayoutCount = static_cast<uint32_t>(descriptor_set_layouts.size()),
+		.pSetLayouts = descriptor_set_layouts.data(),
+		.pushConstantRangeCount = static_cast<uint32_t>(push_constants.size()),
+		.pPushConstantRanges = push_constants.empty() ? nullptr : push_constants.data()
+	};
+	VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &pipeline.layout));
+
+	VkPipelineShaderStageCreateInfo shader_stage_info = VkUtils::PipelineShaderStageCreateInfo(
+		context.device, kernel.shader, VK_SHADER_STAGE_COMPUTE_BIT, kernel.entry);
+
+	VkComputePipelineCreateInfo compute_pipeline_info {
+		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+		.stage = shader_stage_info,
+		.layout = pipeline.layout,
+	};
+	vkCreateComputePipelines(context.device, nullptr, 1, &compute_pipeline_info, nullptr, &pipeline.handle);
+
+	vkDestroyShaderModule(context.device, shader_stage_info.module, nullptr);
 	return pipeline;
 }
 }

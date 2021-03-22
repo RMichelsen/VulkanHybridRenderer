@@ -13,6 +13,9 @@ public:
 	void AddRaytracingPass(const char *render_pass_name, std::vector<TransientResource> dependencies,
 		std::vector<TransientResource> outputs, RaytracingPipelineDescription pipeline,
 		RaytracingPassCallback callback);
+	void AddComputePass(const char *render_pass_name, std::vector<TransientResource> dependencies,
+		std::vector<TransientResource> outputs, ComputePipelineDescription pipeline,
+		ComputePassCallback callback);
 
 	void Build();
 	void Execute(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx);
@@ -23,11 +26,13 @@ public:
 private:
 	void CreateGraphicsPass(RenderPassDescription &pass_description);
 	void CreateRaytracingPass(RenderPassDescription &pass_description);
+	void CreateComputePass(RenderPassDescription &pass_description);
 
 	void FindExecutionOrder();
 	void InsertBarriers(VkCommandBuffer command_buffer, RenderPass &render_pass);
 	void ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx, RenderPass &render_pass);
 	void ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPass &render_pass);
+	void ExecuteComputePass(VkCommandBuffer command_buffer, RenderPass &render_pass);
 	void ActualizeResource(TransientResource &resource, const char *render_pass_name);
 	bool SanityCheck();
 
@@ -41,9 +46,11 @@ private:
 	std::unordered_map<std::string, RenderPass> passes;
 	std::unordered_map<std::string, GraphicsPipeline> graphics_pipelines;
 	std::unordered_map<std::string, RaytracingPipeline> raytracing_pipelines;
+	std::unordered_map<std::string, ComputePipeline> compute_pipelines;
 	std::unordered_map<std::string, Image> images;
 	std::unordered_map<std::string, ImageAccess> image_access;
 
 	friend class RenderPath;
+	friend class ComputeExecutionContext;
 };
 

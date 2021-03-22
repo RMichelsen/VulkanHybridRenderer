@@ -9,9 +9,13 @@ struct DirectionalLight {
 struct PerFrameData {
 	mat4 camera_view;
 	mat4 camera_proj;
+	mat4 camera_view_prev_frame;
+	mat4 camera_proj_prev_frame;
 	mat4 camera_view_inverse;
 	mat4 camera_proj_inverse;
 	DirectionalLight directional_light;
+	vec2 display_size;
+	vec2 inv_display_size;
 	uint frame_index;
 };
 

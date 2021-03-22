@@ -177,16 +177,20 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	Camera &camera = resource_manager->scene.camera;
 
 	static uint32_t frame_index = 0;
-	resource_manager->UpdatePerFrameUBO(resource_idx, 
-		PerFrameData {
-			.camera_view = camera.view,
-			.camera_proj = camera.perspective,
-			.camera_view_inverse = camera.transform,
-			.camera_proj_inverse = glm::inverse(camera.perspective),
-			.directional_light = resource_manager->scene.directional_light,
-			.frame_index = frame_index++
-		}
-	);
+	static PerFrameData per_frame_data {};
+	per_frame_data = PerFrameData {
+		.camera_view = camera.view,
+		.camera_proj = camera.perspective,
+		.camera_view_prev_frame = per_frame_data.camera_view,
+		.camera_proj_prev_frame = per_frame_data.camera_proj,
+		.camera_view_inverse = camera.transform,
+		.camera_proj_inverse = glm::inverse(camera.perspective),
+		.directional_light = resource_manager->scene.directional_light,
+		.display_size = { context->swapchain.extent.width, context->swapchain.extent.height },
+		.inv_display_size = { 1.0f / context->swapchain.extent.width, 1.0f / context->swapchain.extent.height },
+		.frame_index = frame_index++
+	};
+	resource_manager->UpdatePerFrameUBO(resource_idx, per_frame_data);
 
 	VkCommandBufferBeginInfo command_buffer_begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,

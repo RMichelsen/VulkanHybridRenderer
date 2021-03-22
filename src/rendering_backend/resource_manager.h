@@ -1,6 +1,6 @@
 #pragma once
 
-inline constexpr uint32_t MAX_GLOBAL_TEXTURES = 1024;
+inline constexpr uint32_t MAX_GLOBAL_RESOURCES = 1024;
 
 class VulkanContext;
 class ResourceManager {
@@ -12,8 +12,10 @@ public:
 
 	Image Create2DImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, 
 		VkImageLayout initial_layout, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT);
+
 	uint32_t UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM, SamplerInfo *sampler_info = nullptr);
 	uint32_t UploadEmptyTexture(uint32_t width, uint32_t height, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM, SamplerInfo *sampler_info = nullptr);
+	uint32_t UploadNewStorageImage(uint32_t width, uint32_t height, VkFormat format);
 
 	void TagImage(Image &image, const char *name);
 	void TagImage(uint32_t image_idx, const char *name);
@@ -28,18 +30,26 @@ public:
 	// Layout(set = 0, binding = 3) global_tlas
 	// Layout(set = 0, binding = 4) textures
 
+	// The second global descriptor set (set = 1) is laid out as follows
+	// Layout(set = 0, binding = 0) images
+
 	GPUBuffer global_vertex_buffer;
 	GPUBuffer global_index_buffer;
 	GPUBuffer global_obj_data_buffer;
 
-	std::array<Image, MAX_GLOBAL_TEXTURES> textures;
 	
 	AccelerationStructure global_BLAS;
 	AccelerationStructure global_TLAS;
 
-	VkDescriptorPool global_descriptor_pool = VK_NULL_HANDLE;
-	VkDescriptorSetLayout global_descriptor_set_layout = VK_NULL_HANDLE;
-	VkDescriptorSet global_descriptor_set = VK_NULL_HANDLE;
+	std::array<Image, MAX_GLOBAL_RESOURCES> textures;
+	VkDescriptorPool global_descriptor_pool0 = VK_NULL_HANDLE;
+	VkDescriptorSetLayout global_descriptor_set_layout0 = VK_NULL_HANDLE;
+	VkDescriptorSet global_descriptor_set0 = VK_NULL_HANDLE;
+
+	std::array<Image, MAX_GLOBAL_RESOURCES> storage_images;
+	VkDescriptorPool global_descriptor_pool1 = VK_NULL_HANDLE;
+	VkDescriptorSetLayout global_descriptor_set_layout1 = VK_NULL_HANDLE;
+	VkDescriptorSet global_descriptor_set1 = VK_NULL_HANDLE;
 
 	VkDescriptorPool per_frame_descriptor_pool = VK_NULL_HANDLE;
 	VkDescriptorSetLayout per_frame_descriptor_set_layout = VK_NULL_HANDLE;
@@ -53,7 +63,8 @@ public:
 	Scene scene;
 
 private:
-	void CreateGlobalDescriptorSet();
+	void CreateGlobalDescriptorSet0();
+	void CreateGlobalDescriptorSet1();
 	void CreatePerFrameDescriptorSet();
 	void CreatePerFrameUBOs();
 	void UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &primitives);

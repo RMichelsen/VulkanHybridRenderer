@@ -5,12 +5,12 @@
 
 layout(constant_id = SHADOW_MODE_SPEC_CONST_INDEX) const int shadow_mode = 0;
 
-layout(set = 1, binding = 0) uniform PFD { PerFrameData pfd; };
-layout(set = 2, binding = 0) uniform sampler2D position_texture;
-layout(set = 2, binding = 1) uniform sampler2D normal_texture;
-layout(set = 2, binding = 2) uniform sampler2D albedo_texture;
-layout(set = 2, binding = 3) uniform sampler2D shadow_map;
-layout(set = 2, binding = 4) uniform sampler2D raytraced_shadows_texture;
+layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
+layout(set = 3, binding = 0) uniform sampler2D position_texture;
+layout(set = 3, binding = 1) uniform sampler2D normal_texture;
+layout(set = 3, binding = 2) uniform sampler2D albedo_texture;
+layout(set = 3, binding = 3) uniform sampler2D shadow_map;
+layout(set = 3, binding = 4) uniform sampler2D raytraced_shadows_texture;
 
 layout(location = 0) in vec2 in_uv;
 layout(location = 0) out vec4 out_color;

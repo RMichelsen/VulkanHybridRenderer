@@ -247,7 +247,9 @@ void VulkanContext::InitLogicalDevice() {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
 		.pNext = &device_vk12_features,
 		.features = VkPhysicalDeviceFeatures {
-			.samplerAnisotropy = VK_TRUE
+			.samplerAnisotropy = VK_TRUE,
+			.shaderStorageImageReadWithoutFormat = VK_TRUE,
+			.shaderStorageImageWriteWithoutFormat = VK_TRUE
 		}
 	};
 

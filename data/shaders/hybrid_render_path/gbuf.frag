@@ -7,7 +7,7 @@
 
 layout(set = 0, binding = 2, scalar) buffer Primitives { Primitive primitives[]; };
 layout(set = 0, binding = 4) uniform sampler2D textures[];
-
+layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
 layout(push_constant) uniform PushConstants {
 	int object_id;
 } pc;
@@ -16,12 +16,12 @@ layout(location = 0) in vec3 in_world_space_pos;
 layout(location = 1) in vec3 in_normal;
 layout(location = 2) in vec4 in_tangent;
 layout(location = 3) in vec2 in_uv;
-layout(location = 4) in vec3 in_view_space_normal;
+layout(location = 4) in vec4 in_reprojected_pos;
 
 layout(location = 0) out vec4 out_pos;
 layout(location = 1) out vec4 out_normal;
 layout(location = 2) out vec4 out_albedo;
-layout(location = 3) out vec4 out_view_space_normal;
+layout(location = 3) out vec4 out_reprojected_uv_and_object_id;
 
 void main() {
 	Primitive primitive = primitives[pc.object_id];
@@ -41,6 +41,8 @@ void main() {
 	}
 	out_normal = vec4(N, 1.0);
 	out_albedo = albedo;
-	out_view_space_normal = vec4(in_view_space_normal, 1.0);
+
+	vec2 reprojected_uv = 0.5 * (in_reprojected_pos.xy / in_reprojected_pos.w) + 0.5;
+	out_reprojected_uv_and_object_id = vec4(reprojected_uv, pc.object_id, 1.0);
 }
 

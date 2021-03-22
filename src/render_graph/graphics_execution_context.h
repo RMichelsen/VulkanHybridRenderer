@@ -23,7 +23,7 @@ public:
 	template<typename T>
 	void PushConstants(T &push_constants) {
 		assert(sizeof(T) == pipeline.description.push_constants.size);
-		vkCmdPushConstants(command_buffer, pipeline.layout, pipeline.description.push_constants.pipeline_stage,
+		vkCmdPushConstants(command_buffer, pipeline.layout, pipeline.description.push_constants.shader_stage,
 			0, pipeline.description.push_constants.size, &push_constants);
 	}
 

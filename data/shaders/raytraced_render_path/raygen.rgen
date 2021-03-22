@@ -5,8 +5,8 @@
 #include "../common.glsl"
 
 layout(set = 0, binding = 3) uniform accelerationStructureEXT TLAS;
-layout(set = 1, binding = 0) uniform PFD { PerFrameData pfd; };
-layout(set = 2, binding = 0, rgba8) uniform image2D output_image;
+layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
+layout(set = 3, binding = 0, rgba8) uniform image2D output_image;
 
 layout(location = 0) rayPayloadEXT vec4 payload;
 

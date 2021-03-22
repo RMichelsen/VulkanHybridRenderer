@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "hybrid_render_path.h"
 
+#include "render_graph/compute_execution_context.h"
 #include "render_graph/graphics_execution_context.h"
 #include "render_graph/raytracing_execution_context.h"
 #include "render_graph/render_graph.h"
@@ -13,7 +14,7 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 		render_graph.AddGraphicsPass("Depth Prepass",
 			{},
 			{
-				VkUtils::CreateTransientAttachmentImage("ShadowMap", 4096, 4096, VK_FORMAT_D32_SFLOAT, 0)
+				VkUtils::CreateTransientAttachmentImage("Shadow Map", 4096, 4096, VK_FORMAT_D32_SFLOAT, 0)
 			},
 			{
 				GraphicsPipelineDescription {
@@ -26,7 +27,7 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 					.dynamic_state = DynamicState::None,
 					.push_constants = PushConstantDescription {
 						.size = sizeof(PushConstants),
-						.pipeline_stage = VK_SHADER_STAGE_VERTEX_BIT
+						.shader_stage = VK_SHADER_STAGE_VERTEX_BIT
 					}
 				}
 			},
@@ -56,7 +57,7 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 			{},
 			{
 				VkUtils::CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-				VkUtils::CreateTransientStorageImage("RaytracedShadows", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
+				VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
 			},
 			RaytracingPipelineDescription {
 				.name = "Raytraced Shadows Pipeline",
@@ -86,11 +87,11 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 	render_graph.AddGraphicsPass("G-Buffer Pass",
 		{},
 		{
-			VkUtils::CreateTransientAttachmentImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			VkUtils::CreateTransientAttachmentImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientAttachmentImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientAttachmentImage("Object Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
-			VkUtils::CreateTransientAttachmentImage("ViewSpaceNormal", VK_FORMAT_R32G32B32A32_SFLOAT, 3),
-			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 4)
+			VkUtils::CreateTransientAttachmentImage("Reprojected UV and Object ID", VK_FORMAT_R16G16B16A16_SFLOAT, 3),
+			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 4),
 		},
 		{
 			GraphicsPipelineDescription {
@@ -103,7 +104,7 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 				.dynamic_state = DynamicState::None,
 				.push_constants = PushConstantDescription {
 					.size = sizeof(PushConstants),
-					.pipeline_stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+					.shader_stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
 				}
 			}
 		},
@@ -128,17 +129,57 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 		}
 	);
 
+	svgf_push_constants.prev_frame_reprojection_uv_and_object_id =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+	svgf_push_constants.prev_frame_object_space_normals =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+
+	render_graph.AddComputePass("SVGF Denoise Pass",
+		{
+			VkUtils::CreateTransientStorageImage("Reprojected UV and Object ID", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientStorageImage("Object Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 2)
+		},
+		{
+			VkUtils::CreateTransientStorageImage("Denoised Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 3),
+		},
+		ComputePipelineDescription {
+			.kernels = {
+				ComputeKernel {
+					.shader = "hybrid_render_path/svgf.comp",
+					.entry = "main"
+				}
+			},
+			.push_constant_description = PushConstantDescription {
+				.size = sizeof(SVGFPushConstants),
+				.shader_stage = VK_SHADER_STAGE_COMPUTE_BIT
+			}
+		},
+		[&](ComputeExecutionContext &execution_context) {
+
+			glm::uvec2 display_size = execution_context.GetDisplaySize();
+
+			execution_context.PushConstants("main", svgf_push_constants);
+			execution_context.Dispatch("main",
+				display_size.x / 8 + (display_size.x % 8 != 0),
+				display_size.y / 8 + (display_size.y % 8 != 0),
+				1
+			);
+		}
+	);
 
 	render_graph.AddGraphicsPass("Composition Pass",
 		{
-			VkUtils::CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			VkUtils::CreateTransientSampledImage("Normal", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientSampledImage("Object Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
-			VkUtils::CreateTransientSampledImage("ShadowMap", 4096, 4096, VK_FORMAT_D32_SFLOAT, 3),
-			VkUtils::CreateTransientSampledImage("RaytracedShadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4)
+			VkUtils::CreateTransientSampledImage("Shadow Map", 4096, 4096, VK_FORMAT_D32_SFLOAT, 3),
+			VkUtils::CreateTransientSampledImage("Denoised Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4)
 		},
 		{
-			VkUtils::CreateTransientRenderOutput(0, ColorBlendState::Off),
+			VkUtils::CreateTransientRenderOutput(0),
 			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1)
 		},
 		{
@@ -165,6 +206,7 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 			);
 		}
 	);
+
 }
 
 void HybridRenderPath::ImGuiDrawSettings() {

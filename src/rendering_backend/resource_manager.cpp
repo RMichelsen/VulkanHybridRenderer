@@ -50,7 +50,8 @@ ResourceManager::ResourceManager(VulkanContext &context) : context(context) {
 	VK_CHECK(vkCreateDescriptorPool(context.device, &transient_descriptor_pool_info, 
 		nullptr, &transient_descriptor_pool));
 
-	CreateGlobalDescriptorSet();
+	CreateGlobalDescriptorSet0();
+	CreateGlobalDescriptorSet1();
 	CreatePerFrameDescriptorSet();
 	CreatePerFrameUBOs();
 
@@ -75,17 +76,22 @@ void ResourceManager::DestroyResources() {
 	VkUtils::DestroyGPUBuffer(context.allocator, global_index_buffer);
 	VkUtils::DestroyGPUBuffer(context.allocator, global_obj_data_buffer);
 
-	for(uint32_t i = 0; i < MAX_GLOBAL_TEXTURES; ++i) {
+	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
 		if(textures[i].handle != VK_NULL_HANDLE) {
 			VkUtils::DestroyImage(context.device, context.allocator, textures[i]);
+		}
+		if(storage_images[i].handle != VK_NULL_HANDLE) {
+			VkUtils::DestroyImage(context.device, context.allocator, storage_images[i]);
 		}
 	}
 
 	VkUtils::DestroyAccelerationStructure(context.device, context.allocator, global_BLAS);
 	VkUtils::DestroyAccelerationStructure(context.device, context.allocator, global_TLAS);
 
-	vkDestroyDescriptorPool(context.device, global_descriptor_pool, nullptr);
-	vkDestroyDescriptorSetLayout(context.device, global_descriptor_set_layout, nullptr);
+	vkDestroyDescriptorPool(context.device, global_descriptor_pool0, nullptr);
+	vkDestroyDescriptorSetLayout(context.device, global_descriptor_set_layout0, nullptr);
+	vkDestroyDescriptorPool(context.device, global_descriptor_pool1, nullptr);
+	vkDestroyDescriptorSetLayout(context.device, global_descriptor_set_layout1, nullptr);
 	vkDestroyDescriptorPool(context.device, per_frame_descriptor_pool, nullptr);
 	vkDestroyDescriptorSetLayout(context.device, per_frame_descriptor_set_layout, nullptr);
 	vkDestroyDescriptorPool(context.device, transient_descriptor_pool, nullptr);
@@ -154,7 +160,6 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
 		&texture.handle, &texture.allocation, nullptr);
 
-
 	VkDeviceSize buffer_size = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * VkUtils::FormatStride(format);
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
@@ -220,7 +225,7 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 	}
 
 	// TODO: OPTIMIZE
-	for(uint32_t i = 0; i < MAX_GLOBAL_TEXTURES; ++i) {
+	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
 		if(textures[i].handle == VK_NULL_HANDLE) {
 			textures[i] = texture;
 
@@ -232,7 +237,7 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 
 			VkWriteDescriptorSet write_descriptor_set {
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = global_descriptor_set,
+				.dstSet = global_descriptor_set0,
 				.dstBinding = 4,
 				.dstArrayElement = i,
 				.descriptorCount = 1,
@@ -259,7 +264,6 @@ uint32_t ResourceManager::UploadEmptyTexture(uint32_t width, uint32_t height, Vk
 	};
 	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
 		&texture.handle, &texture.allocation, nullptr);
-
 
 	VkDeviceSize buffer_size = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * VkUtils::FormatStride(format);
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
@@ -307,12 +311,12 @@ uint32_t ResourceManager::UploadEmptyTexture(uint32_t width, uint32_t height, Vk
 			samplers.emplace_back(Sampler {
 				.handle = texture_sampler,
 				.info = *sampler_info
-				});
+			});
 		}
 	}
 
 	// TODO: OPTIMIZE
-	for(uint32_t i = 0; i < MAX_GLOBAL_TEXTURES; ++i) {
+	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
 		if(textures[i].handle == VK_NULL_HANDLE) {
 			textures[i] = texture;
 
@@ -324,7 +328,7 @@ uint32_t ResourceManager::UploadEmptyTexture(uint32_t width, uint32_t height, Vk
 
 			VkWriteDescriptorSet write_descriptor_set {
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = global_descriptor_set,
+				.dstSet = global_descriptor_set0,
 				.dstBinding = 4,
 				.dstArrayElement = i,
 				.descriptorCount = 1,
@@ -338,6 +342,65 @@ uint32_t ResourceManager::UploadEmptyTexture(uint32_t width, uint32_t height, Vk
 	}
 
 	assert(false && "No free texture slots left!");
+	return static_cast<uint32_t>(-1);
+}
+
+// TODO: Fix duplicate code here...
+uint32_t ResourceManager::UploadNewStorageImage(uint32_t width, uint32_t height, VkFormat format) {
+	Image storage_image;
+
+	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height,
+		format, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+	VmaAllocationCreateInfo image_alloc_info {
+		.usage = VMA_MEMORY_USAGE_GPU_ONLY
+	};
+	vmaCreateImage(context.allocator, &image_info, &image_alloc_info,
+		&storage_image.handle, &storage_image.allocation, nullptr);
+
+	VkDeviceSize buffer_size = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * VkUtils::FormatStride(format);
+	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+
+	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue,
+		context.command_pool, [&](VkCommandBuffer command_buffer) {
+			VkUtils::InsertImageBarrier(command_buffer, storage_image.handle, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, VK_ACCESS_TRANSFER_WRITE_BIT);
+		}
+	);
+
+	VkImageViewCreateInfo image_view_info = VkUtils::ImageViewCreateInfo2D(storage_image.handle,
+		format);
+	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &storage_image.view));
+
+
+	// TODO: OPTIMIZE
+	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
+		if(storage_images[i].handle == VK_NULL_HANDLE) {
+			storage_images[i] = storage_image;
+
+
+			VkDescriptorImageInfo descriptor {
+				.imageView = storage_image.view,
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL
+			};
+
+			VkWriteDescriptorSet write_descriptor_set {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = global_descriptor_set1,
+				.dstBinding = 0,
+				.dstArrayElement = i,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				.pImageInfo = &descriptor
+			};
+
+			vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
+			return i;
+		}
+	}
+
+	assert(false && "No free storage image slots left!");
 	return static_cast<uint32_t>(-1);
 }
 
@@ -396,7 +459,7 @@ void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<
 	std::vector<VkWriteDescriptorSet> write_descriptor_sets {
 		VkWriteDescriptorSet {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = global_descriptor_set,
+			.dstSet = global_descriptor_set0,
 			.dstBinding = 0,
 			.descriptorCount = 1,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -404,7 +467,7 @@ void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<
 		},
 		VkWriteDescriptorSet {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = global_descriptor_set,
+			.dstSet = global_descriptor_set0,
 			.dstBinding = 1,
 			.descriptorCount = 1,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -412,7 +475,7 @@ void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<
 		},
 		VkWriteDescriptorSet {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = global_descriptor_set,
+			.dstSet = global_descriptor_set0,
 			.dstBinding = 2,
 			.descriptorCount = 1,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -421,7 +484,7 @@ void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<
 		VkWriteDescriptorSet {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			.pNext = &write_descriptor_set_acceleration_structure,
-			.dstSet = global_descriptor_set,
+			.dstSet = global_descriptor_set0,
 			.dstBinding = 3,
 			.descriptorCount = 1,
 			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
@@ -436,7 +499,7 @@ void ResourceManager::UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData per_
 	memcpy(per_frame_ubos[resource_idx].mapped_data, &per_frame_data, sizeof(PerFrameData));
 }
 
-void ResourceManager::CreateGlobalDescriptorSet() {
+void ResourceManager::CreateGlobalDescriptorSet0() {
 	std::array<VkDescriptorPoolSize, 3> descriptor_pool_sizes {
 		VkDescriptorPoolSize {
 			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -448,7 +511,7 @@ void ResourceManager::CreateGlobalDescriptorSet() {
 		},
 		VkDescriptorPoolSize {
 			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.descriptorCount = MAX_GLOBAL_TEXTURES
+			.descriptorCount = MAX_GLOBAL_RESOURCES
 		}
 	};
 	VkDescriptorPoolCreateInfo descriptor_pool_info {
@@ -458,7 +521,7 @@ void ResourceManager::CreateGlobalDescriptorSet() {
 		.pPoolSizes = descriptor_pool_sizes.data()
 	};
 	VK_CHECK(vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr, 
-		&global_descriptor_pool));
+		&global_descriptor_pool0));
 
 	std::array<VkDescriptorSetLayoutBinding, 5> descriptor_set_layout_bindings {
 		VkDescriptorSetLayoutBinding {
@@ -490,7 +553,7 @@ void ResourceManager::CreateGlobalDescriptorSet() {
 		VkDescriptorSetLayoutBinding {
 			.binding = 4,
 			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.descriptorCount = MAX_GLOBAL_TEXTURES,
+			.descriptorCount = MAX_GLOBAL_RESOURCES,
 			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | 
 						  VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR
 		}
@@ -515,9 +578,9 @@ void ResourceManager::CreateGlobalDescriptorSet() {
 		.pBindings = descriptor_set_layout_bindings.data()
 	};
 	VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_info, 
-		nullptr, &global_descriptor_set_layout));
+		nullptr, &global_descriptor_set_layout0));
 
-	uint32_t alloc_count = MAX_GLOBAL_TEXTURES;
+	uint32_t alloc_count = MAX_GLOBAL_RESOURCES;
 	VkDescriptorSetVariableDescriptorCountAllocateInfo descriptor_set_variable_alloc_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT,
 		.descriptorSetCount = 1,
@@ -526,12 +589,72 @@ void ResourceManager::CreateGlobalDescriptorSet() {
 	VkDescriptorSetAllocateInfo descriptor_set_alloc_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.pNext = &descriptor_set_variable_alloc_info,
-		.descriptorPool = global_descriptor_pool,
+		.descriptorPool = global_descriptor_pool0,
 		.descriptorSetCount = 1,
-		.pSetLayouts = &global_descriptor_set_layout
+		.pSetLayouts = &global_descriptor_set_layout0
 	};
 	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info, 
-		&global_descriptor_set));
+		&global_descriptor_set0));
+}
+
+void ResourceManager::CreateGlobalDescriptorSet1() {
+	std::array<VkDescriptorPoolSize, 1> descriptor_pool_sizes {
+	VkDescriptorPoolSize {
+		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = MAX_GLOBAL_RESOURCES
+	}
+	};
+	VkDescriptorPoolCreateInfo descriptor_pool_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.maxSets = 1,
+		.poolSizeCount = static_cast<uint32_t>(descriptor_pool_sizes.size()),
+		.pPoolSizes = descriptor_pool_sizes.data()
+	};
+	VK_CHECK(vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr,
+		&global_descriptor_pool1));
+
+	std::array<VkDescriptorSetLayoutBinding, 1> descriptor_set_layout_bindings {
+		VkDescriptorSetLayoutBinding {
+			.binding = 0,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.descriptorCount = MAX_GLOBAL_RESOURCES,
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT |
+						  VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR |
+						  VK_SHADER_STAGE_COMPUTE_BIT
+		}
+	};
+	std::array<VkDescriptorBindingFlags, 1> descriptor_binding_flags {
+		VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
+	};
+	VkDescriptorSetLayoutBindingFlagsCreateInfo descriptor_set_layout_binding_flags_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+		.bindingCount = static_cast<uint32_t>(descriptor_binding_flags.size()),
+		.pBindingFlags = descriptor_binding_flags.data()
+	};
+	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		.pNext = &descriptor_set_layout_binding_flags_info,
+		.bindingCount = static_cast<uint32_t>(descriptor_set_layout_bindings.size()),
+		.pBindings = descriptor_set_layout_bindings.data()
+	};
+	VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_info,
+		nullptr, &global_descriptor_set_layout1));
+
+	uint32_t alloc_count = MAX_GLOBAL_RESOURCES;
+	VkDescriptorSetVariableDescriptorCountAllocateInfo descriptor_set_variable_alloc_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT,
+		.descriptorSetCount = 1,
+		.pDescriptorCounts = &alloc_count
+	};
+	VkDescriptorSetAllocateInfo descriptor_set_alloc_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		.pNext = &descriptor_set_variable_alloc_info,
+		.descriptorPool = global_descriptor_pool1,
+		.descriptorSetCount = 1,
+		.pSetLayouts = &global_descriptor_set_layout1
+	};
+	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info,
+		&global_descriptor_set1));
 }
 
 void ResourceManager::CreatePerFrameDescriptorSet() {
@@ -553,7 +676,8 @@ void ResourceManager::CreatePerFrameDescriptorSet() {
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = MAX_PER_FRAME_UBOS,
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | 
-			VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
+					  VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | 
+					  VK_SHADER_STAGE_COMPUTE_BIT
 	};
 	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,

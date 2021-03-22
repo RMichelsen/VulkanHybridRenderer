@@ -25,7 +25,7 @@ void ForwardRasterRenderPath::AddPasses(VulkanContext &context, RenderGraph &ren
 				.dynamic_state = DynamicState::None,
 				.push_constants = PushConstantDescription {
 					.size = sizeof(PushConstants),
-					.pipeline_stage = VK_SHADER_STAGE_VERTEX_BIT
+					.shader_stage = VK_SHADER_STAGE_VERTEX_BIT
 				}
 			}
 		},
@@ -69,7 +69,7 @@ void ForwardRasterRenderPath::AddPasses(VulkanContext &context, RenderGraph &ren
 				.dynamic_state = DynamicState::None,
 				.push_constants = PushConstantDescription {
 					.size = sizeof(PushConstants),
-					.pipeline_stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+					.shader_stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
 				}
 			}
 		},

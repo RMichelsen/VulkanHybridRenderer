@@ -38,12 +38,12 @@ inline VkShaderModule CreateShaderModule(VkDevice device, const char *path,
 }
 
 inline VkPipelineShaderStageCreateInfo PipelineShaderStageCreateInfo(VkDevice device, const char *path,
-	VkShaderStageFlagBits shader_stage) {
+	VkShaderStageFlagBits shader_stage, const char *entry = "main") {
 	return VkPipelineShaderStageCreateInfo {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = shader_stage,
 		.module = VkUtils::CreateShaderModule(device, path, shader_stage),
-		.pName = "main"
+		.pName = entry
 	};
 }
 
@@ -340,7 +340,8 @@ inline VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(uint32_t binding,
 	};
 }
 
-inline TransientResource CreateTransientRenderOutput(uint32_t binding, ColorBlendState color_blend_state, bool multisampled = false) {
+inline TransientResource CreateTransientRenderOutput(uint32_t binding, ColorBlendState color_blend_state = ColorBlendState::Off,  
+	bool multisampled = false) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = "RENDER_OUTPUT",

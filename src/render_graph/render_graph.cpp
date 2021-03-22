@@ -5,6 +5,7 @@
 #include "rendering_backend/resource_manager.h"
 #include "rendering_backend/vulkan_context.h"
 #include "rendering_backend/vulkan_utils.h"
+#include "render_graph/compute_execution_context.h"
 #include "render_graph/graphics_execution_context.h"
 #include "render_graph/raytracing_execution_context.h"
 
@@ -31,6 +32,11 @@ void RenderGraph::DestroyResources() {
 		vkDestroyPipeline(context.device, pipeline.handle, nullptr);
 	}
 
+	for(auto &[_, pipeline] : compute_pipelines) {
+		vkDestroyPipelineLayout(context.device, pipeline.layout, nullptr);
+		vkDestroyPipeline(context.device, pipeline.handle, nullptr);
+	}
+
 	for(auto &[_, pipeline] : raytracing_pipelines) {
 		VkUtils::DestroyMappedBuffer(context.allocator, pipeline.raygen_sbt.buffer);
 		if(pipeline.miss_sbt.buffer.handle != VK_NULL_HANDLE) {
@@ -53,6 +59,7 @@ void RenderGraph::DestroyResources() {
 	pass_descriptions.clear();
 	graphics_pipelines.clear();
 	raytracing_pipelines.clear();
+	compute_pipelines.clear();
 	images.clear();
 	image_access.clear();
 }
@@ -113,6 +120,21 @@ void RenderGraph::AddRaytracingPass(const char *render_pass_name, std::vector<Tr
 	pass_descriptions[render_pass_name] = pass_description;
 }
 
+void RenderGraph::AddComputePass(const char *render_pass_name, std::vector<TransientResource> dependencies, 
+	std::vector<TransientResource> outputs, ComputePipelineDescription pipeline, ComputePassCallback callback) {
+	RenderPassDescription pass_description {
+		.name = render_pass_name,
+		.dependencies = dependencies,
+		.outputs = outputs,
+		.description = ComputePassDescription {
+			.pipeline_description = pipeline,
+			.callback = callback
+		}
+	};
+	assert(!pass_descriptions.contains(render_pass_name));
+	pass_descriptions[render_pass_name] = pass_description;
+}
+
 void RenderGraph::Build() {
 	for(auto &[_, pass_description] : pass_descriptions) {
 		for(TransientResource &resource : pass_description.dependencies) {
@@ -128,6 +150,9 @@ void RenderGraph::Build() {
 		}
 		else if(std::holds_alternative<RaytracingPassDescription>(pass_description.description)) {
 			CreateRaytracingPass(pass_description);
+		}
+		else if(std::holds_alternative<ComputePassDescription>(pass_description.description)) {
+			CreateComputePass(pass_description);
 		}
 	}
 }
@@ -153,6 +178,9 @@ void RenderGraph::Execute(VkCommandBuffer command_buffer, uint32_t resource_idx,
 		}
 		else if(std::holds_alternative<RaytracingPass>(render_pass.pass)) {
 			ExecuteRaytracingPass(command_buffer, render_pass);
+		}
+		else if(std::holds_alternative<ComputePass>(render_pass.pass)) {
+			ExecuteComputePass(command_buffer, render_pass);
 		}
 
 		vkCmdEndDebugUtilsLabelEXT(command_buffer);
@@ -519,9 +547,108 @@ void RenderGraph::CreateRaytracingPass(RenderPassDescription &pass_description) 
 	passes[render_pass.name] = render_pass;
 }
 
+void RenderGraph::CreateComputePass(RenderPassDescription &pass_description) {
+	ComputePassDescription &compute_pass_description =
+		std::get<ComputePassDescription>(pass_description.description);
+	RenderPass render_pass {
+		.name = pass_description.name,
+		.pass = ComputePass {
+			.callback = compute_pass_description.callback
+		}
+	};
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	std::vector<VkDescriptorImageInfo> descriptors;
+	auto add_resource_to_pass = [&](TransientResource &resource) {
+		if(resource.type == TransientResourceType::Image) {
+			assert(resource.image.type != TransientImageType::AttachmentImage &&
+				"Attachment images are not allowed in compute passes");
+			switch(resource.image.type) {
+			case TransientImageType::SampledImage: {
+				descriptors.emplace_back(
+					VkUtils::DescriptorImageInfo(
+						images[resource.name].view,
+						VkUtils::GetImageLayoutFromResourceType(TransientImageType::SampledImage, resource.image.format),
+						resource_manager.default_sampler
+					)
+				);
+				bindings.emplace_back(VkUtils::DescriptorSetLayoutBinding(
+					resource.image.binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					VK_SHADER_STAGE_COMPUTE_BIT));
+			} break;
+			case TransientImageType::StorageImage: {
+				descriptors.emplace_back(VkUtils::DescriptorImageInfo(images[resource.name].view,
+					VK_IMAGE_LAYOUT_GENERAL));
+				bindings.emplace_back(VkUtils::DescriptorSetLayoutBinding(
+					resource.image.binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					VK_SHADER_STAGE_COMPUTE_BIT));
+			} break;
+			}
+		}
+		else if(resource.type == TransientResourceType::Buffer) {
+			// TODO: Add Buffers
+			assert(false);
+		}
+	};
+
+	for(TransientResource &dependency : pass_description.dependencies) {
+		add_resource_to_pass(dependency);
+	}
+	for(TransientResource &output : pass_description.outputs) {
+		add_resource_to_pass(output);
+	}
+
+	if(!pass_description.dependencies.empty() || !pass_description.outputs.empty()) {
+		VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.bindingCount = static_cast<uint32_t>(bindings.size()),
+			.pBindings = bindings.data()
+		};
+		VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_info,
+			nullptr, &render_pass.descriptor_set_layout));
+		VkDescriptorSetAllocateInfo descriptor_set_alloc_info {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+			.descriptorPool = resource_manager.transient_descriptor_pool,
+			.descriptorSetCount = 1,
+			.pSetLayouts = &render_pass.descriptor_set_layout
+		};
+		VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info,
+			&render_pass.descriptor_set));
+
+		std::vector<VkWriteDescriptorSet> write_descriptor_sets;
+		for(uint32_t i = 0; i < descriptors.size(); ++i) {
+			write_descriptor_sets.emplace_back(VkWriteDescriptorSet {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = render_pass.descriptor_set,
+				.dstBinding = i,
+				.descriptorCount = 1,
+				.descriptorType = descriptors[i].sampler ?
+					VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER :
+					VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				.pImageInfo = &descriptors[i]
+				});
+		}
+
+		vkUpdateDescriptorSets(context.device, static_cast<uint32_t>(write_descriptor_sets.size()),
+			write_descriptor_sets.data(), 0, nullptr);
+	}
+
+
+	// Create compute pipelines of all associated kernels
+	for(ComputeKernel &kernel : compute_pass_description.pipeline_description.kernels) {
+		assert(!compute_pipelines.contains(kernel.entry) && "Compute kernel entry names must be unique!");
+		compute_pipelines[kernel.entry] = VkUtils::CreateComputePipeline(context,
+			resource_manager, render_pass, compute_pass_description.pipeline_description.push_constant_description, 
+			kernel);
+	}
+
+	passes[render_pass.name] = render_pass;
+}
+
 void RenderGraph::FindExecutionOrder() {
 	assert(writers["RENDER_OUTPUT"].size() == 1);
 
+	// Traverse from the final pass back and insert all dependent passes 
 	execution_order = { writers["RENDER_OUTPUT"][0] };
 	std::deque<std::string> stack { writers["RENDER_OUTPUT"][0] };
 	while(!stack.empty()) {
@@ -530,15 +657,28 @@ void RenderGraph::FindExecutionOrder() {
 
 		for(TransientResource &dependency : pass.dependencies) {
 			for(std::string &writer : writers[dependency.name]) {
-				if(std::find(execution_order.begin(), execution_order.end(), writer) == execution_order.end()) {
-					execution_order.push_back(writer);
-					stack.push_back(writer);
-				}
+				execution_order.push_back(writer);
+				stack.push_back(writer);
 			}
 		}
 	}
 
+	// Reverse the list
 	std::reverse(execution_order.begin(), execution_order.end());
+
+	// Prune duplicates
+	std::vector<std::string> found;
+
+	std::vector<std::string>::iterator it = execution_order.begin();
+	while(it != execution_order.end()) {
+		if(std::find(found.begin(), found.end(), *it) == found.end()) {
+			found.emplace_back(*it);
+			++it;
+		}
+		else {
+			it = execution_order.erase(it);
+		}
+	}
 }
 
 void RenderGraph::InsertBarriers(VkCommandBuffer command_buffer, RenderPass &render_pass) {
@@ -633,7 +773,8 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 	std::vector<VkImageView> image_views;
 	std::vector<VkClearValue> clear_values;
 	for(TransientResource &attachment : graphics_pass.attachments) {
-		if(!strcmp(attachment.name, "RENDER_OUTPUT")) {
+		bool is_render_output = !strcmp(attachment.name, "RENDER_OUTPUT");
+		if(is_render_output) {
 			if(attachment.image.multisampled) {
 				image_views.emplace_back(images[std::string(render_pass.name) + "_MSAA"].view);
 				is_multisampled_pass = true;
@@ -705,12 +846,14 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 			
 			vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
 			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-				pipeline.layout, 0, 1, &resource_manager.global_descriptor_set, 0, nullptr);
+				pipeline.layout, 0, 1, &resource_manager.global_descriptor_set0, 0, nullptr);
 			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-				pipeline.layout, 1, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
+				pipeline.layout, 1, 1, &resource_manager.global_descriptor_set1, 0, nullptr);
+			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+				pipeline.layout, 2, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
 			if(render_pass.descriptor_set != VK_NULL_HANDLE) {
 				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout,
-					2, 1, &render_pass.descriptor_set, 0, nullptr);
+					3, 1, &render_pass.descriptor_set, 0, nullptr);
 			}
 			GraphicsExecutionContext execution_context(command_buffer, resource_manager, pipeline);
 			execute_pipeline(execution_context);
@@ -729,18 +872,27 @@ void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPa
 
 			vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.handle);
 			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
-				pipeline.layout, 0, 1, &resource_manager.global_descriptor_set, 0, nullptr);
+				pipeline.layout, 0, 1, &resource_manager.global_descriptor_set0, 0, nullptr);
 			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
-				pipeline.layout, 1, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
+				pipeline.layout, 1, 1, &resource_manager.global_descriptor_set1, 0, nullptr);
+			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+				pipeline.layout, 2, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
 			if(render_pass.descriptor_set != VK_NULL_HANDLE) {
 				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.layout,
-					2, 1, &render_pass.descriptor_set, 0, nullptr);
+					3, 1, &render_pass.descriptor_set, 0, nullptr);
 			}
 
 			RaytracingExecutionContext execution_context(command_buffer, resource_manager, pipeline);
 			execute_pipeline(execution_context);
 		}
 	);
+}
+
+void RenderGraph::ExecuteComputePass(VkCommandBuffer command_buffer, RenderPass &render_pass) {
+	ComputePass &compute_pass = std::get<ComputePass>(render_pass.pass);
+
+	ComputeExecutionContext execution_context(command_buffer, render_pass, *this, resource_manager);
+	compute_pass.callback(execution_context);
 }
 
 void RenderGraph::ActualizeResource(TransientResource &resource, const char *render_pass_name) {
