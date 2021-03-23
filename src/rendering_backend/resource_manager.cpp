@@ -495,7 +495,7 @@ void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<
 		write_descriptor_sets.data(), 0, nullptr);
 }
 
-void ResourceManager::UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData per_frame_data) {
+void ResourceManager::UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData &per_frame_data) {
 	memcpy(per_frame_ubos[resource_idx].mapped_data, &per_frame_data, sizeof(PerFrameData));
 }
 
@@ -624,7 +624,7 @@ void ResourceManager::CreateGlobalDescriptorSet1() {
 		}
 	};
 	std::array<VkDescriptorBindingFlags, 1> descriptor_binding_flags {
-		VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
+		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
 	};
 	VkDescriptorSetLayoutBindingFlagsCreateInfo descriptor_set_layout_binding_flags_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
@@ -664,7 +664,7 @@ void ResourceManager::CreatePerFrameDescriptorSet() {
 	};
 	VkDescriptorPoolCreateInfo descriptor_pool_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.maxSets = 1,
+		.maxSets = MAX_PER_FRAME_UBOS,
 		.poolSizeCount = 1,
 		.pPoolSizes = &descriptor_pool_size
 	};
@@ -674,7 +674,7 @@ void ResourceManager::CreatePerFrameDescriptorSet() {
 	VkDescriptorSetLayoutBinding descriptor_set_layout_binding {
 		.binding = 0,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = MAX_PER_FRAME_UBOS,
+		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | 
 					  VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | 
 					  VK_SHADER_STAGE_COMPUTE_BIT
@@ -686,40 +686,43 @@ void ResourceManager::CreatePerFrameDescriptorSet() {
 	};
 	VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_info,
 		nullptr, &per_frame_descriptor_set_layout));
+
+	std::array<VkDescriptorSetLayout, MAX_PER_FRAME_UBOS> set_layouts;
+	std::fill_n(set_layouts.begin(), MAX_PER_FRAME_UBOS, per_frame_descriptor_set_layout);
+
 	VkDescriptorSetAllocateInfo descriptor_set_alloc_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.descriptorPool = per_frame_descriptor_pool,
-		.descriptorSetCount = 1,
-		.pSetLayouts = &per_frame_descriptor_set_layout
+		.descriptorSetCount = MAX_PER_FRAME_UBOS,
+		.pSetLayouts = set_layouts.data()
 	};
-	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info,
-		&per_frame_descriptor_set));
+	VK_CHECK(vkAllocateDescriptorSets(context.device, &descriptor_set_alloc_info, per_frame_descriptor_sets.data()));
 }
 
 void ResourceManager::CreatePerFrameUBOs() {
 	VkBufferCreateInfo buffer_info = VkUtils::BufferCreateInfo(sizeof(PerFrameData), 
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-	std::vector<VkDescriptorBufferInfo> descriptors;
-	for(MappedBuffer &buffer : per_frame_ubos) {
-		buffer = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
 
-		descriptors.push_back(VkDescriptorBufferInfo {
-			.buffer = buffer.handle,
+	for(uint32_t i = 0; i < MAX_PER_FRAME_UBOS; ++i) {
+		per_frame_ubos[i] = VkUtils::CreateMappedBuffer(context.allocator, buffer_info);
+
+		VkDescriptorBufferInfo descriptor_info {
+			.buffer = per_frame_ubos[i].handle,
 			.offset = 0,
 			.range = sizeof(PerFrameData)
-		});
+		};
+
+		VkWriteDescriptorSet write_descriptor_set {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = per_frame_descriptor_sets[i],
+			.dstBinding = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.pBufferInfo = &descriptor_info
+		};
+
+		vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
 	}
-
-	VkWriteDescriptorSet write_descriptor_set {
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = per_frame_descriptor_set,
-		.dstBinding = 0,
-		.descriptorCount = static_cast<uint32_t>(descriptors.size()),
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.pBufferInfo = descriptors.data()
-	};
-
-	vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
 }
 
 void ResourceManager::UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &primitives) {

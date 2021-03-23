@@ -76,4 +76,8 @@ inline constexpr VkPipelineDynamicStateCreateInfo DYNAMIC_STATE_DEPTH_BIAS {
 	.dynamicStateCount = static_cast<uint32_t>(DEPTH_BIAS_STATE.size()),
 	.pDynamicStates = DEPTH_BIAS_STATE.data()
 };
-
+inline constexpr VkClearValue DEFAULT_CLEAR_VALUE {
+	.color = VkClearColorValue {
+		.float32 = { 0.2f, 0.2f, 0.2f, 1.0f }
+	}
+};

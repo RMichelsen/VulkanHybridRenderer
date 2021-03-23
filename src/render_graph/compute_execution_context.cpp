@@ -8,8 +8,8 @@ glm::uvec2 ComputeExecutionContext::GetDisplaySize() {
 	return { render_graph.context.swapchain.extent.width, render_graph.context.swapchain.extent.height };
 }
 
-void ComputeExecutionContext::Dispatch(const char *entry, uint32_t x_groups, uint32_t y_groups, uint32_t z_groups) {
-	ComputePipeline &pipeline = render_graph.compute_pipelines[entry];
+void ComputeExecutionContext::Dispatch(const char *shader, uint32_t x_groups, uint32_t y_groups, uint32_t z_groups) {
+	ComputePipeline &pipeline = render_graph.compute_pipelines[shader];
 
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.handle);
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -17,7 +17,7 @@ void ComputeExecutionContext::Dispatch(const char *entry, uint32_t x_groups, uin
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
 		pipeline.layout, 1, 1, &resource_manager.global_descriptor_set1, 0, nullptr);
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-		pipeline.layout, 2, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
+		pipeline.layout, 2, 1, &resource_manager.per_frame_descriptor_sets[resource_idx], 0, nullptr);
 
 	if(render_pass.descriptor_set != VK_NULL_HANDLE) {
 		vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.layout,

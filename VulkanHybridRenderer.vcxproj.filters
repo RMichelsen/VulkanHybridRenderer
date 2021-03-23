@@ -1057,6 +1057,7 @@
     <GLSLShader Include="data\shaders\forward_raster_render_path\depth_prepass.vert" />
     <GLSLShader Include="data\shaders\forward_raster_render_path\depth_prepass.frag" />
     <GLSLShader Include="data\shaders\hybrid_render_path\svgf.comp" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\prev_frame_copy.comp" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />

@@ -6,12 +6,12 @@ class ResourceManager;
 class ComputeExecutionContext {
 public:
 	ComputeExecutionContext(VkCommandBuffer command_buffer, RenderPass &render_pass,
-		RenderGraph &render_graph,
-		ResourceManager &resource_manager) :
+		RenderGraph &render_graph, ResourceManager &resource_manager, uint32_t resource_idx) :
 		command_buffer(command_buffer),
 		render_pass(render_pass),
 		render_graph(render_graph),
-		resource_manager(resource_manager)
+		resource_manager(resource_manager),
+		resource_idx(resource_idx)
 	{}
 
 	glm::uvec2 GetDisplaySize();
@@ -31,5 +31,6 @@ private:
 	RenderPass &render_pass;
 	RenderGraph &render_graph;
 	ResourceManager &resource_manager;
+	uint32_t resource_idx;
 };
 

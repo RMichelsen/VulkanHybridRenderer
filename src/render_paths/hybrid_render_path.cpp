@@ -54,9 +54,10 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 	}
 	else if(shadow_mode == SHADOW_MODE_RAYTRACED) {
 		render_graph.AddRaytracingPass("Raytraced Shadows Pass",
-			{},
 			{
-				VkUtils::CreateTransientSampledImage("Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+				VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0)
+			},
+			{
 				VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
 			},
 			RaytracingPipelineDescription {
@@ -90,7 +91,12 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 			VkUtils::CreateTransientAttachmentImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
 			VkUtils::CreateTransientAttachmentImage("Object Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
-			VkUtils::CreateTransientAttachmentImage("Reprojected UV and Object ID", VK_FORMAT_R16G16B16A16_SFLOAT, 3),
+			VkUtils::CreateTransientAttachmentImage("Reprojected UV and Object ID", VK_FORMAT_R16G16B16A16_SFLOAT, 3,
+				VkClearValue {
+					.color = VkClearColorValue {
+						.float32 = { 0.0f, 0.0f, -1.0f, 1.0f }
+					}
+			}),
 			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 4),
 		},
 		{
@@ -135,6 +141,12 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 	svgf_push_constants.prev_frame_object_space_normals =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+	svgf_push_constants.prev_frame_raytraced_shadows =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+	svgf_push_constants.integrated_raytraced_shadows =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
 
 	render_graph.AddComputePass("SVGF Denoise Pass",
 		{
@@ -148,8 +160,10 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 		ComputePipelineDescription {
 			.kernels = {
 				ComputeKernel {
-					.shader = "hybrid_render_path/svgf.comp",
-					.entry = "main"
+					.shader = "hybrid_render_path/svgf.comp"
+				},
+				ComputeKernel {
+					.shader = "hybrid_render_path/prev_frame_copy.comp"
 				}
 			},
 			.push_constant_description = PushConstantDescription {
@@ -161,8 +175,13 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 
 			glm::uvec2 display_size = execution_context.GetDisplaySize();
 
-			execution_context.PushConstants("main", svgf_push_constants);
-			execution_context.Dispatch("main",
+			execution_context.PushConstants("hybrid_render_path/svgf.comp", svgf_push_constants);
+			execution_context.Dispatch("hybrid_render_path/svgf.comp",
+				display_size.x / 8 + (display_size.x % 8 != 0),
+				display_size.y / 8 + (display_size.y % 8 != 0),
+				1
+			);
+			execution_context.Dispatch("hybrid_render_path/prev_frame_copy.comp",
 				display_size.x / 8 + (display_size.x % 8 != 0),
 				display_size.y / 8 + (display_size.y % 8 != 0),
 				1

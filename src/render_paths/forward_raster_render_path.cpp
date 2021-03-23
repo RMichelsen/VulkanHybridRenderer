@@ -55,8 +55,8 @@ void ForwardRasterRenderPath::AddPasses(VulkanContext &context, RenderGraph &ren
 			VkUtils::CreateTransientSampledImage("ShadowMap", 4096, 4096, VK_FORMAT_D32_SFLOAT, 0)
 		},
 		{
-			VkUtils::CreateTransientRenderOutput(0, ColorBlendState::Off, true),
-			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1, ColorBlendState::Off, true)
+			VkUtils::CreateTransientRenderOutput(0, true),
+			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1, DEFAULT_CLEAR_VALUE, true)
 		},
 		{
 			GraphicsPipelineDescription {

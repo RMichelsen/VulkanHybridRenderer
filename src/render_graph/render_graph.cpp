@@ -177,10 +177,10 @@ void RenderGraph::Execute(VkCommandBuffer command_buffer, uint32_t resource_idx,
 			ExecuteGraphicsPass(command_buffer, resource_idx, image_idx, render_pass);
 		}
 		else if(std::holds_alternative<RaytracingPass>(render_pass.pass)) {
-			ExecuteRaytracingPass(command_buffer, render_pass);
+			ExecuteRaytracingPass(command_buffer, resource_idx, render_pass);
 		}
 		else if(std::holds_alternative<ComputePass>(render_pass.pass)) {
-			ExecuteComputePass(command_buffer, render_pass);
+			ExecuteComputePass(command_buffer, resource_idx, render_pass);
 		}
 
 		vkCmdEndDebugUtilsLabelEXT(command_buffer);
@@ -636,8 +636,8 @@ void RenderGraph::CreateComputePass(RenderPassDescription &pass_description) {
 
 	// Create compute pipelines of all associated kernels
 	for(ComputeKernel &kernel : compute_pass_description.pipeline_description.kernels) {
-		assert(!compute_pipelines.contains(kernel.entry) && "Compute kernel entry names must be unique!");
-		compute_pipelines[kernel.entry] = VkUtils::CreateComputePipeline(context,
+		assert(!compute_pipelines.contains(kernel.shader) && "Compute shader already loaded!");
+		compute_pipelines[kernel.shader] = VkUtils::CreateComputePipeline(context,
 			resource_manager, render_pass, compute_pass_description.pipeline_description.push_constant_description, 
 			kernel);
 	}
@@ -796,11 +796,7 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 			});
 		}
 		else {
-			clear_values.emplace_back(VkClearValue {
-				.color = VkClearColorValue { 
-					.float32 = { 0.2f, 0.2f, 0.2f, 1.0f } 
-				}
-			});
+			clear_values.emplace_back(attachment.image.clear_value);
 		}
 	}
 	if(is_multisampled_pass) {
@@ -850,7 +846,7 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 				pipeline.layout, 1, 1, &resource_manager.global_descriptor_set1, 0, nullptr);
 			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-				pipeline.layout, 2, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
+				pipeline.layout, 2, 1, &resource_manager.per_frame_descriptor_sets[resource_idx], 0, nullptr);
 			if(render_pass.descriptor_set != VK_NULL_HANDLE) {
 				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout,
 					3, 1, &render_pass.descriptor_set, 0, nullptr);
@@ -863,7 +859,7 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 	vkCmdEndRenderPass(command_buffer);
 }
 
-void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPass &render_pass) {
+void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, uint32_t resource_idx, RenderPass &render_pass) {
 	RaytracingPass &raytracing_pass = std::get<RaytracingPass>(render_pass.pass);
 
 	raytracing_pass.callback(
@@ -876,7 +872,7 @@ void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPa
 			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
 				pipeline.layout, 1, 1, &resource_manager.global_descriptor_set1, 0, nullptr);
 			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
-				pipeline.layout, 2, 1, &resource_manager.per_frame_descriptor_set, 0, nullptr);
+				pipeline.layout, 2, 1, &resource_manager.per_frame_descriptor_sets[resource_idx], 0, nullptr);
 			if(render_pass.descriptor_set != VK_NULL_HANDLE) {
 				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.layout,
 					3, 1, &render_pass.descriptor_set, 0, nullptr);
@@ -888,10 +884,10 @@ void RenderGraph::ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPa
 	);
 }
 
-void RenderGraph::ExecuteComputePass(VkCommandBuffer command_buffer, RenderPass &render_pass) {
+void RenderGraph::ExecuteComputePass(VkCommandBuffer command_buffer, uint32_t resource_idx, RenderPass &render_pass) {
 	ComputePass &compute_pass = std::get<ComputePass>(render_pass.pass);
 
-	ComputeExecutionContext execution_context(command_buffer, render_pass, *this, resource_manager);
+	ComputeExecutionContext execution_context(command_buffer, render_pass, *this, resource_manager, resource_idx);
 	compute_pass.callback(execution_context);
 }
 

@@ -45,7 +45,7 @@ void RaytracedRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_
 			VkUtils::CreateTransientSampledImage("RaytracedOutput", VK_FORMAT_B8G8R8A8_UNORM, 0)
 		},
 		{
-			VkUtils::CreateTransientRenderOutput(0, ColorBlendState::Off),
+			VkUtils::CreateTransientRenderOutput(0),
 		},
 		{
 			GraphicsPipelineDescription {

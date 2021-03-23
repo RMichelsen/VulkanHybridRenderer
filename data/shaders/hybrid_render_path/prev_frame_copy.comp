@@ -1,0 +1,30 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_shader_image_load_formatted : require
+#include "../common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 1, binding = 0) uniform image2D storage_images[];
+
+layout(set = 3, binding = 0, r16f) readonly uniform image2D reprojected_uv_and_object_id;
+layout(set = 3, binding = 1, r16f) readonly uniform image2D normal_texture;
+layout(set = 3, binding = 2, r16f) readonly uniform image2D raytraced_shadows;
+
+layout(push_constant) uniform PushConstants {
+	int prev_frame_reprojection_uv_and_object_id;
+	int prev_frame_object_space_normals;
+	int prev_frame_raytraced_shadows;
+	int integrated_raytraced_shadows;
+} pc;
+
+void main() {
+	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+	vec4 current_normal = imageLoad(normal_texture, coords);
+	vec4 reprojuv_and_obj_id = imageLoad(reprojected_uv_and_object_id, coords);
+	vec4 current_shadow = imageLoad(raytraced_shadows, coords);
+	imageStore(storage_images[pc.prev_frame_raytraced_shadows], coords, current_shadow);
+	imageStore(storage_images[pc.prev_frame_reprojection_uv_and_object_id], coords, reprojuv_and_obj_id);
+	imageStore(storage_images[pc.prev_frame_object_space_normals], coords, current_normal);
+}

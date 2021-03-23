@@ -31,8 +31,8 @@ private:
 	void FindExecutionOrder();
 	void InsertBarriers(VkCommandBuffer command_buffer, RenderPass &render_pass);
 	void ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx, RenderPass &render_pass);
-	void ExecuteRaytracingPass(VkCommandBuffer command_buffer, RenderPass &render_pass);
-	void ExecuteComputePass(VkCommandBuffer command_buffer, RenderPass &render_pass);
+	void ExecuteRaytracingPass(VkCommandBuffer command_buffer, uint32_t resource_idx, RenderPass &render_pass);
+	void ExecuteComputePass(VkCommandBuffer command_buffer, uint32_t resource_idx, RenderPass &render_pass);
 	void ActualizeResource(TransientResource &resource, const char *render_pass_name);
 	bool SanityCheck();
 

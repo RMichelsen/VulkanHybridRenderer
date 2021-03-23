@@ -178,11 +178,13 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 
 	static uint32_t frame_index = 0;
 	static PerFrameData per_frame_data {};
+	glm::mat4 prev_frame_view = per_frame_data.camera_view;
+	glm::mat4 prev_frame_proj = per_frame_data.camera_proj;
 	per_frame_data = PerFrameData {
 		.camera_view = camera.view,
 		.camera_proj = camera.perspective,
-		.camera_view_prev_frame = per_frame_data.camera_view,
-		.camera_proj_prev_frame = per_frame_data.camera_proj,
+		.camera_view_prev_frame = prev_frame_view,
+		.camera_proj_prev_frame = prev_frame_proj,
 		.camera_view_inverse = camera.transform,
 		.camera_proj_inverse = glm::inverse(camera.perspective),
 		.directional_light = resource_manager->scene.directional_light,

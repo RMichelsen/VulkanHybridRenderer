@@ -188,6 +188,7 @@
     <GLSLShader Include="data\shaders\hybrid_render_path\depth_prepass.vert" />
     <GLSLShader Include="data\shaders\hybrid_render_path\gbuf.frag" />
     <GLSLShader Include="data\shaders\hybrid_render_path\gbuf.vert" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\prev_frame_copy.comp" />
     <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rahit" />
     <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rmiss" />
     <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rgen" />

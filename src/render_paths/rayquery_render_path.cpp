@@ -13,7 +13,7 @@ void RayqueryRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_g
 		{
 		},
 		{
-			VkUtils::CreateTransientRenderOutput(0, ColorBlendState::Off),
+			VkUtils::CreateTransientRenderOutput(0),
 			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1)
 		},
 		{

@@ -38,12 +38,12 @@ inline VkShaderModule CreateShaderModule(VkDevice device, const char *path,
 }
 
 inline VkPipelineShaderStageCreateInfo PipelineShaderStageCreateInfo(VkDevice device, const char *path,
-	VkShaderStageFlagBits shader_stage, const char *entry = "main") {
+	VkShaderStageFlagBits shader_stage) {
 	return VkPipelineShaderStageCreateInfo {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = shader_stage,
 		.module = VkUtils::CreateShaderModule(device, path, shader_stage),
-		.pName = entry
+		.pName = "main"
 	};
 }
 
@@ -340,8 +340,7 @@ inline VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(uint32_t binding,
 	};
 }
 
-inline TransientResource CreateTransientRenderOutput(uint32_t binding, ColorBlendState color_blend_state = ColorBlendState::Off,  
-	bool multisampled = false) {
+inline TransientResource CreateTransientRenderOutput(uint32_t binding, bool multisampled = false) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = "RENDER_OUTPUT",
@@ -351,14 +350,14 @@ inline TransientResource CreateTransientRenderOutput(uint32_t binding, ColorBlen
 			.height = 0,
 			.format = VK_FORMAT_UNDEFINED,
 			.binding = binding,
-			.color_blend_state = color_blend_state,
+			.clear_value = DEFAULT_CLEAR_VALUE,
 			.multisampled = multisampled
 		}
 	};
 }
 
 inline TransientResource CreateTransientAttachmentImage(const char *name, VkFormat format, uint32_t binding,
-	ColorBlendState color_blend_state = ColorBlendState::Off, bool multisampled = false) {
+	VkClearValue clear_value = DEFAULT_CLEAR_VALUE, bool multisampled = false) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = name,
@@ -368,15 +367,14 @@ inline TransientResource CreateTransientAttachmentImage(const char *name, VkForm
 			.height = 0,
 			.format = format,
 			.binding = binding,
-			.color_blend_state = color_blend_state,
+			.clear_value = clear_value,
 			.multisampled = multisampled
 		}
 	};
 }
 
 inline TransientResource CreateTransientAttachmentImage(const char *name, uint32_t width, uint32_t height,
-	VkFormat format, uint32_t binding, ColorBlendState color_blend_state = ColorBlendState::Off, 
-	bool multisampled = false) {
+	VkFormat format, uint32_t binding, VkClearValue clear_value = DEFAULT_CLEAR_VALUE, bool multisampled = false) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = name,
@@ -386,7 +384,6 @@ inline TransientResource CreateTransientAttachmentImage(const char *name, uint32
 			.height = height,
 			.format = format,
 			.binding = binding,
-			.color_blend_state = color_blend_state,
 			.multisampled = multisampled
 		}
 	};

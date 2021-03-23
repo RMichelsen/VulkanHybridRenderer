@@ -143,14 +143,7 @@ GraphicsPipeline CreateGraphicsPipeline(VulkanContext &context, ResourceManager 
 		if(VkUtils::IsDepthFormat(attachment.image.format)) {
 			continue;
 		}
-		switch(attachment.image.color_blend_state) {
-		case ColorBlendState::Off: {
-			color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_OFF);
-		} break;
-		case ColorBlendState::ImGui: {
-			color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_IMGUI);
-		} break;
-		}
+		color_blend_states.emplace_back(COLOR_BLEND_ATTACHMENT_STATE_OFF);
 	}
 	VkPipelineColorBlendStateCreateInfo color_blend_state {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
@@ -379,7 +372,7 @@ ComputePipeline CreateComputePipeline(VulkanContext &context, ResourceManager &r
 	VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &pipeline.layout));
 
 	VkPipelineShaderStageCreateInfo shader_stage_info = VkUtils::PipelineShaderStageCreateInfo(
-		context.device, kernel.shader, VK_SHADER_STAGE_COMPUTE_BIT, kernel.entry);
+		context.device, kernel.shader, VK_SHADER_STAGE_COMPUTE_BIT);
 
 	VkComputePipelineCreateInfo compute_pipeline_info {
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,

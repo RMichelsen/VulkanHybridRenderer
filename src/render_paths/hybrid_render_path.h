@@ -4,6 +4,8 @@
 struct SVGFPushConstants {
 	int prev_frame_reprojection_uv_and_object_id;
 	int prev_frame_object_space_normals;
+	int prev_frame_raytraced_shadows;
+	int integrated_raytraced_shadows;
 };
 
 enum ShadowMode {

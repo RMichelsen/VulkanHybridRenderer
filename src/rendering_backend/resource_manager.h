@@ -21,7 +21,7 @@ public:
 	void TagImage(uint32_t image_idx, const char *name);
 
 	void UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, Scene &scene);
-	void UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData per_frame_data);
+	void UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData &per_frame_data);
 
 	// The global descriptor set (set = 0) is laid out as follows
 	// Layout(set = 0, binding = 0) global_vertex_buffer
@@ -31,7 +31,7 @@ public:
 	// Layout(set = 0, binding = 4) textures
 
 	// The second global descriptor set (set = 1) is laid out as follows
-	// Layout(set = 0, binding = 0) images
+	// Layout(set = 1, binding = 0) storage_images
 
 	GPUBuffer global_vertex_buffer;
 	GPUBuffer global_index_buffer;
@@ -53,7 +53,7 @@ public:
 
 	VkDescriptorPool per_frame_descriptor_pool = VK_NULL_HANDLE;
 	VkDescriptorSetLayout per_frame_descriptor_set_layout = VK_NULL_HANDLE;
-	VkDescriptorSet per_frame_descriptor_set = VK_NULL_HANDLE;
+	std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> per_frame_descriptor_sets;
 	std::array<MappedBuffer, MAX_FRAMES_IN_FLIGHT> per_frame_ubos;
 
 	VkDescriptorPool transient_descriptor_pool = VK_NULL_HANDLE;

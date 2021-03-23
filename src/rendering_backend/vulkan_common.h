@@ -241,7 +241,7 @@ struct TransientImage {
 	VkFormat format;
 	uint32_t binding;
 	
-	ColorBlendState color_blend_state;
+	VkClearValue clear_value;
 	bool multisampled;
 };
 
@@ -307,7 +307,6 @@ struct RaytracingPipeline {
 
 struct ComputeKernel {
 	const char *shader;
-	const char *entry;
 };
 
 struct ComputePipelineDescription {
