@@ -47,7 +47,7 @@ void main() {
 		in_shadow = vec3(0.0, 0.0, 0.0);
 	}
 
-	vec3 ambient_light = 0.4 * albedo;
+	vec3 ambient_light = 0.2 * albedo;
 	vec3 diffuse_lighting = ambient_light + (max(dot(N, light_dir), 0.0) * albedo * light_color * in_shadow);
 	out_color = vec4(diffuse_lighting, 1.0);
 }

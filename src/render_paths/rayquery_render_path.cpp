@@ -8,7 +8,7 @@
 #include "rendering_backend/vulkan_context.h"
 #include "rendering_backend/vulkan_utils.h"
 
-void RayqueryRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
+void RayqueryRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
 	render_graph.AddGraphicsPass("Forward Pass",
 		{
 		},

@@ -8,7 +8,7 @@
 #include "rendering_backend/vulkan_context.h"
 #include "rendering_backend/vulkan_utils.h"
 
-void ForwardRasterRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
+void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
 	render_graph.AddGraphicsPass("Depth Prepass",
 		{},
 		{

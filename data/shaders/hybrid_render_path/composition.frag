@@ -21,7 +21,7 @@ void main() {
 
 	vec3 light_dir = -pfd.directional_light.direction.xyz;
 	vec3 light_color = pfd.directional_light.color.rgb;
-	vec3 ambient_light = 0.4 * albedo;
+	vec3 ambient_light = 0.2 * albedo;
 
 	if(shadow_mode == SHADOW_MODE_RAYTRACED) {
 		vec3 shadow_payload = texture(raytraced_shadows_texture, in_uv).rgb; 

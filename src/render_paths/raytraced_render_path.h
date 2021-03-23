@@ -6,6 +6,9 @@ class ResourceManager;
 class RaytracedRenderPath : public RenderPath {
 public:
 	using RenderPath::RenderPath;
-	virtual void AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager);
+	virtual void RegisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager);
 	virtual void ImGuiDrawSettings();
+
+private:
+	int use_anyhit_shader = 0;
 };

@@ -1,0 +1,89 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_shader_image_load_formatted : require
+#include "../common.glsl"
+
+#define COS_PI_4 0.70710678118654752440084
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 1, binding = 0) uniform image2D storage_images[];
+
+layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
+layout(set = 3, binding = 0, r16f) readonly uniform image2D reprojected_uv_and_object_id;
+layout(set = 3, binding = 1, r16f) readonly uniform image2D normal_texture;
+layout(set = 3, binding = 2, r16f) readonly uniform image2D raytraced_shadows;
+layout(set = 3, binding = 3, r16f) writeonly uniform image2D denoised_raytraced_shadows;
+
+layout(push_constant) uniform PushConstants {
+	int prev_frame_reprojection_uv_and_object_id;
+	int prev_frame_object_space_normals;
+	int shadow_history;
+	int atrous_step;
+
+	// Pingpong texture
+	ivec2 integrated_shadows;
+} pc;
+
+//float gauss_3x3_filter(ivec2 coords) {
+//	float gauss_weights[] = {
+//		1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0,
+//		1.0 / 8.0,  1.0 / 4.0, 1.0 / 8.0,
+//		1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0
+//	};
+//
+//	float filtered = 0.0;
+//	for(int y = -1; y <= 1; ++y) {
+//		for(int x = -1; x <= 1; ++x) {
+//			ivec2 sample_coords = coords + ivec2(x, y);
+//			if(sample_coords.x < 0 || sample_coords.y >= pfd.display_size.x ||
+//			   sample_coords.y < 0 || sample_coords.y >= pfd.display_size.y) continue;
+//
+//			float weight = gauss_weights[3 * (y + 1) + (x + 1)];
+//			filtered += weight * imageLoad(storage_images[pc.integrated_shadows[0]], sample_coords).a;
+//		}
+//	}
+//
+//	return filtered;
+//}
+
+float edge_stopping_object_id(int object_id_p, ivec2 sample_coords) {
+	int object_id_q = int(imageLoad(reprojected_uv_and_object_id, sample_coords).z);
+	if(object_id_p == object_id_q) return 1.0;
+	else return 0.0;
+}
+
+void main() {
+	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+	int object_id_p = int(imageLoad(reprojected_uv_and_object_id, coords).z);
+	vec4 center_shadow = imageLoad(storage_images[pc.integrated_shadows[0]], coords);
+
+	float atrous_weights[] = {
+		1.0 / 256.0, 1.0 / 64.0, 3.0 / 128.0, 1.0 / 64.0, 1 / 256.0,
+		1.0 / 64.0 , 1.0 / 16.0, 3.0 / 32.0,  1.0 / 16.0, 1.0 / 64.0,
+		3.0 / 128.0, 3.0 / 32.0, 9.0 / 64.0, 3.0 / 32.0, 3.0 / 128.0,
+		1.0 / 64.0 , 1.0 / 16.0, 3.0 / 32.0,  1.0 / 16.0, 1.0 / 64.0,
+		1.0 / 256.0, 1.0 / 64.0, 3.0 / 128.0, 1.0 / 64.0, 1 / 256.0
+	};
+
+	float sum_w = 1.0;
+	vec4 sum_shadow = center_shadow;
+	for(int y = -2; y <= 2; ++y) {
+		for(int x = -2; x <= 2; ++x) {
+			ivec2 sample_coords = coords + ivec2(x, y) * pc.atrous_step;
+			if(sample_coords.x < 0 || sample_coords.y >= pfd.display_size.x ||
+			   sample_coords.y < 0 || sample_coords.y >= pfd.display_size.y ||
+			   (x == 0 && y == 0)) continue;
+
+			vec4 shadow = imageLoad(storage_images[pc.integrated_shadows[0]], sample_coords);
+			float kernel = atrous_weights[5 * (y + 2) + (x + 2)];
+			float w = kernel * edge_stopping_object_id(object_id_p, sample_coords);
+			sum_w += w;
+			sum_shadow += vec4(w.xxx, w) * shadow;
+		}
+	}
+
+	imageStore(storage_images[pc.integrated_shadows[1]], coords, vec4(sum_shadow / vec4(sum_w.xxx, sum_w * sum_w)));
+
+}

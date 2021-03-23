@@ -1050,14 +1050,17 @@
     <GLSLShader Include="data\shaders\raytraced_render_path\composition.vert" />
     <GLSLShader Include="data\shaders\raytraced_render_path\miss.rmiss" />
     <GLSLShader Include="data\shaders\raytraced_render_path\raygen.rgen" />
-    <GLSLShader Include="data\shaders\hybrid_render_path\shadows.rahit" />
     <GLSLShader Include="data\shaders\raytraced_render_path\shadow_anyhit.rahit" />
     <GLSLShader Include="data\shaders\forward_raster_render_path\default.vert" />
     <GLSLShader Include="data\shaders\forward_raster_render_path\default.frag" />
     <GLSLShader Include="data\shaders\forward_raster_render_path\depth_prepass.vert" />
     <GLSLShader Include="data\shaders\forward_raster_render_path\depth_prepass.frag" />
     <GLSLShader Include="data\shaders\hybrid_render_path\svgf.comp" />
-    <GLSLShader Include="data\shaders\hybrid_render_path\prev_frame_copy.comp" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\svgf_final_copy.comp" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\svgf_atrous_filter.comp" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\svgf_copy_filtered_shadow.comp" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\raygen_test_alpha.rgen" />
+    <GLSLShader Include="data\shaders\raytraced_render_path\closesthit_test_alpha.rchit" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />

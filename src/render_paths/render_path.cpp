@@ -13,7 +13,7 @@ RenderPath::RenderPath(VulkanContext &context, RenderGraph &render_graph, Resour
 
 void RenderPath::Build() {
 	render_graph.DestroyResources();
-	AddPasses(context, render_graph, resource_manager);
+	RegisterPath(context, render_graph, resource_manager);
 	render_graph.Build();
 }
 

@@ -8,7 +8,7 @@ public:
 	RenderPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager);
 	void Build();
 
-	virtual void AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) = 0;
+	virtual void RegisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) = 0;
 	virtual void ImGuiDrawSettings() = 0;
 
 private:

@@ -112,3 +112,9 @@ mat3x3 onb_from_unit_vector(vec3 n) {
 	M[1] = vec3(b, 1.0 - n.y * n.y * a, -n.y);
 	return M;
 }
+
+// Convert RGB to Luminance
+float rgb_to_luminance(vec3 rgb) {
+	return dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+}
+

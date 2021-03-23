@@ -4,6 +4,8 @@
 #extension GL_EXT_shader_image_load_formatted : require
 #include "../common.glsl"
 
+#define COS_PI_4 0.70710678118654752440084
+
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 1, binding = 0) uniform image2D storage_images[];
@@ -17,11 +19,20 @@ layout(set = 3, binding = 3, r16f) writeonly uniform image2D denoised_raytraced_
 layout(push_constant) uniform PushConstants {
 	int prev_frame_reprojection_uv_and_object_id;
 	int prev_frame_object_space_normals;
-	int prev_frame_raytraced_shadows;
-	int integrated_raytraced_shadows;
+	int shadow_history;
+	int atrous_step;
+
+	// Pingpong texture
+	ivec2 integrated_shadows;
 } pc;
 
 bool is_valid_reprojection(ivec2 prev_coords, int current_object_id, vec4 current_normal) {
+	// Reject if coords is outside of display
+	if(prev_coords.x < 0 || prev_coords.y < 0 ||
+	   prev_coords.x >= pfd.display_size.x || prev_coords.y >= pfd.display_size.y) {
+	   return false;
+	}
+
 	// Reject if object ID has changed
 	int prev_object_id = int(imageLoad(storage_images[pc.prev_frame_reprojection_uv_and_object_id], prev_coords).z);
 	if(current_object_id == -1.0 || current_object_id != prev_object_id) {
@@ -31,7 +42,7 @@ bool is_valid_reprojection(ivec2 prev_coords, int current_object_id, vec4 curren
 	// Reject if normals aren't aligned
 	// Merge metric from [Kerzner and Salvi 2014]
 	vec4 prev_normal = imageLoad(storage_images[pc.prev_frame_object_space_normals], prev_coords);
-	if(dot(current_normal, prev_normal) < cos(3.14519 / 4.0)) {
+	if(dot(current_normal, prev_normal) < COS_PI_4) {
 		return false;
 	}
 
@@ -56,63 +67,33 @@ void main() {
 	ivec2 offsets[4] = { ivec2(0, 0), ivec2(1, 0), ivec2(0, 1), ivec2(1, 1) };
 
 	vec4 prev_shadow = vec4(0.0);
+	vec2 prev_shadow_moments = vec2(0.0);
 	float sum = 0.0;
 	for(int i = 0; i < 4; ++i) {
 		ivec2 sample_coords = prev_coords_aligned + offsets[i];
 		if(is_valid_reprojection(sample_coords, current_object_id, current_normal)) {
-			prev_shadow += bilinear_weights[i] * imageLoad(storage_images[pc.prev_frame_raytraced_shadows], sample_coords);
+			prev_shadow += bilinear_weights[i] * imageLoad(storage_images[pc.shadow_history], sample_coords);
 			sum += bilinear_weights[i];
 		}
 	}
+	float shadow_luminance = rgb_to_luminance(current_shadow.rgb);
+	vec2 current_shadow_moments = vec2(shadow_luminance, shadow_luminance * shadow_luminance);
+
 	bool reprojection_valid = sum > 1e-6;
 	if(reprojection_valid) {
 		prev_shadow /= sum;
+
 		imageStore(
-			storage_images[pc.integrated_raytraced_shadows], 
+			storage_images[pc.integrated_shadows[0]], 
 			coords,
-			current_shadow * 0.2 + prev_shadow * (1 - 0.2)
-		);
-		imageStore(
-			denoised_raytraced_shadows, 
-			coords, 
-			current_shadow * 0.2 + prev_shadow * (1 - 0.2)
+			vec4(mix(prev_shadow.rgb, current_shadow.rgb, 0.2), 1.0)
 		);
 	}
 	else {
 		imageStore(
-			storage_images[pc.integrated_raytraced_shadows], 
-			coords,
-			current_shadow
-		);
-		imageStore(
-			denoised_raytraced_shadows, 
+			storage_images[pc.integrated_shadows[0]], 
 			coords,
 			current_shadow
 		);
 	}
-
-//	bool valid = true;
-//
-//	// Reject if object ID has changed
-//	int obj_id_prev = int(imageLoad(storage_images[pc.prev_frame_reprojection_uv_and_object_id], prev_coords).z);
-//	if(obj_id != -1.0 && obj_id != obj_id_prev) valid = false;
-//
-//	if(valid) {
-//		// Reject if normals aren't aligned
-//		// Merge metric from [Kerzner and Salvi 2014]
-//		vec4 normal_current = imageLoad(normal_texture, coords);
-//		vec4 normal_prev = imageLoad(storage_images[pc.prev_frame_object_space_normals], prev_coords);
-//		if(dot(normal_current, normal_prev) < cos(3.14519 / 4.0)) valid = false;
-//	}
-//
-//	if(!valid) {
-//		imageStore(denoised_raytraced_shadows, coords, vec4(1.0, 0.0, 0.0, 1.0));
-//	}
-//	else {
-//		imageStore(denoised_raytraced_shadows, coords, vec4(0.0, 1.0, 0.0, 1.0));
-//	}
-//
-//	imageStore(storage_images[pc.prev_frame_raytraced_shadows], coords, current_shadow);
-//	imageStore(storage_images[pc.prev_frame_reprojection_uv_and_object_id], coords, reprojuv_and_obj_id);
-//	imageStore(storage_images[pc.prev_frame_object_space_normals], coords, current_normal);
 }

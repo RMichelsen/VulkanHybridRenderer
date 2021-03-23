@@ -8,7 +8,7 @@
 #include "render_graph/raytracing_execution_context.h"
 #include "render_graph/render_graph.h"
 
-void RaytracedRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
+void RaytracedRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
 	render_graph.AddRaytracingPass("Raytracing Pass",
 		{},
 		{
@@ -16,15 +16,21 @@ void RaytracedRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_
 		},
 		RaytracingPipelineDescription {
 			.name = "Raytracing Pipeline",
-			.raygen_shader = "raytraced_render_path/raygen.rgen",
+			.raygen_shader = use_anyhit_shader ?
+				"raytraced_render_path/raygen_test_alpha.rgen" :
+				"raytraced_render_path/raygen.rgen",
 			.miss_shaders = {
 				"raytraced_render_path/miss.rmiss",
 				"raytraced_render_path/shadow_miss.rmiss"
 			},
 			.hit_shaders = {
+				use_anyhit_shader ?
 				HitShader {
-					.closest_hit = "raytraced_render_path/closesthit.rchit",
+					.closest_hit = "raytraced_render_path/closesthit_test_alpha.rchit",
 					.any_hit = "raytraced_render_path/shadow_anyhit.rahit"
+				} :
+				HitShader {
+					.closest_hit = "raytraced_render_path/closesthit.rchit"
 				}
 			}
 		},
@@ -69,4 +75,15 @@ void RaytracedRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_
 	);
 }
 
-void RaytracedRenderPath::ImGuiDrawSettings() {}
+void RaytracedRenderPath::ImGuiDrawSettings() {
+	int old_use_anyhit_shader = use_anyhit_shader;
+
+	ImGui::Text("Alpha test for shadows:");
+	ImGui::RadioButton("Disable", &use_anyhit_shader, 0);
+	ImGui::RadioButton("Enable", &use_anyhit_shader, 1);
+	ImGui::NewLine();
+
+	if(old_use_anyhit_shader != use_anyhit_shader) {
+		Build();
+	}
+}

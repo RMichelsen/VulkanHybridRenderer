@@ -79,6 +79,7 @@ void ResourceManager::DestroyResources() {
 	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
 		if(textures[i].handle != VK_NULL_HANDLE) {
 			VkUtils::DestroyImage(context.device, context.allocator, textures[i]);
+			textures[i].handle = VK_NULL_HANDLE;
 		}
 		if(storage_images[i].handle != VK_NULL_HANDLE) {
 			VkUtils::DestroyImage(context.device, context.allocator, storage_images[i]);
@@ -402,6 +403,12 @@ uint32_t ResourceManager::UploadNewStorageImage(uint32_t width, uint32_t height,
 
 	assert(false && "No free storage image slots left!");
 	return static_cast<uint32_t>(-1);
+}
+
+void ResourceManager::DestroyStorageImage(uint32_t id) {
+	assert(storage_images[id].handle != VK_NULL_HANDLE);
+	VkUtils::DestroyImage(context.device, context.allocator, storage_images[id]);
+	storage_images[id].handle = VK_NULL_HANDLE;
 }
 
 void ResourceManager::TagImage(Image &image, const char *name) {

@@ -9,7 +9,7 @@
 #include "rendering_backend/vulkan_context.h"
 #include "rendering_backend/vulkan_utils.h"
 
-void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
+void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) {
 	if(shadow_mode == SHADOW_MODE_RASTERIZED) {
 		render_graph.AddGraphicsPass("Depth Prepass",
 			{},
@@ -66,11 +66,7 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 				.miss_shaders = {
 					"hybrid_render_path/shadows.rmiss"
 				},
-				.hit_shaders = { 
-					HitShader {
-						.any_hit = "hybrid_render_path/shadows.rahit"
-					}
-				}
+				.hit_shaders = {}
 			},
 			[&](ExecuteRaytracingCallback execute_pipeline) {
 				execute_pipeline("Raytraced Shadows Pipeline",
@@ -135,16 +131,20 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 		}
 	);
 
+	// TODO: Fix leak, cleanup when rebuilding paths
 	svgf_push_constants.prev_frame_reprojection_uv_and_object_id =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
 	svgf_push_constants.prev_frame_object_space_normals =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
-	svgf_push_constants.prev_frame_raytraced_shadows =
+	svgf_push_constants.shadow_history =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
-	svgf_push_constants.integrated_raytraced_shadows =
+	svgf_push_constants.integrated_shadows.x =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+	svgf_push_constants.integrated_shadows.y =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
 
@@ -163,7 +163,13 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 					.shader = "hybrid_render_path/svgf.comp"
 				},
 				ComputeKernel {
-					.shader = "hybrid_render_path/prev_frame_copy.comp"
+					.shader = "hybrid_render_path/svgf_final_copy.comp"
+				},
+				ComputeKernel {
+					.shader = "hybrid_render_path/svgf_atrous_filter.comp"
+				},
+				ComputeKernel {
+					.shader = "hybrid_render_path/svgf_copy_filtered_shadow.comp"
 				}
 			},
 			.push_constant_description = PushConstantDescription {
@@ -172,20 +178,47 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 			}
 		},
 		[&](ComputeExecutionContext &execution_context) {
-
 			glm::uvec2 display_size = execution_context.GetDisplaySize();
 
+			// TODO: Fix push constants requiring a name (its unnecessary probably)
 			execution_context.PushConstants("hybrid_render_path/svgf.comp", svgf_push_constants);
 			execution_context.Dispatch("hybrid_render_path/svgf.comp",
 				display_size.x / 8 + (display_size.x % 8 != 0),
 				display_size.y / 8 + (display_size.y % 8 != 0),
 				1
 			);
-			execution_context.Dispatch("hybrid_render_path/prev_frame_copy.comp",
+
+			int atrous_steps = 5;
+			for(int i = 1; i <= atrous_steps; ++i) {
+				svgf_push_constants.atrous_step = 1 << i;
+				execution_context.PushConstants("hybrid_render_path/svgf_atrous_filter.comp", svgf_push_constants);
+				execution_context.Dispatch("hybrid_render_path/svgf_atrous_filter.comp",
+					display_size.x / 8 + (display_size.x % 8 != 0),
+					display_size.y / 8 + (display_size.y % 8 != 0),
+					1
+				);
+
+				// Copy integrated shadows
+				if(i == 1) {
+					execution_context.Dispatch("hybrid_render_path/svgf_copy_filtered_shadow.comp",
+						display_size.x / 8 + (display_size.x % 8 != 0),
+						display_size.y / 8 + (display_size.y % 8 != 0),
+						1
+					);
+				}
+
+				// Swap pingpong
+				std::swap(svgf_push_constants.integrated_shadows.x, svgf_push_constants.integrated_shadows.y);
+			}
+
+			execution_context.Dispatch("hybrid_render_path/svgf_final_copy.comp",
 				display_size.x / 8 + (display_size.x % 8 != 0),
 				display_size.y / 8 + (display_size.y % 8 != 0),
 				1
 			);
+
+			// Swap to prepare for next frame
+			std::swap(svgf_push_constants.integrated_shadows.x, svgf_push_constants.integrated_shadows.y);
 		}
 	);
 
@@ -195,7 +228,9 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 			VkUtils::CreateTransientSampledImage("Object Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
 			VkUtils::CreateTransientSampledImage("Shadow Map", 4096, 4096, VK_FORMAT_D32_SFLOAT, 3),
-			VkUtils::CreateTransientSampledImage("Denoised Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4)
+			denoise_shadows ?
+				VkUtils::CreateTransientSampledImage("Denoised Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4) :
+				VkUtils::CreateTransientSampledImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4)
 		},
 		{
 			VkUtils::CreateTransientRenderOutput(0),
@@ -230,6 +265,7 @@ void HybridRenderPath::AddPasses(VulkanContext &context, RenderGraph &render_gra
 
 void HybridRenderPath::ImGuiDrawSettings() {
 	int old_shadow_mode = shadow_mode;
+	bool old_denoise_shadows = denoise_shadows;
 
 	ImGui::Text("Shadow Mode:");
 	ImGui::RadioButton("Raytraced Shadows", &shadow_mode, SHADOW_MODE_RAYTRACED);
@@ -237,7 +273,11 @@ void HybridRenderPath::ImGuiDrawSettings() {
 	ImGui::RadioButton("No Shadows", &shadow_mode, SHADOW_MODE_OFF);
 	ImGui::NewLine();
 
-	if(old_shadow_mode != shadow_mode) {
+	ImGui::Checkbox("Denoise Shadows", &denoise_shadows);
+	ImGui::NewLine();
+
+	if(old_shadow_mode != shadow_mode || 
+	   old_denoise_shadows != denoise_shadows) {
 		Build();
 	}
 }

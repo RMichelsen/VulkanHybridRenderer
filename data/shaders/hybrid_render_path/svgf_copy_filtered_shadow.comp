@@ -1,0 +1,32 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_shader_image_load_formatted : require
+#include "../common.glsl"
+
+#define COS_PI_4 0.70710678118654752440084
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 1, binding = 0) uniform image2D storage_images[];
+
+layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
+layout(set = 3, binding = 0, r16f) readonly uniform image2D reprojected_uv_and_object_id;
+layout(set = 3, binding = 1, r16f) readonly uniform image2D normal_texture;
+layout(set = 3, binding = 2, r16f) readonly uniform image2D raytraced_shadows;
+layout(set = 3, binding = 3, r16f) writeonly uniform image2D denoised_raytraced_shadows;
+
+layout(push_constant) uniform PushConstants {
+	int prev_frame_reprojection_uv_and_object_id;
+	int prev_frame_object_space_normals;
+	int shadow_history;
+	int atrous_step;
+
+	// Pingpong texture
+	ivec2 integrated_shadows;
+} pc;
+
+void main() {
+	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+	imageStore(storage_images[pc.shadow_history], coords, imageLoad(storage_images[pc.integrated_shadows[1]], coords));
+}

@@ -16,6 +16,7 @@ public:
 	uint32_t UploadTextureFromData(uint32_t width, uint32_t height, uint8_t *data, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM, SamplerInfo *sampler_info = nullptr);
 	uint32_t UploadEmptyTexture(uint32_t width, uint32_t height, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM, SamplerInfo *sampler_info = nullptr);
 	uint32_t UploadNewStorageImage(uint32_t width, uint32_t height, VkFormat format);
+	void DestroyStorageImage(uint32_t id);
 
 	void TagImage(Image &image, const char *name);
 	void TagImage(uint32_t image_idx, const char *name);

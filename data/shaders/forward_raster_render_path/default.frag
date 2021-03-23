@@ -42,7 +42,7 @@ void main() {
 
 	vec3 light_dir = -pfd.directional_light.direction.xyz;
 	vec3 light_color = pfd.directional_light.color.rgb;
-	vec3 ambient_light = 0.4 * albedo.rgb;
+	vec3 ambient_light = 0.2 * albedo.rgb;
 
 	vec4 pos_lightspace = SHADOW_BIAS_MATRIX * pfd.directional_light.projview * vec4(in_pos, 1.0);
 	vec4 shadow_coord = pos_lightspace / pos_lightspace.w;
