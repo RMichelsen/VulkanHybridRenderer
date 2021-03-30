@@ -948,6 +948,9 @@
     <ClInclude Include="src\render_graph\compute_execution_context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\rendering_backend\glsl_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\dependencies_impl.cpp">

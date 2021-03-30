@@ -1,7 +1,7 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
-
 #include "../common.glsl"
+#include "../../../src/rendering_backend/glsl_common.h"
 
 layout(set = 3, binding = 0) uniform sampler2D raytraced_output;
 

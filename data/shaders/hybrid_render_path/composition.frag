@@ -1,11 +1,10 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
-
 #include "../common.glsl"
+#include "../../../src/rendering_backend/glsl_common.h"
 
 layout(constant_id = SHADOW_MODE_SPEC_CONST_INDEX) const int shadow_mode = 0;
 
-layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
 layout(set = 3, binding = 0) uniform sampler2D position_texture;
 layout(set = 3, binding = 1) uniform sampler2D normal_texture;
 layout(set = 3, binding = 2) uniform sampler2D albedo_texture;
@@ -20,7 +19,7 @@ void main() {
 	vec3 albedo = texture(albedo_texture, in_uv).rgb;
 
 	// Get light direction in view space
-	vec3 light_dir = -normalize(vec3(pfd.camera_view * vec4(pfd.directional_light.direction.xyz, 1.0)));
+	vec3 light_dir = -normalize(vec3(pfd.camera_view * vec4(pfd.directional_light.direction.xyz, 0.0)));
 	
 	vec3 light_color = pfd.directional_light.color.rgb;
 	vec3 ambient_light = 0.2 * albedo;

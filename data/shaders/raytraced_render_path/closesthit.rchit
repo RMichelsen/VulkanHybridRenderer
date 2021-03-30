@@ -1,17 +1,7 @@
 #version 460
-#extension GL_EXT_ray_tracing : enable
 #extension GL_GOOGLE_include_directive : require
-#extension GL_EXT_nonuniform_qualifier : require
-#extension GL_EXT_scalar_block_layout : require
-
 #include "../common.glsl"
-
-layout(set = 0, binding = 0, scalar) buffer Vertices { Vertex vertices[]; };
-layout(set = 0, binding = 1) buffer Indices { uint indices[]; };
-layout(set = 0, binding = 2, scalar) buffer Primitives { Primitive primitives[]; };
-layout(set = 0, binding = 3) uniform accelerationStructureEXT TLAS;
-layout(set = 0, binding = 4) uniform sampler2D textures[];
-layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
+#include "../../../src/rendering_backend/glsl_common.h"
 
 layout(location = 0) rayPayloadInEXT vec4 payload;
 layout(location = 1) rayPayloadEXT bool shadow_payload;

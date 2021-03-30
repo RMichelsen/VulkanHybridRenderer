@@ -1,11 +1,8 @@
 #version 460
-#extension GL_EXT_ray_tracing : enable
 #extension GL_GOOGLE_include_directive : require
-
 #include "../common.glsl"
+#include "../../../src/rendering_backend/glsl_common.h"
 
-layout(set = 0, binding = 3) uniform accelerationStructureEXT TLAS;
-layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
 layout(set = 3, binding = 0) uniform sampler2D position_texture;
 layout(set = 3, binding = 1, rgba16f) uniform image2D raytraced_shadows;
 

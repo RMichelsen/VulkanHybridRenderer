@@ -1,16 +1,9 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
-#extension GL_EXT_nonuniform_qualifier : require
-#extension GL_EXT_scalar_block_layout : require
-
 #include "../common.glsl"
+#include "../../../src/rendering_backend/glsl_common.h"
 
-layout(set = 0, binding = 2, scalar) buffer Primitives { Primitive primitives[]; };
-layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
-layout(push_constant) uniform PushConstants {
-	mat4 normal_matrix;
-	int object_id;
-} pc;
+layout(push_constant) uniform PushConstants { HybridPushConstants pc; };
 
 layout(location = 0) in vec3 in_pos;
 layout(location = 1) in vec3 in_normal;

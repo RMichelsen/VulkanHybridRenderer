@@ -1,20 +1,9 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
-#extension GL_EXT_nonuniform_qualifier : require
-#extension GL_EXT_scalar_block_layout : require
-#extension GL_EXT_ray_tracing : enable
-#extension GL_EXT_ray_query : enable
-
 #include "../common.glsl"
+#include "../../../src/rendering_backend/glsl_common.h"
 
-layout(set = 0, binding = 2, scalar) buffer Primitives { Primitive primitives[]; };
-layout(set = 0, binding = 3) uniform accelerationStructureEXT TLAS;
-layout(set = 0, binding = 4) uniform sampler2D textures[];
-layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
-
-layout(push_constant) uniform PushConstants {
-	int object_id;
-} pc;
+layout(push_constant) uniform PushConstants { DefaultPushConstants pc; };
 
 layout(set = 3, binding = 0) uniform sampler2D shadow_map;
 

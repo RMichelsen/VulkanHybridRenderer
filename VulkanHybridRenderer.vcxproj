@@ -488,6 +488,7 @@
     <ClInclude Include="dependencies\stb\stb_image.h" />
     <ClInclude Include="dependencies\vma\vk_mem_alloc.h" />
     <ClInclude Include="dependencies\volk\volk.h" />
+    <ClInclude Include="src\rendering_backend\glsl_common.h" />
     <ClInclude Include="src\render_graph\compute_execution_context.h" />
     <ClInclude Include="src\render_paths\forward_raster_render_path.h" />
     <ClInclude Include="src\render_paths\hybrid_render_path.h" />

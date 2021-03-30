@@ -1,46 +1,5 @@
+#define COS_PI_4 0.70710678118654752440084
 #define PI 3.1415926538
-
-struct DirectionalLight {
-	mat4 projview;
-	vec4 direction;
-	vec4 color;
-};
-
-struct PerFrameData {
-	mat4 camera_view;
-	mat4 camera_proj;
-	mat4 camera_view_prev_frame;
-	mat4 camera_proj_prev_frame;
-	mat4 camera_view_inverse;
-	mat4 camera_proj_inverse;
-	DirectionalLight directional_light;
-	vec2 display_size;
-	vec2 inv_display_size;
-	uint frame_index;
-};
-
-struct Vertex {
-	vec3 pos;
-	vec3 normal;
-	vec4 tangent;
-	vec2 uv0;
-	vec2 uv1;
-};
-
-struct Material {
-	int base_color_texture;
-	int normal_map;
-	int alpha_mask;
-	float alpha_cutoff;
-};
-
-struct Primitive {
-	mat4 transform;
-	Material material;
-	uint vertex_offset;
-	uint index_offset;
-	uint index_count;
-};
 
 const mat4 SHADOW_BIAS_MATRIX = mat4( 
 	0.5, 0.0, 0.0, 0.0,

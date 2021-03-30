@@ -1,4 +1,5 @@
 #pragma once
+#include "rendering_backend/glsl_common.h"
 
 #define VK_CHECK(x) if((x) != VK_SUCCESS) { 			\
 	assert(false); 										\
@@ -39,30 +40,30 @@ struct Camera {
 	float roll;
 };
 
-struct Material {
-	int base_color_texture;
-	int normal_map;
-	int alpha_mask;
-	float alpha_cutoff;
-};
+//struct Material {
+//	int base_color_texture;
+//	int normal_map;
+//	int alpha_mask;
+//	float alpha_cutoff;
+//};
 
-struct Primitive {
-	glm::mat4 transform;
-	Material material;
-	uint32_t vertex_offset;
-	uint32_t index_offset;
-	uint32_t index_count;
-};
+//struct Primitive {
+//	glm::mat4 transform;
+//	Material material;
+//	uint32_t vertex_offset;
+//	uint32_t index_offset;
+//	uint32_t index_count;
+//};
 
 struct Mesh {
 	std::vector<Primitive> primitives;
 };
 
-struct DirectionalLight {
-	glm::mat4 projview;
-	glm::vec4 direction;
-	glm::vec4 color;
-};
+//struct DirectionalLight {
+//	glm::mat4 projview;
+//	glm::vec4 direction;
+//	glm::vec4 color;
+//};
 
 struct Scene {
 	Camera camera;
@@ -70,35 +71,35 @@ struct Scene {
 	std::vector<Mesh> meshes;
 };
 
-struct PerFrameData {
-	glm::mat4 camera_view;
-	glm::mat4 camera_proj;
-	glm::mat4 camera_view_prev_frame;
-	glm::mat4 camera_proj_prev_frame;
-	glm::mat4 camera_view_inverse;
-	glm::mat4 camera_proj_inverse;
-	DirectionalLight directional_light;
-	glm::vec2 display_size;
-	glm::vec2 inv_display_size;
-	uint32_t frame_index;
-};
-
-struct DefaultPushConstants {
-	int object_id;
-};
-
-struct alignas(16) HybridPushConstants {
-	glm::mat4 normal_matrix;
-	int object_id;
-};
-
-struct Vertex {
-	glm::vec3 pos;
-	glm::vec3 normal;
-	glm::vec4 tangent;
-	glm::vec2 uv0;
-	glm::vec2 uv1;
-};
+//struct PerFrameData {
+//	glm::mat4 camera_view;
+//	glm::mat4 camera_proj;
+//	glm::mat4 camera_view_prev_frame;
+//	glm::mat4 camera_proj_prev_frame;
+//	glm::mat4 camera_view_inverse;
+//	glm::mat4 camera_proj_inverse;
+//	DirectionalLight directional_light;
+//	glm::vec2 display_size;
+//	glm::vec2 inv_display_size;
+//	uint32_t frame_index;
+//};
+//
+//struct DefaultPushConstants {
+//	int object_id;
+//};
+//
+//struct HybridPushConstants {
+//	glm::mat4 normal_matrix;
+//	int object_id;
+//};
+//
+//struct Vertex {
+//	glm::vec3 pos;
+//	glm::vec3 normal;
+//	glm::vec4 tangent;
+//	glm::vec2 uv0;
+//	glm::vec2 uv1;
+//};
 constexpr VkVertexInputBindingDescription DEFAULT_VERTEX_BINDING_DESCRIPTION {
 	.binding = 0,
 	.stride = sizeof(Vertex),
