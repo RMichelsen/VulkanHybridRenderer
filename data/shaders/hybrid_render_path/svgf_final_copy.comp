@@ -7,28 +7,24 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 1, binding = 0) uniform image2D storage_images[];
-
-layout(set = 3, binding = 0, r16f) readonly uniform image2D reprojected_uv_and_object_id;
+layout(set = 3, binding = 0, r16f) readonly uniform image2D reprojected_uv_and_depth_derivatives;
 layout(set = 3, binding = 1, r16f) readonly uniform image2D normal_texture;
 layout(set = 3, binding = 2, r16f) readonly uniform image2D raytraced_shadows;
-layout(set = 3, binding = 3, r16f) writeonly uniform image2D denoised_raytraced_shadows;
-
+layout(set = 3, binding = 3, r16f) readonly uniform image2D position_texture;
+layout(set = 3, binding = 4, r16f) writeonly uniform image2D denoised_raytraced_shadows;
 layout(push_constant) uniform PushConstants {
-	int prev_frame_reprojection_uv_and_object_id;
-	int prev_frame_object_space_normals;
-	int shadow_history;
-	int atrous_step;
-
 	// Pingpong texture
 	ivec2 integrated_shadows;
+
+	int prev_frame_normals_and_object_id;
+	int shadow_history;
+	int atrous_step;
 } pc;
 
 void main() {
 	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
-	vec4 current_normal = imageLoad(normal_texture, coords);
-	vec4 reprojuv_and_obj_id = imageLoad(reprojected_uv_and_object_id, coords);
-	vec4 current_shadow = imageLoad(raytraced_shadows, coords);
-	imageStore(storage_images[pc.prev_frame_reprojection_uv_and_object_id], coords, reprojuv_and_obj_id);
-	imageStore(storage_images[pc.prev_frame_object_space_normals], coords, current_normal);
+	vec4 current_normal_and_obj_id = imageLoad(normal_texture, coords);
+	vec4 reprojuv_and_depth_derivatives = imageLoad(reprojected_uv_and_depth_derivatives, coords);
+	imageStore(storage_images[pc.prev_frame_normals_and_object_id], coords, current_normal_and_obj_id);
 	imageStore(denoised_raytraced_shadows, coords, vec4(imageLoad(storage_images[pc.integrated_shadows[1]], coords).rgb, 1.0));
 }

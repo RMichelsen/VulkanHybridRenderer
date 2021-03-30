@@ -83,7 +83,12 @@ struct PerFrameData {
 	uint32_t frame_index;
 };
 
-struct PushConstants {
+struct DefaultPushConstants {
+	int object_id;
+};
+
+struct alignas(16) HybridPushConstants {
+	glm::mat4 normal_matrix;
 	int object_id;
 };
 

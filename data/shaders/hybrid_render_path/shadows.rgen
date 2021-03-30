@@ -19,6 +19,7 @@ void main() {
 	vec4 light_direction = -pfd.directional_light.direction;
 
 	uint rng_state = seed_thread((gl_LaunchIDEXT.y * gl_LaunchSizeEXT.y + gl_LaunchIDEXT.x) * pfd.frame_index * 386010683 * 936272639);
+
 	float rnd1 = random01(rng_state);
 	float rnd2 = random01(rng_state);
 	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.99995));

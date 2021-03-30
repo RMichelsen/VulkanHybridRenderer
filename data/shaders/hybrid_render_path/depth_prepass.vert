@@ -9,6 +9,7 @@ layout(set = 0, binding = 2, scalar) buffer Primitives { Primitive primitives[];
 layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
 
 layout(push_constant) uniform PushConstants {
+	mat4 normal_matrix;
 	int object_id;
 } pc;
 

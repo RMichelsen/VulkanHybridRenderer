@@ -24,7 +24,7 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 				.depth_stencil_state = DepthStencilState::On,
 				.dynamic_state = DynamicState::None,
 				.push_constants = PushConstantDescription {
-					.size = sizeof(PushConstants),
+					.size = sizeof(DefaultPushConstants),
 					.shader_stage = VK_SHADER_STAGE_VERTEX_BIT
 				}
 			}
@@ -37,7 +37,7 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 					for(Mesh &mesh : resource_manager.scene.meshes) {
 						for(int i = 0; i < mesh.primitives.size(); ++i) {
 							Primitive &primitive = mesh.primitives[i];
-							PushConstants push_constants {
+							DefaultPushConstants push_constants {
 								.object_id = object_id++
 							};
 							execution_context.PushConstants(push_constants);
@@ -68,7 +68,7 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 				.depth_stencil_state = DepthStencilState::On,
 				.dynamic_state = DynamicState::None,
 				.push_constants = PushConstantDescription {
-					.size = sizeof(PushConstants),
+					.size = sizeof(DefaultPushConstants),
 					.shader_stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
 				}
 			}
@@ -81,7 +81,7 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 					for(Mesh &mesh : resource_manager.scene.meshes) {
 						for(int i = 0; i < mesh.primitives.size(); ++i) {
 							Primitive &primitive = mesh.primitives[i];
-							PushConstants push_constants {
+							DefaultPushConstants push_constants {
 								.object_id = object_id++
 							};
 							execution_context.PushConstants(push_constants);

@@ -2,13 +2,12 @@
 #include "render_path.h"
 
 struct SVGFPushConstants {
-	int prev_frame_reprojection_uv_and_object_id;
-	int prev_frame_object_space_normals;
-	int shadow_history;
-	int atrous_step;
-
 	// Pingpong texture
 	glm::ivec2 integrated_shadows;
+
+	int prev_frame_normals_and_object_id;
+	int shadow_history;
+	int atrous_step;
 };
 
 enum ShadowMode {

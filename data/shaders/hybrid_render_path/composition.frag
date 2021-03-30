@@ -19,7 +19,9 @@ void main() {
 	vec3 normal = texture(normal_texture, in_uv).rgb;
 	vec3 albedo = texture(albedo_texture, in_uv).rgb;
 
-	vec3 light_dir = -pfd.directional_light.direction.xyz;
+	// Get light direction in view space
+	vec3 light_dir = -normalize(vec3(pfd.camera_view * vec4(pfd.directional_light.direction.xyz, 1.0)));
+	
 	vec3 light_color = pfd.directional_light.color.rgb;
 	vec3 ambient_light = 0.2 * albedo;
 

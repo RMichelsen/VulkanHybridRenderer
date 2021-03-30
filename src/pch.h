@@ -43,6 +43,7 @@
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/scalar_constants.hpp"
 #include "glm/gtc/matrix_access.hpp"
+#include "glm/gtc/matrix_inverse.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtx/euler_angles.hpp"
 #include "glm/gtx/string_cast.hpp"

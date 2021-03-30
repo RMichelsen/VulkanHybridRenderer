@@ -26,7 +26,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 					.depth_stencil_state = DepthStencilState::On,
 					.dynamic_state = DynamicState::None,
 					.push_constants = PushConstantDescription {
-						.size = sizeof(PushConstants),
+						.size = sizeof(HybridPushConstants),
 						.shader_stage = VK_SHADER_STAGE_VERTEX_BIT
 					}
 				}
@@ -39,7 +39,8 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 						for(Mesh &mesh : resource_manager.scene.meshes) {
 							for(int i = 0; i < mesh.primitives.size(); ++i) {
 								Primitive &primitive = mesh.primitives[i];
-								PushConstants push_constants {
+								HybridPushConstants push_constants {
+									.normal_matrix = glm::mat3(glm::transpose(glm::inverse(resource_manager.scene.camera.view * primitive.transform))),
 									.object_id = object_id++
 								};
 								execution_context.PushConstants(push_constants);
@@ -85,9 +86,9 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		{},
 		{
 			VkUtils::CreateTransientAttachmentImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			VkUtils::CreateTransientAttachmentImage("Object Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientAttachmentImage("View Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
-			VkUtils::CreateTransientAttachmentImage("Reprojected UV and Object ID", VK_FORMAT_R16G16B16A16_SFLOAT, 3,
+			VkUtils::CreateTransientAttachmentImage("Reprojected UV and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 3,
 				VkClearValue {
 					.color = VkClearColorValue {
 						.float32 = { 0.0f, 0.0f, -1.0f, 1.0f }
@@ -105,7 +106,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				.depth_stencil_state = DepthStencilState::On,
 				.dynamic_state = DynamicState::None,
 				.push_constants = PushConstantDescription {
-					.size = sizeof(PushConstants),
+					.size = sizeof(HybridPushConstants),
 					.shader_stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
 				}
 			}
@@ -118,7 +119,8 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 					for(Mesh &mesh : resource_manager.scene.meshes) {
 						for(int i = 0; i < mesh.primitives.size(); ++i) {
 							Primitive &primitive = mesh.primitives[i];
-							PushConstants push_constants {
+							HybridPushConstants push_constants {
+								.normal_matrix = glm::inverseTranspose(glm::mat3(resource_manager.scene.camera.view * primitive.transform)),
 								.object_id = object_id++
 							};
 							execution_context.PushConstants(push_constants);
@@ -132,10 +134,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 	);
 
 	// TODO: Fix leak, cleanup when rebuilding paths
-	svgf_push_constants.prev_frame_reprojection_uv_and_object_id =
-		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
-			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
-	svgf_push_constants.prev_frame_object_space_normals =
+	svgf_push_constants.prev_frame_normals_and_object_id =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
 	svgf_push_constants.shadow_history =
@@ -150,12 +149,13 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 	render_graph.AddComputePass("SVGF Denoise Pass",
 		{
-			VkUtils::CreateTransientStorageImage("Reprojected UV and Object ID", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			VkUtils::CreateTransientStorageImage("Object Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
-			VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 2)
+			VkUtils::CreateTransientStorageImage("Reprojected UV and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientStorageImage("View Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
+			VkUtils::CreateTransientStorageImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 3)
 		},
 		{
-			VkUtils::CreateTransientStorageImage("Denoised Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 3),
+			VkUtils::CreateTransientStorageImage("Denoised Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4),
 		},
 		ComputePipelineDescription {
 			.kernels = {
@@ -225,7 +225,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 	render_graph.AddGraphicsPass("Composition Pass",
 		{
 			VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			VkUtils::CreateTransientSampledImage("Object Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientSampledImage("View Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
 			VkUtils::CreateTransientSampledImage("Shadow Map", 4096, 4096, VK_FORMAT_D32_SFLOAT, 3),
 			denoise_shadows ?
