@@ -20,7 +20,13 @@ layout(location = 3) out vec4 out_reprojected_uv_and_depth_derivatives;
 void main() {
 	Primitive primitive = primitives[pc.object_id];
 
-	vec4 albedo = texture(textures[primitive.material.base_color_texture], in_uv); 
+	vec4 albedo;
+	if(primitive.material.base_color_texture == -1) {
+		albedo = primitive.material.base_color;
+	}
+	else {
+		albedo = texture(textures[primitive.material.base_color_texture], in_uv); 
+	}
 	if(primitive.material.alpha_mask == 1 && albedo.a < primitive.material.alpha_cutoff) {
 		discard;
 	}

@@ -23,7 +23,6 @@ void main() {
 	// Get light direction in view space
 	vec3 light_dir = -pfd.directional_light.direction.xyz;
 	vec3 light_color = pfd.directional_light.color.rgb;
-	vec3 ambient_light = 0.4 * albedo;
 
 	vec3 shadow = vec3(1.0);
 	if(shadow_mode == SHADOW_MODE_RAYTRACED) {
@@ -42,7 +41,7 @@ void main() {
 		ao = texture(raytraced_ambient_occlusion_texture, in_uv).rgb; 
 	}
 
-	vec3 diffuse_lighting = ambient_light * ao + (max(dot(normal, light_dir), 0.0) * albedo * light_color * shadow);
+	vec3 diffuse_lighting = albedo * ao + (max(dot(normal, light_dir), 0.0) * albedo * light_color * shadow);
 	out_color = vec4(diffuse_lighting, 1.0);
 }
 

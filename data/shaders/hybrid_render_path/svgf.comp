@@ -37,6 +37,8 @@ bool is_valid_reprojection(ivec2 prev_coords, int current_object_id, vec3 curren
 		return false;
 	}
 
+	// Reject if depths 
+
 	return true;
 }
 
@@ -49,7 +51,6 @@ void main() {
 	vec2 reprojected_uv = reprojuv_and_depth_derivatives.xy;
 	vec4 current_shadow = imageLoad(raytraced_shadows, coords);
 	vec4 current_ao = imageLoad(raytraced_ambient_occlusion, coords);
-
 
 	// 2x2 bilinear tap filter
 	vec2 prev_coords = reprojected_uv * pfd.display_size - vec2(0.5, 0.5);

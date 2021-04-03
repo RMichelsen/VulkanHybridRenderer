@@ -69,8 +69,12 @@ struct Vertex {
 };
 
 struct Material {
+	vec4 base_color;
 	int base_color_texture;
+	int metallic_roughness_texture;
 	int normal_map;
+	float metallic_factor;
+	float roughness_factor;
 	int alpha_mask;
 	float alpha_cutoff;
 };

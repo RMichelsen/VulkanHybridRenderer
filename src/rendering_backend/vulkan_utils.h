@@ -129,6 +129,8 @@ inline uint32_t FormatStride(VkFormat format) {
 	switch(format) {
 	case VK_FORMAT_R8G8B8A8_UNORM: return 4;
 	case VK_FORMAT_B8G8R8A8_UNORM: return 4;
+	case VK_FORMAT_R8G8B8A8_SRGB: return 4;
+	case VK_FORMAT_B8G8R8A8_SRGB: return 4;
 	case VK_FORMAT_R16G16B16A16_SFLOAT: return 8;
 	case VK_FORMAT_R32G32B32A32_SFLOAT: return 16;
 	case VK_FORMAT_D16_UNORM: return 2;

@@ -177,27 +177,37 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		}
 
 		Material material {
+			.base_color = glm::vec4(1.0f),
 			.base_color_texture = -1,
+			.metallic_roughness_texture = -1,
 			.normal_map = -1,
+			.metallic_factor = 1.0f,
+			.roughness_factor = 1.0f,
 			.alpha_mask = 0,
 			.alpha_cutoff = 0.0f
 		};
 
-		if(primitive->material->has_pbr_metallic_roughness) {
-			cgltf_texture_view albedo = 
-				primitive->material->pbr_metallic_roughness.base_color_texture;
-			if(albedo.texture) {
-				material.base_color_texture = textures[albedo.texture->image->name];
-			}
+
+		cgltf_texture_view albedo = 
+			primitive->material->pbr_metallic_roughness.base_color_texture;
+		if(albedo.texture) {
+			material.base_color_texture = textures[albedo.texture->image->name];
 		}
-		else if(primitive->material->has_pbr_specular_glossiness) {
-			cgltf_texture_view albedo = 
-				primitive->material->pbr_specular_glossiness.diffuse_texture;
-			if(albedo.texture) {
-				//material.base_color_texture = textures[albedo.texture->image->name];
-				material.base_color_texture = -1;
-			}
+		else {
+			material.base_color = glm::make_vec4(primitive->material->pbr_metallic_roughness.base_color_factor);
 		}
+
+		assert(primitive->material->has_pbr_metallic_roughness && "Only glTF PBR Metallic Roughness model is supported");
+		cgltf_texture_view metallic_roughness =
+			primitive->material->pbr_metallic_roughness.metallic_roughness_texture;
+		if(metallic_roughness.texture) {
+			material.metallic_roughness_texture = textures[metallic_roughness.texture->image->name];
+		}
+		else {
+			material.metallic_factor = primitive->material->pbr_metallic_roughness.metallic_factor;
+			material.roughness_factor = primitive->material->pbr_metallic_roughness.roughness_factor;
+		}
+
 		if(primitive->material->normal_texture.texture) {
 			material.normal_map = textures[primitive->material->normal_texture.texture->image->name];
 
@@ -221,17 +231,50 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 	scene.meshes.push_back(mesh);
 }
 
+void UploadTexture(ResourceManager &resource_manager, cgltf_texture *texture, VkFormat format) {
+
+}
+
 void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *data, Scene &scene) {
 	cgltf_options options {};
 	cgltf_load_buffers(&options, data, path);
 
 	std::string parent_path = std::filesystem::path(path).parent_path().string() + "/";
 
-	std::unordered_map<const char *, int> textures;
+	// Collect all textures from model, and associate the correct format to them.
+	// This is instead of doing the SRGB to linear conversion in the shaders.
+	std::vector<std::pair<cgltf_texture *, VkFormat>> textures_to_upload;
+	for(int i = 0; i < data->meshes_count; ++i) {
+		for(int j = 0; j < data->meshes[i].primitives_count; ++j) {
+			if(data->meshes[i].primitives[j].material->has_pbr_metallic_roughness) {
+				cgltf_pbr_metallic_roughness *metallic_roughness = &data->meshes[i].primitives[j].material->pbr_metallic_roughness;
+				if(metallic_roughness->base_color_texture.texture) {
+					textures_to_upload.emplace_back(std::make_pair(
+						metallic_roughness->base_color_texture.texture,
+						VK_FORMAT_R8G8B8A8_SRGB
+					));
+				}
+				if(metallic_roughness->metallic_roughness_texture.texture) {
+					textures_to_upload.emplace_back(std::make_pair(
+						metallic_roughness->metallic_roughness_texture.texture,
+						VK_FORMAT_R8G8B8A8_SRGB
+					));
+				}
+			}
 
+			if(data->meshes[i].primitives[j].material->normal_texture.texture) {
+				textures_to_upload.emplace_back(std::make_pair(
+					data->meshes[i].primitives[j].material->normal_texture.texture,
+					VK_FORMAT_R8G8B8A8_UNORM
+				));
+			}
+		}
+	}
+
+	std::unordered_map<const char *, int> textures;
 	#pragma omp parallel for
-	for(int i = 0; i < data->textures_count; ++i) {
-		cgltf_texture *texture = &data->textures[i];
+	for(int i = 0; i < textures_to_upload.size(); ++i) {
+		auto &[texture, format] = textures_to_upload[i];
 		int _, x, y;
 		uint8_t *image_data;
 		if(texture->image->uri) {
@@ -256,11 +299,11 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 		uint32_t image_idx;
 		#pragma omp critical
 		{
-			image_idx = resource_manager.UploadTextureFromData(x, y, image_data, VK_FORMAT_R8G8B8A8_UNORM, &sampler_info);
-			textures[data->textures[i].image->name] = image_idx;
+			image_idx = resource_manager.UploadTextureFromData(x, y, image_data, format, &sampler_info);
+			textures[texture->image->name] = image_idx;
 			free(image_data);
 		}
-		resource_manager.TagImage(image_idx, data->textures[i].image->name);
+		resource_manager.TagImage(image_idx, texture->image->name);
 	}
 
 	std::vector<Vertex> vertices;

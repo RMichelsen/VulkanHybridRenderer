@@ -24,8 +24,8 @@ public:
 private:
 	int shadow_mode = 0;
 	int ambient_occlusion_mode = 0;
-	bool denoise_shadows = false;
-	bool denoise_ambient_occlusion = false;
+	bool denoise_shadows = true;
+	bool denoise_ambient_occlusion = true;
 
 	SVGFPushConstants svgf_push_constants;
 };

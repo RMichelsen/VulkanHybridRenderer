@@ -1,5 +1,7 @@
-#define COS_PI_4 0.70710678118654752440084
-#define PI 3.1415926538
+#define COS_PI_4		0.70710678118654752440084
+#define PI				3.14159265358979323846264
+#define TWO_PI			6.28318530717958647692528
+#define PI_INVERSE		0.31830988618379067153776
 
 const mat4 SHADOW_BIAS_MATRIX = mat4( 
 	0.5, 0.0, 0.0, 0.0,
@@ -22,14 +24,14 @@ const uint AMBIENT_OCCLUSION_MODE_OFF = 2;
 vec3 uniform_sample_cone(vec2 u, float cos_theta_max) {
 	float cos_theta = (1.0 - u.x) + u.x * cos_theta_max;
 	float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-	float phi = u.y * 2.0 * PI;
+	float phi = u.y * TWO_PI;
 	return vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
 }
 
 // Uniformly sample rays on a cosine-weighted hemisphere
 vec3 uniform_sample_cosine_weighted_hemisphere(vec2 u) {
-	float x = sqrt(u.x) * cos(2 * PI * u.y);
-	float y = sqrt(u.x) * sin(2 * PI * u.y);
+	float x = sqrt(u.x) * cos(TWO_PI * u.y);
+	float y = sqrt(u.x) * sin(TWO_PI * u.y);
 	float z = sqrt(1 - u.x);
 	return vec3(x, y, z);
 }

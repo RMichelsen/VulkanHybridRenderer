@@ -53,7 +53,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 			}
 		);
 	}
-	else if(shadow_mode == SHADOW_MODE_RAYTRACED) {
+	else if(shadow_mode == SHADOW_MODE_RAYTRACED || ambient_occlusion_mode == AMBIENT_OCCLUSION_MODE_RAYTRACED) {
 		render_graph.AddRaytracingPass("Raytrace Pass",
 			{
 				VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
