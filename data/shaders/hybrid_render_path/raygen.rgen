@@ -4,9 +4,11 @@
 #include "../../../src/rendering_backend/glsl_common.h"
 
 layout(set = 3, binding = 0) uniform sampler2D position_texture;
-layout(set = 3, binding = 1, rgba16f) uniform image2D raytraced_shadows;
+layout(set = 3, binding = 1) uniform sampler2D normal_texture;
+layout(set = 3, binding = 2, rgba16f) uniform image2D raytraced_shadows;
+layout(set = 3, binding = 3, rgba16f) uniform image2D raytraced_ambient_occlusion;
 
-layout(location = 0) rayPayloadEXT vec4 shadow_payload;
+layout(location = 0) rayPayloadEXT vec4 payload;
 
 void main() {
 	vec2 pixel_center = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
@@ -22,10 +24,20 @@ void main() {
 	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.99995));
 	mat3x3 R = onb_from_unit_vector(light_direction.xyz);
 
-	shadow_payload = vec4(0.0, 0.0, 0.0, 0.0);
+	payload = vec4(0.0, 0.0, 0.0, 0.0);
 	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
 		0xFF, 0, 0, 0, origin.xyz, 0.1, R * cone_dir, 10000.0, 0);
-	
-	imageStore(raytraced_shadows, ivec2(gl_LaunchIDEXT.xy), shadow_payload);
+	imageStore(raytraced_shadows, ivec2(gl_LaunchIDEXT.xy), payload);
+
+	vec4 N = texture(normal_texture, uv);
+	rnd1 = random01(rng_state);
+	rnd2 = random01(rng_state);
+	vec3 rnd_dir = uniform_sample_cosine_weighted_hemisphere(vec2(rnd1, rnd2));
+	R = onb_from_unit_vector(N.xyz);
+
+	payload = vec4(0.0, 0.0, 0.0, 0.0);
+	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
+		0xFF, 0, 0, 0, origin.xyz, 0.01, R * rnd_dir, 2.0, 0);
+	imageStore(raytraced_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), payload);
 }
 

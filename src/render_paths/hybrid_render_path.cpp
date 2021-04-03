@@ -40,7 +40,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 							for(int i = 0; i < mesh.primitives.size(); ++i) {
 								Primitive &primitive = mesh.primitives[i];
 								HybridPushConstants push_constants {
-									.normal_matrix = glm::mat3(glm::transpose(glm::inverse(resource_manager.scene.camera.view * primitive.transform))),
+									.normal_matrix = glm::mat3(glm::transpose(glm::inverse(primitive.transform))),
 									.object_id = object_id++
 								};
 								execution_context.PushConstants(push_constants);
@@ -54,23 +54,25 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		);
 	}
 	else if(shadow_mode == SHADOW_MODE_RAYTRACED) {
-		render_graph.AddRaytracingPass("Raytraced Shadows Pass",
+		render_graph.AddRaytracingPass("Raytrace Pass",
 			{
-				VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0)
+				VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+				VkUtils::CreateTransientSampledImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
 			},
 			{
-				VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
+				VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
+				VkUtils::CreateTransientStorageImage("Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 3)
 			},
 			RaytracingPipelineDescription {
-				.name = "Raytraced Shadows Pipeline",
-				.raygen_shader = "hybrid_render_path/shadows.rgen",
+				.name = "Raytrace Pipeline",
+				.raygen_shader = "hybrid_render_path/raygen.rgen",
 				.miss_shaders = {
-					"hybrid_render_path/shadows.rmiss"
+					"hybrid_render_path/miss.rmiss"
 				},
 				.hit_shaders = {}
 			},
 			[&](ExecuteRaytracingCallback execute_pipeline) {
-				execute_pipeline("Raytraced Shadows Pipeline",
+				execute_pipeline("Raytrace Pipeline",
 					[&](RaytracingExecutionContext &execution_context) {
 						execution_context.TraceRays(
 							context.swapchain.extent.width,
@@ -86,7 +88,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		{},
 		{
 			VkUtils::CreateTransientAttachmentImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			VkUtils::CreateTransientAttachmentImage("View Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientAttachmentImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
 			VkUtils::CreateTransientAttachmentImage("Reprojected UV and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 3,
 				VkClearValue {
@@ -120,7 +122,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 						for(int i = 0; i < mesh.primitives.size(); ++i) {
 							Primitive &primitive = mesh.primitives[i];
 							HybridPushConstants push_constants {
-								.normal_matrix = glm::inverseTranspose(glm::mat3(resource_manager.scene.camera.view * primitive.transform)),
+								.normal_matrix = glm::inverseTranspose(glm::mat3(primitive.transform)),
 								.object_id = object_id++
 							};
 							execution_context.PushConstants(push_constants);
@@ -140,22 +142,39 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 	svgf_push_constants.shadow_history =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+	svgf_push_constants.shadow_moments_history =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+	svgf_push_constants.ambient_occlusion_history =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+	svgf_push_constants.ambient_occlusion_moments_history =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
 	svgf_push_constants.integrated_shadows.x =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
 	svgf_push_constants.integrated_shadows.y =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+	svgf_push_constants.integrated_ambient_occlusion.x =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
+	svgf_push_constants.integrated_ambient_occlusion.y =
+		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
+			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
 
 	render_graph.AddComputePass("SVGF Denoise Pass",
 		{
 			VkUtils::CreateTransientStorageImage("Reprojected UV and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			VkUtils::CreateTransientStorageImage("View Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
-			VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
-			VkUtils::CreateTransientStorageImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 3)
+			VkUtils::CreateTransientStorageImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientStorageImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
+			VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 3),
+			VkUtils::CreateTransientStorageImage("Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 4),
 		},
 		{
-			VkUtils::CreateTransientStorageImage("Denoised Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4),
+			VkUtils::CreateTransientStorageImage("Denoised Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 5),
+			VkUtils::CreateTransientStorageImage("Denoised Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 6),
 		},
 		ComputePipelineDescription {
 			.kernels = {
@@ -209,6 +228,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 				// Swap pingpong
 				std::swap(svgf_push_constants.integrated_shadows.x, svgf_push_constants.integrated_shadows.y);
+				std::swap(svgf_push_constants.integrated_ambient_occlusion.x, svgf_push_constants.integrated_ambient_occlusion.y);
 			}
 
 			execution_context.Dispatch("hybrid_render_path/svgf_final_copy.comp",
@@ -219,18 +239,22 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 			// Swap to prepare for next frame
 			std::swap(svgf_push_constants.integrated_shadows.x, svgf_push_constants.integrated_shadows.y);
+			std::swap(svgf_push_constants.integrated_ambient_occlusion.x, svgf_push_constants.integrated_ambient_occlusion.y);
 		}
 	);
 
 	render_graph.AddGraphicsPass("Composition Pass",
 		{
 			VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			VkUtils::CreateTransientSampledImage("View Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientSampledImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
 			VkUtils::CreateTransientSampledImage("Shadow Map", 4096, 4096, VK_FORMAT_D32_SFLOAT, 3),
 			denoise_shadows ?
 				VkUtils::CreateTransientSampledImage("Denoised Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4) :
-				VkUtils::CreateTransientSampledImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4)
+				VkUtils::CreateTransientSampledImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4),
+			denoise_ambient_occlusion ?
+				VkUtils::CreateTransientSampledImage("Denoised Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 5) :
+				VkUtils::CreateTransientSampledImage("Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 5)
 		},
 		{
 			VkUtils::CreateTransientRenderOutput(0),
@@ -248,7 +272,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				.push_constants = PUSHCONSTANTS_NONE,
 				.specialization_constants_description = SpecializationConstantsDescription {
 					.shader_stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-					.specialization_constants = { shadow_mode }
+					.specialization_constants = { shadow_mode, ambient_occlusion_mode }
 				}
 			}
 		},
@@ -265,19 +289,29 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 void HybridRenderPath::ImGuiDrawSettings() {
 	int old_shadow_mode = shadow_mode;
+	int old_ambient_occlusion_mode = ambient_occlusion_mode;
 	bool old_denoise_shadows = denoise_shadows;
+	bool old_denoise_ambient_occlusion = denoise_ambient_occlusion;
 
 	ImGui::Text("Shadow Mode:");
 	ImGui::RadioButton("Raytraced Shadows", &shadow_mode, SHADOW_MODE_RAYTRACED);
+	ImGui::SameLine(); 	ImGui::Checkbox("Denoise Shadows", &denoise_shadows);
 	ImGui::RadioButton("Rasterized Shadows", &shadow_mode, SHADOW_MODE_RASTERIZED);
 	ImGui::RadioButton("No Shadows", &shadow_mode, SHADOW_MODE_OFF);
 	ImGui::NewLine();
+	ImGui::NewLine();
 
-	ImGui::Checkbox("Denoise Shadows", &denoise_shadows);
+	ImGui::Text("Ambient Occlusion Mode:");
+	ImGui::RadioButton("Raytraced Ambient Occlusion", &ambient_occlusion_mode, SHADOW_MODE_RAYTRACED);
+	ImGui::SameLine(); 	ImGui::Checkbox("Denoise Ambient Occlusion", &denoise_ambient_occlusion);
+	ImGui::RadioButton("Screen-Space Ambient Occlusion", &ambient_occlusion_mode, SHADOW_MODE_RASTERIZED);
+	ImGui::RadioButton("No Ambient Occlusion", &ambient_occlusion_mode, SHADOW_MODE_OFF);
 	ImGui::NewLine();
 
 	if(old_shadow_mode != shadow_mode || 
-	   old_denoise_shadows != denoise_shadows) {
+	   old_ambient_occlusion_mode != ambient_occlusion_mode ||
+	   old_denoise_shadows != denoise_shadows ||
+	   old_denoise_ambient_occlusion != denoise_ambient_occlusion) {
 		Build();
 	}
 }

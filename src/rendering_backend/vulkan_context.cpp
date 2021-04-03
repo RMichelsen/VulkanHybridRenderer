@@ -56,7 +56,7 @@ VulkanContext::VulkanContext(HINSTANCE hinstance, HWND hwnd) : hwnd(hwnd) {
 		.enabledExtensionCount = static_cast<uint32_t>(INSTANCE_EXTENSIONS.size()),
 		.ppEnabledExtensionNames = INSTANCE_EXTENSIONS.data()
 	};
-    VK_CHECK(vkCreateInstance(&instance_info, nullptr, &instance));
+	auto d = vkCreateInstance(&instance_info, nullptr, &instance);
 	volkLoadInstance(instance);
 
 #ifndef NDEBUG

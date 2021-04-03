@@ -12,6 +12,11 @@ const uint SHADOW_MODE_RAYTRACED = 0;
 const uint SHADOW_MODE_RASTERIZED = 1;
 const uint SHADOW_MODE_OFF = 2;
 
+const uint AMBIENT_OCCLUSION_MODE_SPEC_CONST_INDEX = 1;
+const uint AMBIENT_OCCLUSION_MODE_RAYTRACED = 0;
+const uint AMBIENT_OCCLUSION_MODE_SSAO = 1;
+const uint AMBIENT_OCCLUSION_MODE_OFF = 2;
+
 // Uniformly sample rays in a cone
 // http://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations.html#UniformSampleCone
 vec3 uniform_sample_cone(vec2 u, float cos_theta_max) {
@@ -19,6 +24,14 @@ vec3 uniform_sample_cone(vec2 u, float cos_theta_max) {
 	float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
 	float phi = u.y * 2.0 * PI;
 	return vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
+}
+
+// Uniformly sample rays on a cosine-weighted hemisphere
+vec3 uniform_sample_cosine_weighted_hemisphere(vec2 u) {
+	float x = sqrt(u.x) * cos(2 * PI * u.y);
+	float y = sqrt(u.x) * sin(2 * PI * u.y);
+	float z = sqrt(1 - u.x);
+	return vec3(x, y, z);
 }
 
 // Random Number Generation

@@ -6,34 +6,39 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 3, binding = 0, r16f) readonly uniform image2D reprojected_uv_and_depth_derivatives;
-layout(set = 3, binding = 1, r16f) readonly uniform image2D normal_texture;
-layout(set = 3, binding = 2, r16f) readonly uniform image2D raytraced_shadows;
-layout(set = 3, binding = 3, r16f) readonly uniform image2D position_texture;
-layout(set = 3, binding = 4, r16f) writeonly uniform image2D denoised_raytraced_shadows;
+layout(set = 3, binding = 1, r16f) readonly uniform image2D position_texture;
+layout(set = 3, binding = 2, r16f) readonly uniform image2D normal_texture;
+layout(set = 3, binding = 3, r16f) readonly uniform image2D raytraced_shadows;
+layout(set = 3, binding = 4, r16f) readonly uniform image2D raytraced_ambient_occlusion;
+layout(set = 3, binding = 5, r16f) writeonly uniform image2D denoised_raytraced_shadows;
+layout(set = 3, binding = 6, r16f) writeonly uniform image2D denoised_raytraced_ambient_occlusion;
 
 layout(push_constant) uniform PushConstants { SVGFPushConstants pc; };
 
-//float gauss_3x3_filter(ivec2 coords) {
-//	float gauss_weights[] = {
-//		1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0,
-//		1.0 / 8.0,  1.0 / 4.0, 1.0 / 8.0,
-//		1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0
-//	};
-//
-//	float filtered = 0.0;
-//	for(int y = -1; y <= 1; ++y) {
-//		for(int x = -1; x <= 1; ++x) {
-//			ivec2 sample_coords = coords + ivec2(x, y);
-//			if(sample_coords.x < 0 || sample_coords.y >= pfd.display_size.x ||
-//			   sample_coords.y < 0 || sample_coords.y >= pfd.display_size.y) continue;
-//
-//			float weight = gauss_weights[3 * (y + 1) + (x + 1)];
-//			filtered += weight * imageLoad(storage_images[pc.integrated_shadows[0]], sample_coords).a;
-//		}
-//	}
-//
-//	return filtered;
-//}
+// Returns vec2(shadow, AO)
+vec2 gauss_3x3_filter(ivec2 coords) {
+	float gauss_weights[] = {
+		1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0,
+		1.0 / 8.0,  1.0 / 4.0, 1.0 / 8.0,
+		1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0
+	};
+
+	float filtered_shadow = 0.0;
+	float filtered_ao = 0.0;
+	for(int y = -1; y <= 1; ++y) {
+		for(int x = -1; x <= 1; ++x) {
+			ivec2 sample_coords = coords + ivec2(x, y);
+			if(sample_coords.x < 0 || sample_coords.y >= pfd.display_size.x ||
+			   sample_coords.y < 0 || sample_coords.y >= pfd.display_size.y) continue;
+
+			float weight = gauss_weights[3 * (y + 1) + (x + 1)];
+			filtered_shadow += weight * imageLoad(storage_images[pc.integrated_shadows[0]], sample_coords).a;
+			filtered_ao += weight * imageLoad(storage_images[pc.integrated_ambient_occlusion[0]], sample_coords).a;
+		}
+	}
+
+	return vec2(filtered_shadow, filtered_ao);
+}
 
 float edge_stopping_object_id(int object_id_p, int object_id_q, ivec2 sample_coords) {
 	if(object_id_p == object_id_q) return 1.0;
@@ -50,12 +55,20 @@ float edge_stopping_normal(vec3 normal_p, vec3 normal_q) {
 	return max(0.0, pow(dot(normal_p, normal_q), 128.0));
 }
 
+float edge_stopping_luminance(float variance_p, float luminance_p, float luminance_q) {
+	float e = abs(luminance_p - luminance_q) / (4.0 * sqrt(variance_p) + 1e-6);
+	return exp(-e);
+}
+
 void main() {
 	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
 	vec4 normal_and_object_id_p = imageLoad(normal_texture, coords);
 	vec4 center_shadow = imageLoad(storage_images[pc.integrated_shadows[0]], coords);
-	float linear_z = imageLoad(position_texture, coords).w;
+	vec4 center_ao = imageLoad(storage_images[pc.integrated_ambient_occlusion[0]], coords);
+	float linear_z_p = imageLoad(position_texture, coords).w;
 	vec2 depth_derivatives = imageLoad(reprojected_uv_and_depth_derivatives, coords).zw;
+	vec2 variance_p = gauss_3x3_filter(coords);
+	vec2 luminance_p = vec2(rgb_to_luminance(center_shadow.rgb), rgb_to_luminance(center_ao.rgb));
 
 	float atrous_weights[] = {
 		1.0 / 256.0, 1.0 / 64.0, 3.0 / 128.0, 1.0 / 64.0, 1 / 256.0,
@@ -65,8 +78,9 @@ void main() {
 		1.0 / 256.0, 1.0 / 64.0, 3.0 / 128.0, 1.0 / 64.0, 1 / 256.0
 	};
 
-	float sum_w = 1.0;
+	vec2 sum_w = vec2(1.0, 1.0);
 	vec4 sum_shadow = center_shadow;
+	vec4 sum_ao = center_ao;
 	for(int y = -2; y <= 2; ++y) {
 		for(int x = -2; x <= 2; ++x) {
 			ivec2 sample_coords = coords + ivec2(x, y) * pc.atrous_step;
@@ -75,19 +89,24 @@ void main() {
 			   (x == 0 && y == 0)) continue;
 
 			vec4 shadow = imageLoad(storage_images[pc.integrated_shadows[0]], sample_coords);
+			vec4 ao = imageLoad(storage_images[pc.integrated_ambient_occlusion[0]], sample_coords);
 			float kernel = atrous_weights[5 * (y + 2) + (x + 2)];
 			vec4 normal_and_object_id_q = imageLoad(normal_texture, sample_coords); 
-			float w = 
+			vec2 w = vec2(
 				kernel * 
 				edge_stopping_object_id(int(normal_and_object_id_p.w), int(normal_and_object_id_q.w), sample_coords) *
-				edge_stopping_depth(coords, sample_coords, linear_z, depth_derivatives) *
-				edge_stopping_normal(normal_and_object_id_p.xyz, normal_and_object_id_q.xyz); 
-				
+				edge_stopping_luminance(variance_p.x, luminance_p.x, rgb_to_luminance(shadow.rgb)),
+				kernel * 
+				edge_stopping_object_id(int(normal_and_object_id_p.w), int(normal_and_object_id_q.w), sample_coords) *
+				edge_stopping_luminance(variance_p.y, luminance_p.y, rgb_to_luminance(ao.rgb))
+			);
 
 			sum_w += w;
-			sum_shadow += vec4(w.xxx, w) * shadow;
+			sum_shadow += vec4(w.xxx, w.x * w.x) * shadow;
+			sum_ao += vec4(w.yyy, w.y * w.y) * ao;
 		}
 	}
 
-	imageStore(storage_images[pc.integrated_shadows[1]], coords, vec4(sum_shadow / vec4(sum_w.xxx, sum_w * sum_w)));
+	imageStore(storage_images[pc.integrated_shadows[1]], coords, vec4(sum_shadow / vec4(sum_w.xxx, sum_w.x * sum_w.x)));
+	imageStore(storage_images[pc.integrated_ambient_occlusion[1]], coords, vec4(sum_ao / vec4(sum_w.yyy, sum_w.y * sum_w.y)));
 }

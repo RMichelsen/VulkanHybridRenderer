@@ -31,9 +31,9 @@ void main() {
 
 	while(rayQueryProceedEXT(ray_query)) {}
 
-	vec3 in_shadow = vec3(1.0, 1.0, 1.0);
+	vec3 in_shadow = vec3(1.0);
 	if(rayQueryGetIntersectionTypeEXT(ray_query, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
-		in_shadow = vec3(0.0, 0.0, 0.0);
+		in_shadow = vec3(0.0);
 	}
 
 	vec3 ambient_light = 0.2 * albedo;
