@@ -327,7 +327,7 @@ void VulkanContext::InitSwapchain() {
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		.surface = surface,
 		.minImageCount = desired_image_count,
-		.imageFormat = VK_FORMAT_B8G8R8A8_UNORM, // TODO: Hardcoded
+		.imageFormat = VK_FORMAT_B8G8R8A8_SRGB, // TODO: Hardcoded
 		.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, // TODO: Hardcoded
 		.imageExtent = extent,
 		.imageArrayLayers = 1,

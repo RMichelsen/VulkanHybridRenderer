@@ -15,7 +15,7 @@ layout(location = 1) out vec4 out_color;
 
 void main() {
     out_uv = in_uv;
-    out_color = in_color;
+    out_color = vec4(pow(abs(in_color.xyz), vec3(2.2)), in_color.w);
 	gl_Position = vec4(in_pos * pc.scale + pc.translate, 0.0, 1.0);
 }
 
