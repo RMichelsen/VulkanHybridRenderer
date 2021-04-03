@@ -51,6 +51,7 @@ void main() {
 	vec2 reprojected_uv = reprojuv_and_depth_derivatives.xy;
 	vec4 current_shadow = imageLoad(raytraced_shadows, coords);
 	vec4 current_ao = imageLoad(raytraced_ambient_occlusion, coords);
+	int sample_age = int(imageLoad(storage_images[pc.shadow_moments_history], coords).z);
 
 	// 2x2 bilinear tap filter
 	vec2 prev_coords = reprojected_uv * pfd.display_size - vec2(0.5, 0.5);
@@ -76,35 +77,59 @@ void main() {
 			sum += bilinear_weights[i];
 		}
 	}
+	bool reprojection_valid = sum > 1e-6;
+
+	// Retry with 3x3 filter if reprojection failed
+	if(!reprojection_valid) {
+		for(int y = -1; y <= 1; ++y) {
+			for(int x = -1; x <= 1; ++x) {
+				ivec2 sample_coords = prev_coords_aligned + ivec2(x, y);
+				if(is_valid_reprojection(sample_coords, current_obj_id, current_normal)) {
+					prev_shadow += imageLoad(storage_images[pc.shadow_history], sample_coords);
+					prev_shadow_moments += imageLoad(storage_images[pc.shadow_moments_history], sample_coords).xy;
+					prev_ao += imageLoad(storage_images[pc.ambient_occlusion_history], sample_coords);
+					prev_ao_moments += imageLoad(storage_images[pc.ambient_occlusion_moments_history], sample_coords).xy;
+					sum += 1.0;
+				}	
+			}
+		}
+		reprojection_valid = sum > 1e-6;
+	}
+
 	float shadow_luminance = rgb_to_luminance(current_shadow.rgb);
 	vec2 shadow_moments = vec2(shadow_luminance, shadow_luminance * shadow_luminance);
 	float ao_luminance = rgb_to_luminance(current_ao.rgb);
 	vec2 ao_moments = vec2(ao_luminance, ao_luminance * ao_luminance);
 
-	bool reprojection_valid = sum > 1e-6;
 	if(reprojection_valid) {
+		sample_age = min(32, sample_age + 1);
+		float alpha = max(0.2, 1.0 / float(sample_age) );
+
 		prev_shadow /= sum;
 		prev_shadow_moments /= sum;
 		prev_ao /= sum;
 		prev_ao_moments /= sum;
-		shadow_moments = mix(prev_shadow_moments, shadow_moments, 0.2);
-		ao_moments = mix(prev_ao_moments, ao_moments, 0.2);
+		shadow_moments = mix(prev_shadow_moments, shadow_moments, alpha);
+		ao_moments = mix(prev_ao_moments, ao_moments, alpha);
 
 		float shadow_variance = max(0.0, shadow_moments.y - shadow_moments.x * shadow_moments.x);
 		imageStore(
 			storage_images[pc.integrated_shadows[0]], 
 			coords,
-			vec4(mix(prev_shadow.rgb, current_shadow.rgb, 0.2), shadow_variance)
+			vec4(mix(prev_shadow.rgb, current_shadow.rgb, alpha), shadow_variance)
 		);
 
 		float ao_variance = max(0.0, ao_moments.y - ao_moments.x * ao_moments.x);
 		imageStore(
 			storage_images[pc.integrated_ambient_occlusion[0]], 
 			coords,
-			vec4(mix(prev_ao.rgb, current_ao.rgb, 0.2), ao_variance)
+			vec4(mix(prev_ao.rgb, current_ao.rgb, alpha), ao_variance)
 		);
+
 	}
 	else {
+		sample_age = 0;
+
 		float shadow_variance = max(0.0, shadow_moments.y - shadow_moments.x * shadow_moments.x);
 		imageStore(
 			storage_images[pc.integrated_shadows[0]], 
@@ -124,7 +149,7 @@ void main() {
 	imageStore(
 		storage_images[pc.shadow_moments_history], 
 		coords,
-		vec4(shadow_moments, 0.0, 0.0)
+		vec4(shadow_moments, sample_age, 0.0)
 	);
 	imageStore(
 		storage_images[pc.ambient_occlusion_moments_history], 

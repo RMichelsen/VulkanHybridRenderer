@@ -94,6 +94,8 @@ void main() {
 			vec4 normal_and_object_id_q = imageLoad(normal_texture, sample_coords); 
 
 			float weight_object_id = edge_stopping_object_id(int(normal_and_object_id_p.w), int(normal_and_object_id_q.w), sample_coords);
+//			float weight_normal = edge_stopping_normal(normal_and_object_id_p.xyz, normal_and_object_id_q.xyz);
+//			float weight_depth = edge_stopping_depth(coords, sample_coords, linear_z_p, depth_derivatives);
 
 			vec2 w = vec2(kernel * weight_object_id);
 			w.x *= edge_stopping_luminance(variance_p.x, luminance_p.x, rgb_to_luminance(shadow.rgb));

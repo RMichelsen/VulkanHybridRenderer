@@ -19,6 +19,7 @@ layout(location = 0) out vec4 out_color;
 void main() {
 	vec3 normal = texture(normal_texture, in_uv).rgb;
 	vec3 albedo = texture(albedo_texture, in_uv).rgb;
+	float ambient_factor = 0.3;
 
 	// Get light direction in view space
 	vec3 light_dir = -pfd.directional_light.direction.xyz;
@@ -41,7 +42,7 @@ void main() {
 		ao = texture(raytraced_ambient_occlusion_texture, in_uv).rgb; 
 	}
 
-	vec3 diffuse_lighting = albedo * ao + (max(dot(normal, light_dir), 0.0) * albedo * light_color * shadow);
+	vec3 diffuse_lighting = albedo * ambient_factor * ao + (max(dot(normal, light_dir), 0.0) * albedo * light_color * shadow);
 	out_color = vec4(diffuse_lighting, 1.0);
 }
 
