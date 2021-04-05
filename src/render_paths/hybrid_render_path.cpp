@@ -87,7 +87,13 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 	render_graph.AddGraphicsPass("G-Buffer Pass",
 		{},
 		{
-			VkUtils::CreateTransientAttachmentImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientAttachmentImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0,
+				VkClearValue {
+					.color = VkClearColorValue {
+						.float32 = { 0.0f, 0.0f, 0.0f, -1.0f }
+					}
+				}
+			),
 			VkUtils::CreateTransientAttachmentImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
 			VkUtils::CreateTransientAttachmentImage("Reprojected UV and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 3,
@@ -95,7 +101,8 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 					.color = VkClearColorValue {
 						.float32 = { 0.0f, 0.0f, -1.0f, 1.0f }
 					}
-			}),
+				}
+			),
 			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 4),
 		},
 		{
@@ -208,7 +215,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 			);
 
 			int atrous_steps = 5;
-			for(int i = 1; i <= atrous_steps; ++i) {
+			for(int i = 0; i < atrous_steps; ++i) {
 				svgf_push_constants.atrous_step = 1 << i;
 				execution_context.PushConstants("hybrid_render_path/svgf_atrous_filter.comp", svgf_push_constants);
 				execution_context.Dispatch("hybrid_render_path/svgf_atrous_filter.comp",
@@ -218,7 +225,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				);
 
 				// Copy integrated shadows
-				if(i == 1) {
+				if(i == 0) {
 					execution_context.Dispatch("hybrid_render_path/svgf_copy_filtered_shadow.comp",
 						display_size.x / 8 + (display_size.x % 8 != 0),
 						display_size.y / 8 + (display_size.y % 8 != 0),

@@ -15,10 +15,15 @@ void main() {
 	vec2 uv = pixel_center / vec2(gl_LaunchSizeEXT.xy);
 
 	vec4 origin = texture(position_texture, uv);
+	if(origin.w == -1) {
+		imageStore(raytraced_shadows, ivec2(gl_LaunchIDEXT.xy), vec4(1.0));
+		imageStore(raytraced_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), vec4(1.0));
+		return;
+	}
+
 	vec4 light_direction = -pfd.directional_light.direction;
 
-	uint rng_state = seed_thread((gl_LaunchIDEXT.y * gl_LaunchSizeEXT.y + gl_LaunchIDEXT.x) * pfd.frame_index * 386010683 * 936272639);
-
+	uint rng_state = seed_thread((gl_LaunchIDEXT.y * gl_LaunchSizeEXT.y + gl_LaunchIDEXT.x) * pfd.frame_index);
 	float rnd1 = random01(rng_state);
 	float rnd2 = random01(rng_state);
 	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.99995));
@@ -37,7 +42,7 @@ void main() {
 
 	payload = vec4(0.0, 0.0, 0.0, 0.0);
 	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
-		0xFF, 0, 0, 0, origin.xyz, 0.01, R * rnd_dir, 2.0, 0);
+		0xFF, 0, 0, 0, origin.xyz, 0.1, R * rnd_dir, 10000.0, 0);
 	imageStore(raytraced_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), payload);
 }
 

@@ -103,14 +103,15 @@ void main() {
 
 	if(reprojection_valid) {
 		sample_age = min(32, sample_age + 1);
-		float alpha = max(0.2, 1.0 / float(sample_age) );
+		float alpha = max(0.1, 1.0 / float(sample_age));
+		float moments_alpha = max(0.2, 1.0 / float(sample_age));
 
 		prev_shadow /= sum;
 		prev_shadow_moments /= sum;
 		prev_ao /= sum;
 		prev_ao_moments /= sum;
-		shadow_moments = mix(prev_shadow_moments, shadow_moments, alpha);
-		ao_moments = mix(prev_ao_moments, ao_moments, alpha);
+		shadow_moments = mix(prev_shadow_moments, shadow_moments, moments_alpha);
+		ao_moments = mix(prev_ao_moments, ao_moments, moments_alpha);
 
 		float shadow_variance = max(0.0, shadow_moments.y - shadow_moments.x * shadow_moments.x);
 		imageStore(
