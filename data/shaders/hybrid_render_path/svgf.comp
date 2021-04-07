@@ -5,7 +5,7 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(set = 3, binding = 0, r16f) readonly uniform image2D reprojected_uv_and_depth_derivatives;
+layout(set = 3, binding = 0, r16f) readonly uniform image2D motion_vectors_and_depth_derivatives;
 layout(set = 3, binding = 1, r16f) readonly uniform image2D position_texture;
 layout(set = 3, binding = 2, r16f) readonly uniform image2D normal_texture;
 layout(set = 3, binding = 3, r16f) readonly uniform image2D raytraced_shadows;
@@ -47,14 +47,14 @@ void main() {
 	vec4 current_normal_and_obj_id = imageLoad(normal_texture, coords);
 	vec3 current_normal = current_normal_and_obj_id.xyz;
 	int current_obj_id = int(current_normal_and_obj_id.w);
-	vec4 reprojuv_and_depth_derivatives = imageLoad(reprojected_uv_and_depth_derivatives, coords);
-	vec2 reprojected_uv = reprojuv_and_depth_derivatives.xy;
+	vec4 motion_vector_and_depth_derivatives = imageLoad(motion_vectors_and_depth_derivatives, coords);
+	vec2 motion_vector = motion_vector_and_depth_derivatives.xy;
 	vec4 current_shadow = imageLoad(raytraced_shadows, coords);
 	vec4 current_ao = imageLoad(raytraced_ambient_occlusion, coords);
 	int sample_age = int(imageLoad(storage_images[pc.shadow_moments_history], coords).z);
 
 	// 2x2 bilinear tap filter
-	vec2 prev_coords = reprojected_uv * pfd.display_size - vec2(0.5, 0.5);
+	vec2 prev_coords = coords - motion_vector * pfd.display_size + vec2(0.5);
 	float x = fract(prev_coords.x);
 	float y = fract(prev_coords.y);
 	ivec2 prev_coords_aligned = ivec2(prev_coords);
@@ -103,8 +103,8 @@ void main() {
 
 	if(reprojection_valid) {
 		sample_age = min(32, sample_age + 1);
-		float alpha = max(0.1, 1.0 / float(sample_age));
-		float moments_alpha = max(0.2, 1.0 / float(sample_age));
+		float alpha = max(0.05, 1.0 / float(sample_age));
+		float moments_alpha = max(0.1, 1.0 / float(sample_age));
 
 		prev_shadow /= sum;
 		prev_shadow_moments /= sum;

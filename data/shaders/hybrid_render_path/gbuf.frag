@@ -5,8 +5,8 @@
 
 layout(push_constant) uniform PushConstants { HybridPushConstants pc; };
 
-layout(location = 0) in vec3 in_world_space_pos;
-layout(location = 1) in vec3 in_clip_space_pos;
+layout(location = 0) in vec4 in_world_space_pos;
+layout(location = 1) in vec4 in_clip_space_pos;
 layout(location = 2) in vec3 in_normal;
 layout(location = 3) in vec4 in_tangent;
 layout(location = 4) in vec2 in_uv;
@@ -15,7 +15,7 @@ layout(location = 5) in vec4 in_reprojected_pos;
 layout(location = 0) out vec4 out_pos;
 layout(location = 1) out vec4 out_normal;
 layout(location = 2) out vec4 out_albedo;
-layout(location = 3) out vec4 out_reprojected_uv_and_depth_derivatives;
+layout(location = 3) out vec4 out_motion_vectors_and_depth_derivatives;
 
 void main() {
 	Primitive primitive = primitives[pc.object_id];
@@ -32,7 +32,7 @@ void main() {
 	}
 
 	// Linear Z 
-	out_pos = vec4(in_world_space_pos, in_clip_space_pos.z);
+	out_pos = vec4(in_world_space_pos.xyz, in_clip_space_pos.z);
 	vec3 N = in_normal;
 	if(primitive.material.normal_map >= 0) {
 		vec3 tangent_space_normal = normalize(texture(textures[primitive.material.normal_map], in_uv).xyz * 2.0 - 1.0);
@@ -43,7 +43,10 @@ void main() {
 	out_normal = vec4(normalize(mat3(pc.normal_matrix) * N), pc.object_id);
 	out_albedo = albedo;
 
-	vec2 reprojected_uv = 0.5 * (in_reprojected_pos.xy / in_reprojected_pos.w) + 0.5;
-	out_reprojected_uv_and_depth_derivatives = vec4(reprojected_uv, dFdxCoarse(in_clip_space_pos.z), dFdyCoarse(in_clip_space_pos.z));
+	// Motion vector
+	vec2 current_ndc_pos = gl_FragCoord.xy * pfd.inv_display_size;
+	vec4 prev_clipspace_pos = pfd.camera_proj_prev_frame * pfd.camera_view_prev_frame * in_clip_space_pos;
+	vec2 prev_ndc_pos = (in_reprojected_pos.xy / in_reprojected_pos.w) * 0.5 + 0.5;
+	out_motion_vectors_and_depth_derivatives = vec4(current_ndc_pos - prev_ndc_pos, dFdxCoarse(in_clip_space_pos.z), dFdyCoarse(in_clip_space_pos.z));
 }
 

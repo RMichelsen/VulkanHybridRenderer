@@ -5,7 +5,7 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(set = 3, binding = 0, r16f) readonly uniform image2D reprojected_uv_and_depth_derivatives;
+layout(set = 3, binding = 0, r16f) readonly uniform image2D motion_vectors_and_depth_derivatives;
 layout(set = 3, binding = 1, r16f) readonly uniform image2D position_texture;
 layout(set = 3, binding = 2, r16f) readonly uniform image2D normal_texture;
 layout(set = 3, binding = 3, r16f) readonly uniform image2D raytraced_shadows;
@@ -66,7 +66,7 @@ void main() {
 	vec4 normal_and_object_id_p = imageLoad(normal_texture, coords);
 	vec4 center_shadow = imageLoad(storage_images[pc.integrated_shadows[0]], coords);
 	vec4 center_ao = imageLoad(storage_images[pc.integrated_ambient_occlusion[0]], coords);
-	vec2 depth_derivatives = imageLoad(reprojected_uv_and_depth_derivatives, coords).zw;
+	vec2 depth_derivatives = imageLoad(motion_vectors_and_depth_derivatives, coords).zw;
 	vec2 variance_p = gauss_3x3_filter(coords);
 	vec2 luminance_p = vec2(rgb_to_luminance(center_shadow.rgb), rgb_to_luminance(center_ao.rgb));
 
@@ -95,10 +95,10 @@ void main() {
 			vec4 normal_and_object_id_q = imageLoad(normal_texture, sample_coords); 
 
 			float weight_object_id = edge_stopping_object_id(int(normal_and_object_id_p.w), int(normal_and_object_id_q.w), sample_coords);
-//			float weight_normal = edge_stopping_normal(normal_and_object_id_p.xyz, normal_and_object_id_q.xyz);
-//			float weight_depth = edge_stopping_depth(coords, sample_coords, linear_z_p, depth_derivatives);
+			float weight_normal = edge_stopping_normal(normal_and_object_id_p.xyz, normal_and_object_id_q.xyz);
+			float weight_depth = edge_stopping_depth(coords, sample_coords, linear_z_p, depth_derivatives);
 
-			vec2 w = vec2(kernel * weight_object_id);
+			vec2 w = vec2(kernel * weight_object_id * weight_normal * weight_depth);
 			w.x *= edge_stopping_luminance(variance_p.x, luminance_p.x, rgb_to_luminance(shadow.rgb));
 			w.y *= edge_stopping_luminance(variance_p.y, luminance_p.y, rgb_to_luminance(ao.rgb));
 

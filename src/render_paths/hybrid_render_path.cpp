@@ -96,7 +96,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 			),
 			VkUtils::CreateTransientAttachmentImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
-			VkUtils::CreateTransientAttachmentImage("Reprojected UV and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 3,
+			VkUtils::CreateTransientAttachmentImage("Motion Vectors and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 3,
 				VkClearValue {
 					.color = VkClearColorValue {
 						.float32 = { 0.0f, 0.0f, -1.0f, 1.0f }
@@ -173,7 +173,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 	render_graph.AddComputePass("SVGF Denoise Pass",
 		{
-			VkUtils::CreateTransientStorageImage("Reprojected UV and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientStorageImage("Motion Vectors and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
 			VkUtils::CreateTransientStorageImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientStorageImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
 			VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 3),
@@ -189,14 +189,8 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 					.shader = "hybrid_render_path/svgf.comp"
 				},
 				ComputeKernel {
-					.shader = "hybrid_render_path/svgf_final_copy.comp"
-				},
-				ComputeKernel {
 					.shader = "hybrid_render_path/svgf_atrous_filter.comp"
 				},
-				ComputeKernel {
-					.shader = "hybrid_render_path/svgf_copy_filtered_shadow.comp"
-				}
 			},
 			.push_constant_description = PushConstantDescription {
 				.size = sizeof(SVGFPushConstants),
