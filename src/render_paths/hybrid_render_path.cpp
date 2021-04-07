@@ -226,11 +226,8 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 				// Copy integrated shadows
 				if(i == 0) {
-					execution_context.Dispatch("hybrid_render_path/svgf_copy_filtered_shadow.comp",
-						display_size.x / 8 + (display_size.x % 8 != 0),
-						display_size.y / 8 + (display_size.y % 8 != 0),
-						1
-					);
+					execution_context.BlitImageStorageToStorage(svgf_push_constants.integrated_shadows.y, svgf_push_constants.shadow_history);
+					execution_context.BlitImageStorageToStorage(svgf_push_constants.integrated_ambient_occlusion.y, svgf_push_constants.ambient_occlusion_history);
 				}
 
 				// Swap pingpong
@@ -238,11 +235,9 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				std::swap(svgf_push_constants.integrated_ambient_occlusion.x, svgf_push_constants.integrated_ambient_occlusion.y);
 			}
 
-			execution_context.Dispatch("hybrid_render_path/svgf_final_copy.comp",
-				display_size.x / 8 + (display_size.x % 8 != 0),
-				display_size.y / 8 + (display_size.y % 8 != 0),
-				1
-			);
+			execution_context.BlitImageTransientToStorage("World Space Normals", svgf_push_constants.prev_frame_normals_and_object_id);
+			execution_context.BlitImageStorageToTransient(svgf_push_constants.integrated_shadows.y, "Denoised Raytraced Shadows");
+			execution_context.BlitImageStorageToTransient(svgf_push_constants.integrated_ambient_occlusion.y, "Denoised Raytraced Ambient Occlusion");
 
 			// Swap to prepare for next frame
 			std::swap(svgf_push_constants.integrated_shadows.x, svgf_push_constants.integrated_shadows.y);

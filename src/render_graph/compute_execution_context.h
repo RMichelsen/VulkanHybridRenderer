@@ -16,6 +16,9 @@ public:
 
 	glm::uvec2 GetDisplaySize();
 	void Dispatch(const char *entry, uint32_t x_groups, uint32_t y_groups, uint32_t z_groups);
+	void BlitImageStorageToTransient(int src, const char *dst);
+	void BlitImageTransientToStorage(const char *src, int dst);
+	void BlitImageStorageToStorage(int src, int dst);
 
 	template<typename T>
 	void PushConstants(const char *entry, T &push_constants) {
@@ -27,6 +30,8 @@ public:
 	}
 
 private:
+	void BlitImage(Image src, Image dst);
+
 	VkCommandBuffer command_buffer;
 	RenderPass &render_pass;
 	RenderGraph &render_graph;

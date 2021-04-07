@@ -348,10 +348,15 @@ uint32_t ResourceManager::UploadEmptyTexture(uint32_t width, uint32_t height, Vk
 
 // TODO: Fix duplicate code here...
 uint32_t ResourceManager::UploadNewStorageImage(uint32_t width, uint32_t height, VkFormat format) {
-	Image storage_image;
+	Image storage_image {
+		.width = width,
+		.height = height,
+		.format = format,
+		.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT
+	};
 
 	VkImageCreateInfo image_info = VkUtils::ImageCreateInfo2D(width, height,
-		format, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+		format, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 	VmaAllocationCreateInfo image_alloc_info {
 		.usage = VMA_MEMORY_USAGE_GPU_ONLY
 	};

@@ -189,8 +189,6 @@
     <GLSLShader Include="data\shaders\hybrid_render_path\gbuf.frag" />
     <GLSLShader Include="data\shaders\hybrid_render_path\gbuf.vert" />
     <GLSLShader Include="data\shaders\hybrid_render_path\svgf_atrous_filter.comp" />
-    <GLSLShader Include="data\shaders\hybrid_render_path\svgf_copy_filtered_shadow.comp" />
-    <GLSLShader Include="data\shaders\hybrid_render_path\svgf_final_copy.comp" />
     <GLSLShader Include="data\shaders\hybrid_render_path\miss.rmiss" />
     <GLSLShader Include="data\shaders\hybrid_render_path\raygen.rgen" />
     <GLSLShader Include="data\shaders\imgui\imgui.frag">
