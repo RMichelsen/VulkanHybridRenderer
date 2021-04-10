@@ -13,11 +13,18 @@ layout(location = 3) in vec2 in_uv;
 layout(location = 0) out vec4 out_color;
 
 void main() {
-	vec3 albedo = texture(textures[primitives[pc.object_id].material.base_color_texture], in_uv).rgb;
+	Primitive primitive = primitives[pc.object_id];
+	vec3 albedo;
+	if(primitive.material.base_color_texture == -1) {
+		albedo = primitive.material.base_color.rgb;
+	}
+	else {
+		albedo = texture(textures[primitive.material.base_color_texture], in_uv).rgb;
+	}
 
 	vec3 N = in_normal;
-	if(primitives[pc.object_id].material.normal_map >= 0) {
-		vec3 tangent_space_normal = normalize(texture(textures[primitives[pc.object_id].material.normal_map], in_uv).xyz * 2.0 - 1.0);
+	if(primitive.material.normal_map >= 0) {
+		vec3 tangent_space_normal = normalize(texture(textures[primitive.material.normal_map], in_uv).xyz * 2.0 - 1.0);
 		vec3 bitangent = cross(tangent_space_normal, in_tangent.xyz) * in_tangent.w;
 		vec3 tangent = normalize(in_tangent.xyz - in_normal * dot(in_tangent.xyz, in_normal));
 		N = tangent * tangent_space_normal.x + bitangent * tangent_space_normal.y + in_normal * tangent_space_normal.z;

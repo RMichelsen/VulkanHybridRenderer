@@ -19,6 +19,11 @@ const uint AMBIENT_OCCLUSION_MODE_RAYTRACED = 0;
 const uint AMBIENT_OCCLUSION_MODE_SSAO = 1;
 const uint AMBIENT_OCCLUSION_MODE_OFF = 2;
 
+const uint REFLECTION_MODE_SPEC_CONST_INDEX = 2;
+const uint REFLECTION_MODE_RAYTRACED = 0;
+const uint REFLECTION_MODE_SSR = 1;
+const uint REFLECTION_MODE_OFF = 2;
+
 // Uniformly sample rays in a cone
 // http://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations.html#UniformSampleCone
 vec3 uniform_sample_cone(vec2 u, float cos_theta_max) {
@@ -85,6 +90,21 @@ mat3x3 onb_from_unit_vector(vec3 n) {
 	M[0] = vec3(1.0 - n.x * n.x * a, b, -n.x);
 	M[1] = vec3(b, 1.0 - n.y * n.y * a, -n.y);
 	return M;
+}
+
+// A survey of efficient representations for independent unit vectors [JCGT]
+// Fast octahedral encoding 
+vec2 sign_not_zero(vec2 v) {
+	return vec2((v.x >= 0.0) ? 1.0 : -1.0, (v.y >= 0.0) ? 1.0 : -1.0);
+}
+vec2 vec3_encode_to_oct(vec3 v) {
+	vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + abs(v.z)));
+	return (v.z <= 0.0) ? ((1.0 - abs(p.yx)) * sign_not_zero(p)) : p;
+}
+vec3 oct_decode_to_vec3(vec2 e) {
+	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
+	if(v.z < 0) v.xy = (1.0 - abs(v.yx)) * sign_not_zero(v.xy);
+	return normalize(v);
 }
 
 // Convert RGB to Luminance

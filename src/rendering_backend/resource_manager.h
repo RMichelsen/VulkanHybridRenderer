@@ -1,6 +1,6 @@
 #pragma once
 
-inline constexpr uint32_t MAX_GLOBAL_RESOURCES = 1024;
+inline constexpr uint32_t MAX_GLOBAL_RESOURCES = 2048;
 
 class VulkanContext;
 class ResourceManager {

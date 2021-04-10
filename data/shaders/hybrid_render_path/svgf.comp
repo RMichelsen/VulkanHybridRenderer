@@ -25,19 +25,17 @@ bool is_valid_reprojection(ivec2 prev_coords, int current_object_id, vec3 curren
 	vec4 prev_normal_and_obj_id = imageLoad(storage_images[pc.prev_frame_normals_and_object_id], prev_coords);
 
 	// Reject if object ID has changed
-	int prev_object_id = int(prev_normal_and_obj_id.w);
+	int prev_object_id = int(prev_normal_and_obj_id.z);
 	if(current_object_id == -1.0 || current_object_id != prev_object_id) {
 		return false;
 	}
 
 	// Reject if normals aren't aligned
 	// Merge metric from [Kerzner and Salvi 2014]
-	vec3 prev_normal = prev_normal_and_obj_id.xyz;
+	vec3 prev_normal = oct_decode_to_vec3(prev_normal_and_obj_id.xy);
 	if(dot(current_normal, prev_normal) < COS_PI_4) {
 		return false;
 	}
-
-	// Reject if depths 
 
 	return true;
 }
@@ -45,8 +43,8 @@ bool is_valid_reprojection(ivec2 prev_coords, int current_object_id, vec3 curren
 void main() {
 	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
 	vec4 current_normal_and_obj_id = imageLoad(normal_texture, coords);
-	vec3 current_normal = current_normal_and_obj_id.xyz;
-	int current_obj_id = int(current_normal_and_obj_id.w);
+	vec3 current_normal = oct_decode_to_vec3(current_normal_and_obj_id.xy);
+	int current_obj_id = int(current_normal_and_obj_id.z);
 	vec4 motion_vector_and_depth_derivatives = imageLoad(motion_vectors_and_depth_derivatives, coords);
 	vec2 motion_vector = motion_vector_and_depth_derivatives.xy;
 	vec4 current_shadow = imageLoad(raytraced_shadows, coords);
@@ -103,8 +101,8 @@ void main() {
 
 	if(reprojection_valid) {
 		sample_age = min(32, sample_age + 1);
-		float alpha = max(0.05, 1.0 / float(sample_age));
-		float moments_alpha = max(0.1, 1.0 / float(sample_age));
+		float alpha = max(0.2, 1.0 / float(sample_age));
+		float moments_alpha = max(0.2, 1.0 / float(sample_age));
 
 		prev_shadow /= sum;
 		prev_shadow_moments /= sum;

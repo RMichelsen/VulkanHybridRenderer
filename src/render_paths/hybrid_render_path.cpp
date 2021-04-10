@@ -61,15 +61,21 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 			},
 			{
 				VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
-				VkUtils::CreateTransientStorageImage("Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 3)
+				VkUtils::CreateTransientStorageImage("Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 3),
+				VkUtils::CreateTransientStorageImage("Raytraced Reflections", VK_FORMAT_R16G16B16A16_SFLOAT, 4)
 			},
 			RaytracingPipelineDescription {
 				.name = "Raytrace Pipeline",
 				.raygen_shader = "hybrid_render_path/raygen.rgen",
 				.miss_shaders = {
-					"hybrid_render_path/miss.rmiss"
+					"hybrid_render_path/miss.rmiss",
+					"hybrid_render_path/reflection_miss.rmiss",
 				},
-				.hit_shaders = {}
+				.hit_shaders = {
+					HitShader {
+						.closest_hit = "hybrid_render_path/reflection_hit.rchit"
+					}
+				}
 			},
 			[&](ExecuteRaytracingCallback execute_pipeline) {
 				execute_pipeline("Raytrace Pipeline",
@@ -96,7 +102,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 			),
 			VkUtils::CreateTransientAttachmentImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
-			VkUtils::CreateTransientAttachmentImage("Motion Vectors and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 3,
+			VkUtils::CreateTransientAttachmentImage("Motion Vectors and Fragment Depth", VK_FORMAT_R16G16B16A16_SFLOAT, 3,
 				VkClearValue {
 					.color = VkClearColorValue {
 						.float32 = { 0.0f, 0.0f, -1.0f, 1.0f }
@@ -173,7 +179,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 	render_graph.AddComputePass("SVGF Denoise Pass",
 		{
-			VkUtils::CreateTransientStorageImage("Motion Vectors and Depth Derivatives", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientStorageImage("Motion Vectors and Fragment Depth", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
 			VkUtils::CreateTransientStorageImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientStorageImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
 			VkUtils::CreateTransientStorageImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 3),
@@ -250,7 +256,8 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				VkUtils::CreateTransientSampledImage("Raytraced Shadows", VK_FORMAT_R16G16B16A16_SFLOAT, 4),
 			denoise_ambient_occlusion ?
 				VkUtils::CreateTransientSampledImage("Denoised Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 5) :
-				VkUtils::CreateTransientSampledImage("Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 5)
+				VkUtils::CreateTransientSampledImage("Raytraced Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 5),
+			VkUtils::CreateTransientSampledImage("Raytraced Reflections", VK_FORMAT_R16G16B16A16_SFLOAT, 6)
 		},
 		{
 			VkUtils::CreateTransientRenderOutput(0),
@@ -286,8 +293,10 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 void HybridRenderPath::ImGuiDrawSettings() {
 	int old_shadow_mode = shadow_mode;
 	int old_ambient_occlusion_mode = ambient_occlusion_mode;
+	int old_reflection_mode = reflection_mode;
 	bool old_denoise_shadows = denoise_shadows;
 	bool old_denoise_ambient_occlusion = denoise_ambient_occlusion;
+	bool old_denoise_reflections = denoise_reflections;
 
 	ImGui::Text("Shadow Mode:");
 	ImGui::RadioButton("Raytraced Shadows", &shadow_mode, SHADOW_MODE_RAYTRACED);
@@ -304,10 +313,19 @@ void HybridRenderPath::ImGuiDrawSettings() {
 	ImGui::RadioButton("No Ambient Occlusion", &ambient_occlusion_mode, SHADOW_MODE_OFF);
 	ImGui::NewLine();
 
+	ImGui::Text("Reflection Mode:");
+	ImGui::RadioButton("Raytraced Reflections", &reflection_mode, REFLECTION_MODE_RAYTRACED);
+	ImGui::SameLine(); 	ImGui::Checkbox("Denoise Reflections", &denoise_reflections);
+	ImGui::RadioButton("Screen-Space Reflections", &reflection_mode, REFLECTION_MODE_SSR);
+	ImGui::RadioButton("No Reflections", &reflection_mode, REFLECTION_MODE_OFF);
+	ImGui::NewLine();
+
 	if(old_shadow_mode != shadow_mode || 
 	   old_ambient_occlusion_mode != ambient_occlusion_mode ||
+	   old_reflection_mode != reflection_mode ||
 	   old_denoise_shadows != denoise_shadows ||
-	   old_denoise_ambient_occlusion != denoise_ambient_occlusion) {
+	   old_denoise_ambient_occlusion != denoise_ambient_occlusion ||
+	   old_denoise_reflections != denoise_reflections) {
 		Build();
 	}
 }

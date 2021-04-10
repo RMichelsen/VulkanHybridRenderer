@@ -203,10 +203,8 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		if(metallic_roughness.texture) {
 			material.metallic_roughness_texture = textures[metallic_roughness.texture->image->name];
 		}
-		else {
-			material.metallic_factor = primitive->material->pbr_metallic_roughness.metallic_factor;
-			material.roughness_factor = primitive->material->pbr_metallic_roughness.roughness_factor;
-		}
+		material.metallic_factor = primitive->material->pbr_metallic_roughness.metallic_factor;
+		material.roughness_factor = primitive->material->pbr_metallic_roughness.roughness_factor;
 
 		if(primitive->material->normal_texture.texture) {
 			material.normal_map = textures[primitive->material->normal_texture.texture->image->name];
@@ -243,30 +241,38 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 
 	// Collect all textures from model, and associate the correct format to them.
 	// This is instead of doing the SRGB to linear conversion in the shaders.
+	// TODO: Ugly, maybe use one map, one set.
 	std::vector<std::pair<cgltf_texture *, VkFormat>> textures_to_upload;
+	std::unordered_set<cgltf_texture *> texture_set;
 	for(int i = 0; i < data->meshes_count; ++i) {
 		for(int j = 0; j < data->meshes[i].primitives_count; ++j) {
 			if(data->meshes[i].primitives[j].material->has_pbr_metallic_roughness) {
 				cgltf_pbr_metallic_roughness *metallic_roughness = &data->meshes[i].primitives[j].material->pbr_metallic_roughness;
-				if(metallic_roughness->base_color_texture.texture) {
+				if(metallic_roughness->base_color_texture.texture && 
+					!texture_set.contains(metallic_roughness->base_color_texture.texture)) {
 					textures_to_upload.emplace_back(std::make_pair(
 						metallic_roughness->base_color_texture.texture,
 						VK_FORMAT_R8G8B8A8_SRGB
 					));
+					texture_set.insert(metallic_roughness->base_color_texture.texture);
 				}
-				if(metallic_roughness->metallic_roughness_texture.texture) {
+				if(metallic_roughness->metallic_roughness_texture.texture &&
+					!texture_set.contains(metallic_roughness->metallic_roughness_texture.texture)) {
 					textures_to_upload.emplace_back(std::make_pair(
 						metallic_roughness->metallic_roughness_texture.texture,
-						VK_FORMAT_R8G8B8A8_SRGB
+						VK_FORMAT_R8G8B8A8_UNORM
 					));
+					texture_set.insert(metallic_roughness->metallic_roughness_texture.texture);
 				}
 			}
 
-			if(data->meshes[i].primitives[j].material->normal_texture.texture) {
+			if(data->meshes[i].primitives[j].material->normal_texture.texture &&
+				!texture_set.contains(data->meshes[i].primitives[j].material->normal_texture.texture)) {
 				textures_to_upload.emplace_back(std::make_pair(
 					data->meshes[i].primitives[j].material->normal_texture.texture,
 					VK_FORMAT_R8G8B8A8_UNORM
 				));
+				texture_set.insert(data->meshes[i].primitives[j].material->normal_texture.texture);
 			}
 		}
 	}
