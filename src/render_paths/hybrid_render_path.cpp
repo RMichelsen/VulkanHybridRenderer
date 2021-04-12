@@ -275,7 +275,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				.push_constants = PUSHCONSTANTS_NONE,
 				.specialization_constants_description = SpecializationConstantsDescription {
 					.shader_stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-					.specialization_constants = { shadow_mode, ambient_occlusion_mode }
+					.specialization_constants = { shadow_mode, ambient_occlusion_mode, reflection_mode }
 				}
 			}
 		},

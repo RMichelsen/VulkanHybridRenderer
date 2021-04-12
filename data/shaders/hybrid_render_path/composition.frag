@@ -5,6 +5,7 @@
 
 layout(constant_id = SHADOW_MODE_SPEC_CONST_INDEX) const int shadow_mode = 0;
 layout(constant_id = AMBIENT_OCCLUSION_MODE_SPEC_CONST_INDEX) const int ambient_occlusion_mode = 0;
+layout(constant_id = REFLECTION_MODE_SPEC_CONST_INDEX) const int reflection_mode = 0;
 
 layout(set = 3, binding = 0) uniform sampler2D position_texture;
 layout(set = 3, binding = 1) uniform sampler2D normal_texture;
@@ -89,8 +90,14 @@ void main() {
 	vec3 metal_brdf = specular * (albedo + (1 - albedo) * f5);
 	vec3 material = mix(dielectric_brdf, metal_brdf, metallic);
 
-	float ambient_factor = 0.3;
-	vec3 diffuse_lighting = max(dot(N, L), 0.0) * material * light_color * shadow + texture(raytraced_reflections_texture, in_uv).rgb * shadow;
+	float ambient_factor = 0.2;
+	float light_intensity = 2.0;
+	vec3 diffuse_lighting = ao * albedo * ambient_factor + max(dot(N, L), 0.0) * material * light_color * shadow * light_intensity;
+	
+	if(reflection_mode == REFLECTION_MODE_RAYTRACED) {
+		diffuse_lighting += texture(raytraced_reflections_texture, in_uv).rgb * shadow;
+	}
+
 	out_color = vec4(diffuse_lighting, 1.0);
 }
 

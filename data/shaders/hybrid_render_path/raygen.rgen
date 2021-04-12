@@ -30,7 +30,7 @@ void main() {
 	// Trace shadow rays
 	float rnd1 = random01(rng_state);
 	float rnd2 = random01(rng_state);
-	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.99999));
+	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.999995));
 	mat3x3 R = onb_from_unit_vector(L);
 
 	payload = vec4(0.0, 0.0, 0.0, 0.0);
