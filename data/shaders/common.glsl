@@ -132,3 +132,45 @@ float nextRand(inout uint s)
 	s = (1664525u * s + 1013904223u);
 	return float(s & 0x00FFFFFF) / float(0x01000000);
 }
+
+// Specular microfacet BRDF
+vec3 specular_brdf(float roughness, vec3 V, vec3 L, vec3 N, vec3 H) {
+	// Heaviside step functions
+	float roughness_sq = roughness * roughness;
+	float N_dot_H = dot(N, H);
+	float N_dot_L = dot(N, L);
+	float N_dot_V = dot(N, V);
+
+	float f = (N_dot_H * N_dot_H * (roughness_sq - 1) + 1);
+
+	float D_GGX = (roughness_sq * step(0, N_dot_H)) / (PI * (f * f));
+	float V_GGX = 
+		step(0, dot(H, L)) / (abs(N_dot_L) * sqrt(roughness_sq + (1 - roughness_sq) * N_dot_L * N_dot_L)) *
+		step(0, dot(H, V)) / (abs(N_dot_V) * sqrt(roughness_sq + (1 - roughness_sq) * N_dot_V * N_dot_V));
+
+	return vec3(V_GGX * D_GGX);
+}
+
+// Lambertian BRDF
+vec3 diffuse_brdf(vec3 albedo) {
+	return (1 / PI) * albedo;
+}
+
+float fresnel(vec3 V, vec3 H) {
+	float V_dot_H = dot(V, H);
+	float f = 1 - abs(V_dot_H);
+	float f5 = f * f * f * f * f;
+
+	return 0.04 + (1 - 0.04) * f;
+}
+
+vec3 material_brdf(vec3 albedo, float roughness, float metallic, vec3 V, vec3 L, vec3 N, vec3 H) {
+	float V_dot_H = dot(V, H);
+	float f = 1 - abs(V_dot_H);
+	float f5 = f * f * f * f * f;
+	vec3 specular = specular_brdf(roughness, V, L, N, H);
+	vec3 dielectric_brdf = mix(diffuse_brdf(albedo), specular, fresnel(V, H));
+	vec3 metal_brdf = specular * (albedo + (1 - albedo) * f5);
+	return mix(dielectric_brdf, metal_brdf, metallic);
+}
+

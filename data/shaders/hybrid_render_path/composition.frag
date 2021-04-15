@@ -18,37 +18,6 @@ layout(set = 3, binding = 6) uniform sampler2D raytraced_reflections_texture;
 layout(location = 0) in vec2 in_uv;
 layout(location = 0) out vec4 out_color;
 
-// Specular microfacet BRDF
-vec3 specular_brdf(float roughness, vec3 V, vec3 L, vec3 N, vec3 H) {
-	// Heaviside step functions
-	float roughness_sq = roughness * roughness;
-	float N_dot_H = dot(N, H);
-	float N_dot_L = dot(N, L);
-	float N_dot_V = dot(N, V);
-
-	float f = (N_dot_H * N_dot_H * (roughness_sq - 1) + 1);
-
-	float D_GGX = (roughness_sq * step(0, N_dot_H)) / (PI * (f * f));
-	float V_GGX = 
-		step(0, dot(H, L)) / (abs(N_dot_L) * sqrt(roughness_sq + (1 - roughness_sq) * N_dot_L * N_dot_L)) *
-		step(0, dot(H, V)) / (abs(N_dot_V) * sqrt(roughness_sq + (1 - roughness_sq) * N_dot_V * N_dot_V));
-
-	return vec3(V_GGX * D_GGX);
-}
-
-// Lambertian BRDF
-vec3 diffuse_brdf(vec3 albedo) {
-	return (1 / PI) * albedo;
-}
-
-float fresnel(vec3 V, vec3 H) {
-	float V_dot_H = dot(V, H);
-	float f = 1 - abs(V_dot_H);
-	float f5 = f * f * f * f * f;
-
-	return 0.04 + (1 - 0.04) * f;
-}
-
 void main() {
 	vec4 position_and_roughness = texture(position_texture, in_uv);
 	vec3 packed_normal_and_metallic = texture(normal_texture, in_uv).xyw;
@@ -81,23 +50,16 @@ void main() {
 	float min_roughness = 0.04;
 	float roughness = clamp(position_and_roughness.w, min_roughness, 1.0);
 	float metallic = clamp(packed_normal_and_metallic.z, 0.0, 1.0);
-
-	float V_dot_H = dot(V, H);
-	float f = 1 - abs(V_dot_H);
-	float f5 = f * f * f * f * f;
-	vec3 specular = specular_brdf(roughness, V, L, N, H);
-	vec3 dielectric_brdf = mix(diffuse_brdf(albedo), specular, fresnel(V, H));
-	vec3 metal_brdf = specular * (albedo + (1 - albedo) * f5);
-	vec3 material = mix(dielectric_brdf, metal_brdf, metallic);
+	vec3 material = material_brdf(albedo, roughness, metallic, V, L, N, H);
 
 	float ambient_factor = 0.2;
 	float light_intensity = 2.0;
-	vec3 diffuse_lighting = ao * albedo * ambient_factor + max(dot(N, L), 0.0) * material * light_color * shadow * light_intensity;
+	vec3 lighting = ao * albedo * ambient_factor + max(dot(N, L), 0.0) * material * light_color * shadow * light_intensity;
 	
 	if(reflection_mode == REFLECTION_MODE_RAYTRACED) {
-		diffuse_lighting += texture(raytraced_reflections_texture, in_uv).rgb * shadow;
+		lighting += texture(raytraced_reflections_texture, in_uv).rgb * shadow;
 	}
 
-	out_color = vec4(diffuse_lighting, 1.0);
+	out_color = vec4(lighting, 1.0);
 }
 
