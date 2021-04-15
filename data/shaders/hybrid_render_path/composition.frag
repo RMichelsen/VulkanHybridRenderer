@@ -52,7 +52,7 @@ void main() {
 	float metallic = clamp(packed_normal_and_metallic.z, 0.0, 1.0);
 	vec3 material = material_brdf(albedo, roughness, metallic, V, L, N, H);
 
-	float ambient_factor = 0.2;
+	float ambient_factor = PI_INVERSE;
 	float light_intensity = 2.0;
 	vec3 lighting = ao * albedo * ambient_factor + max(dot(N, L), 0.0) * material * light_color * shadow * light_intensity;
 	

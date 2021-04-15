@@ -55,7 +55,7 @@ void main() {
 	metallic = clamp(metallic, 0.0, 1.0);
 	vec3 material = max(material_brdf(albedo, roughness, metallic, V, L, N, H), vec3(0.0, 0.0, 0.0));
 
-	float ambient_factor = 0.2;
+	float ambient_factor = PI_INVERSE;
 	float light_intensity = 2.0;
 	vec3 light_color = pfd.directional_light.color.rgb;
 	vec3 lighting = albedo * ambient_factor + max(dot(N, L), 0.0) * material * light_color * light_intensity * shadow_payload.xyz;
