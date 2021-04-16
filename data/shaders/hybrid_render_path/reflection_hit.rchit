@@ -55,11 +55,14 @@ void main() {
 	metallic = clamp(metallic, 0.0, 1.0);
 	vec3 material = max(material_brdf(albedo, roughness, metallic, V, L, N, H), vec3(0.0, 0.0, 0.0));
 
-	float ambient_factor = PI_INVERSE;
+	// Assume quite low ambient contribution, 
+	// in reality would need to trace AO rays, but too expensive
+	float ambient_factor = PI_INVERSE * 0.2;
+
 	float light_intensity = 2.0;
 	vec3 light_color = pfd.directional_light.color.rgb;
-	vec3 lighting = albedo * ambient_factor + max(dot(N, L), 0.0) * material * light_color * light_intensity * shadow_payload.xyz;
+	vec3 lighting = albedo * ambient_factor + max(dot(N, L), 0.0) * material * light_color * shadow_payload.xyz * light_intensity;
 
-	reflection_payload = vec4(albedo * shadow_payload.xyz, 1.0);
+	reflection_payload = vec4(lighting, 1.0);
 }
 
