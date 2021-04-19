@@ -69,7 +69,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				.raygen_shader = "hybrid_render_path/raygen.rgen",
 				.miss_shaders = {
 					"hybrid_render_path/miss.rmiss",
-					"hybrid_render_path/reflection_miss.rmiss",
+					"hybrid_render_path/reflection_miss.rmiss"
 				},
 				.hit_shaders = {
 					HitShader {

@@ -282,10 +282,9 @@ RaytracingPipeline CreateRaytracingPipeline(VulkanContext &context, ResourceMana
 		.pStages = shader_stage_infos.data(),
 		.groupCount = static_cast<uint32_t>(shader_groups.size()),
 		.pGroups = shader_groups.data(),
-		.maxPipelineRayRecursionDepth = 1,
+		.maxPipelineRayRecursionDepth = 2,
 		.layout = pipeline.layout
 	};
-
 	VK_CHECK(vkCreateRayTracingPipelinesKHR(context.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1,
 		&raytracing_pipeline_info, nullptr, &pipeline.handle));
 
