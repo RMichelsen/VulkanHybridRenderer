@@ -30,14 +30,11 @@ struct HybridPushConstants {
 
 struct SVGFPushConstants {
 	// Pingpong texture
-	ivec2 integrated_shadows;
-	ivec2 integrated_ambient_occlusion;
+	ivec2 integrated_shadow_and_ao;
 
 	int prev_frame_normals_and_object_id;
-	int shadow_history;
-	int shadow_moments_history;
-	int ambient_occlusion_history;
-	int ambient_occlusion_moments_history;
+	int shadow_and_ao_history;
+	int shadow_and_ao_moments_history;
 	int atrous_step;
 };
 

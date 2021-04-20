@@ -5,9 +5,8 @@
 
 layout(set = 3, binding = 0) uniform sampler2D position_texture;
 layout(set = 3, binding = 1) uniform sampler2D normal_texture;
-layout(set = 3, binding = 2, rgba16f) uniform image2D raytraced_shadows;
-layout(set = 3, binding = 3, rgba16f) uniform image2D raytraced_ambient_occlusion;
-layout(set = 3, binding = 4, rgba16f) uniform image2D raytraced_reflections;
+layout(set = 3, binding = 2, rgba16f) uniform image2D raytraced_shadow_and_ambient_occlusion;
+layout(set = 3, binding = 3, rgba16f) uniform image2D raytraced_reflections;
 
 layout(location = 0) rayPayloadEXT vec4 payload;
 layout(location = 1) rayPayloadEXT vec4 reflection_payload;
@@ -19,8 +18,7 @@ void main() {
 
 	vec4 origin = texture(position_texture, uv);
 	if(origin.w == -1) {
-		imageStore(raytraced_shadows, ivec2(gl_LaunchIDEXT.xy), vec4(1.0));
-		imageStore(raytraced_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), vec4(1.0));
+		imageStore(raytraced_shadow_and_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), vec4(1.0, 1.0, 0.0, 1.0));
 		imageStore(raytraced_reflections, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
 		return;
 	}
@@ -39,7 +37,7 @@ void main() {
 	payload = vec4(0.0, 0.0, 0.0, 0.0);
 	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
 		0xFF, 0, 0, 0, ray_launch_position, 0.01, R * cone_dir, 10000.0, 0);
-	imageStore(raytraced_shadows, ivec2(gl_LaunchIDEXT.xy), payload);
+	float shadow_payload = payload.x;
 
 	// Trace AO rays
 	rnd1 = random01(rng_state);
@@ -50,7 +48,9 @@ void main() {
 	payload = vec4(0.0, 0.0, 0.0, 0.0);
 	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
 		0xFF, 0, 0, 0, ray_launch_position, 0.01, R * rnd_dir, 5.0, 0);
-	imageStore(raytraced_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), payload * max(dot(N, R * rnd_dir), 0.0));
+	float ao_payload = payload.x * max(dot(N, R * rnd_dir), 0.0);
+
+	imageStore(raytraced_shadow_and_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), vec4(shadow_payload, ao_payload, 0.0, 1.0));
 
 	// Trace reflection rays
 	if(dot(N, vec3(0, 1, 0)) > 0.99) {

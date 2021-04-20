@@ -31,8 +31,7 @@ private:
 	int shadow_mode = 0;
 	int ambient_occlusion_mode = 0;
 	int reflection_mode = 0;
-	bool denoise_shadows = true;
-	bool denoise_ambient_occlusion = true;
+	bool denoise_shadow_and_ao = true;
 	bool denoise_reflections = true;
 
 	SVGFPushConstants svgf_push_constants;
