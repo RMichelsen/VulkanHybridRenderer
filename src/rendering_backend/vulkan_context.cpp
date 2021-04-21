@@ -323,19 +323,20 @@ void VulkanContext::InitSwapchain() {
 		desired_image_count = gpu.surface_capabilities.maxImageCount;
 	}
 
+	// TODO: For robustness reasons some parameters should not be hardcoded here
 	VkSwapchainCreateInfoKHR swapchain_info {
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		.surface = surface,
 		.minImageCount = desired_image_count,
-		.imageFormat = VK_FORMAT_B8G8R8A8_SRGB, // TODO: Hardcoded
-		.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, // TODO: Hardcoded
+		.imageFormat = VK_FORMAT_B8G8R8A8_SRGB,
+		.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
 		.imageExtent = extent,
 		.imageArrayLayers = 1,
 		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-		.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR, // TODO: Hardcoded
+		.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
 		.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-		.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR, // TODO: Hardcoded
+		.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
 		.clipped = VK_TRUE,
 		.oldSwapchain = swapchain.handle
 	};

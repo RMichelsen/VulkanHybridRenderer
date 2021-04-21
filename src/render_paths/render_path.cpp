@@ -12,8 +12,16 @@ RenderPath::RenderPath(VulkanContext &context, RenderGraph &render_graph, Resour
 	resource_manager(resource_manager) {}
 
 void RenderPath::Build() {
+	VK_CHECK(vkDeviceWaitIdle(context.device));
+
 	render_graph.DestroyResources();
 	RegisterPath(context, render_graph, resource_manager);
 	render_graph.Build();
 }
 
+void RenderPath::Rebuild() {
+	VK_CHECK(vkDeviceWaitIdle(context.device));
+
+	DeregisterPath(context, render_graph, resource_manager);
+	Build();
+}

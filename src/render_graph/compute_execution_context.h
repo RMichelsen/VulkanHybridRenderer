@@ -15,19 +15,20 @@ public:
 	{}
 
 	glm::uvec2 GetDisplaySize();
-	void Dispatch(const char *entry, uint32_t x_groups, uint32_t y_groups, uint32_t z_groups);
-	void BlitImageStorageToTransient(int src, const char *dst);
-	void BlitImageTransientToStorage(const char *src, int dst);
-	void BlitImageStorageToStorage(int src, int dst);
-
+	void Dispatch(const char* entry, uint32_t x_groups, uint32_t y_groups, uint32_t z_groups);
+	
 	template<typename T>
-	void PushConstants(const char *entry, T &push_constants) {
-		ComputePipeline &pipeline = render_graph.compute_pipelines[entry];
-		
+	void Dispatch(const char* entry, uint32_t x_groups, uint32_t y_groups, uint32_t z_groups, T& push_constants) {
+		ComputePipeline& pipeline = render_graph.compute_pipelines[entry];
 		assert(sizeof(T) == pipeline.push_constant_description.size);
 		vkCmdPushConstants(command_buffer, pipeline.layout, pipeline.push_constant_description.shader_stage,
 			0, pipeline.push_constant_description.size, &push_constants);
+		Dispatch(entry, x_groups, y_groups, z_groups);
 	}
+
+	void BlitImageStorageToTransient(int src, const char *dst);
+	void BlitImageTransientToStorage(const char *src, int dst);
+	void BlitImageStorageToStorage(int src, int dst);
 
 private:
 	void BlitImage(Image src, Image dst);

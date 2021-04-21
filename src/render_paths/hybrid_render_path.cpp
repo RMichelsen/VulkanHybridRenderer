@@ -147,7 +147,6 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		}
 	);
 
-	// TODO: Fix leak, cleanup when rebuilding paths
 	svgf_push_constants.integrated_shadow_and_ao.x =
 		resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 			context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
@@ -191,22 +190,22 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		[&](ComputeExecutionContext &execution_context) {
 			glm::uvec2 display_size = execution_context.GetDisplaySize();
 
-			// TODO: Fix push constants requiring a name (its unnecessary probably)
-			execution_context.PushConstants("hybrid_render_path/svgf.comp", svgf_push_constants);
-			execution_context.Dispatch("hybrid_render_path/svgf.comp",
+			execution_context.Dispatch(
+				"hybrid_render_path/svgf.comp",
 				display_size.x / 8 + (display_size.x % 8 != 0),
 				display_size.y / 8 + (display_size.y % 8 != 0),
-				1
+				1,
+				svgf_push_constants
 			);
 
 			int atrous_steps = 5;
 			for(int i = 0; i < atrous_steps; ++i) {
 				svgf_push_constants.atrous_step = 1 << i;
-				execution_context.PushConstants("hybrid_render_path/svgf_atrous_filter.comp", svgf_push_constants);
 				execution_context.Dispatch("hybrid_render_path/svgf_atrous_filter.comp",
 					display_size.x / 8 + (display_size.x % 8 != 0),
 					display_size.y / 8 + (display_size.y % 8 != 0),
-					1
+					1,
+					svgf_push_constants
 				);
 
 				// Copy integrated shadows
@@ -278,6 +277,14 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 }
 
+void HybridRenderPath::DeregisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager) {
+	resource_manager.DestroyStorageImage(svgf_push_constants.integrated_shadow_and_ao.x);
+	resource_manager.DestroyStorageImage(svgf_push_constants.integrated_shadow_and_ao.y);
+	resource_manager.DestroyStorageImage(svgf_push_constants.prev_frame_normals_and_object_id);
+	resource_manager.DestroyStorageImage(svgf_push_constants.shadow_and_ao_history);
+	resource_manager.DestroyStorageImage(svgf_push_constants.shadow_and_ao_moments_history);
+}
+
 void HybridRenderPath::ImGuiDrawSettings() {
 	int old_shadow_mode = shadow_mode;
 	int old_ambient_occlusion_mode = ambient_occlusion_mode;
@@ -312,6 +319,6 @@ void HybridRenderPath::ImGuiDrawSettings() {
 	   old_reflection_mode != reflection_mode ||
 	   old_denoise_shadow_and_ao!= denoise_shadow_and_ao ||
 	   old_denoise_reflections != denoise_reflections) {
-		Build();
+		Rebuild();
 	}
 }

@@ -191,68 +191,8 @@ uint32_t ResourceManager::UploadTextureFromData(uint32_t width, uint32_t height,
 		format);
 	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.view));
 	
-	VkSampler texture_sampler = sampler_info ?
-		VK_NULL_HANDLE :
-		default_sampler;
-
-	if(texture_sampler == VK_NULL_HANDLE) {
-		for(Sampler &sampler : samplers) {
-			if(sampler.info.mag_filter == sampler_info->mag_filter &&
-				sampler.info.min_filter == sampler_info->min_filter &&
-				sampler.info.address_mode_u == sampler_info->address_mode_u &&
-				sampler.info.address_mode_v == sampler_info->address_mode_v) {
-				texture_sampler = sampler.handle;
-			}
-		}
-
-		if(texture_sampler == VK_NULL_HANDLE) {
-			VkSamplerCreateInfo vk_sampler_info {
-				.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-				.magFilter = sampler_info->mag_filter,
-				.minFilter = sampler_info->min_filter,
-				.addressModeU = sampler_info->address_mode_u,
-				.addressModeV = sampler_info->address_mode_v,
-				.addressModeW = sampler_info->address_mode_v,
-				.anisotropyEnable = VK_TRUE,
-				.maxAnisotropy = context.gpu.properties.properties.limits.maxSamplerAnisotropy,
-				.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK
-			};
-			vkCreateSampler(context.device, &vk_sampler_info, nullptr, &texture_sampler);
-			samplers.emplace_back(Sampler {
-				.handle = texture_sampler,
-				.info = *sampler_info
-			});
-		}
-	}
-
-	// TODO: OPTIMIZE
-	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
-		if(textures[i].handle == VK_NULL_HANDLE) {
-			textures[i] = texture;
-
-			VkDescriptorImageInfo descriptor {
-				.sampler = texture_sampler,
-				.imageView = texture.view,
-				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			};
-
-			VkWriteDescriptorSet write_descriptor_set {
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = global_descriptor_set0,
-				.dstBinding = 4,
-				.dstArrayElement = i,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.pImageInfo = &descriptor
-			};
-
-			vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
-			return i;
-		}
-	}
-
-	assert(false && "No free texture slots left!");
-	return static_cast<uint32_t>(-1);
+	VkSampler texture_sampler = sampler_info ? GetSampler(sampler_info) : default_sampler;
+	return UploadTexture(texture, texture_sampler);
 }
 
 uint32_t ResourceManager::UploadEmptyTexture(uint32_t width, uint32_t height, VkFormat format, SamplerInfo *sampler_info) {
@@ -282,71 +222,10 @@ uint32_t ResourceManager::UploadEmptyTexture(uint32_t width, uint32_t height, Vk
 		format);
 	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &texture.view));
 
-	VkSampler texture_sampler = sampler_info ?
-		VK_NULL_HANDLE :
-		default_sampler;
-
-	if(texture_sampler == VK_NULL_HANDLE) {
-		for(Sampler &sampler : samplers) {
-			if(sampler.info.mag_filter == sampler_info->mag_filter &&
-				sampler.info.min_filter == sampler_info->min_filter &&
-				sampler.info.address_mode_u == sampler_info->address_mode_u &&
-				sampler.info.address_mode_v == sampler_info->address_mode_v) {
-				texture_sampler = sampler.handle;
-			}
-		}
-
-		if(texture_sampler == VK_NULL_HANDLE) {
-			VkSamplerCreateInfo vk_sampler_info {
-				.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-				.magFilter = sampler_info->mag_filter,
-				.minFilter = sampler_info->min_filter,
-				.addressModeU = sampler_info->address_mode_u,
-				.addressModeV = sampler_info->address_mode_v,
-				.addressModeW = sampler_info->address_mode_v,
-				.anisotropyEnable = VK_TRUE,
-				.maxAnisotropy = context.gpu.properties.properties.limits.maxSamplerAnisotropy,
-				.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK
-			};
-			vkCreateSampler(context.device, &vk_sampler_info, nullptr, &texture_sampler);
-			samplers.emplace_back(Sampler {
-				.handle = texture_sampler,
-				.info = *sampler_info
-			});
-		}
-	}
-
-	// TODO: OPTIMIZE
-	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
-		if(textures[i].handle == VK_NULL_HANDLE) {
-			textures[i] = texture;
-
-			VkDescriptorImageInfo descriptor {
-				.sampler = texture_sampler,
-				.imageView = texture.view,
-				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			};
-
-			VkWriteDescriptorSet write_descriptor_set {
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = global_descriptor_set0,
-				.dstBinding = 4,
-				.dstArrayElement = i,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.pImageInfo = &descriptor
-			};
-
-			vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
-			return i;
-		}
-	}
-
-	assert(false && "No free texture slots left!");
-	return static_cast<uint32_t>(-1);
+	VkSampler texture_sampler = sampler_info ? GetSampler(sampler_info) : default_sampler;
+	return UploadTexture(texture, texture_sampler);
 }
 
-// TODO: Fix duplicate code here...
 uint32_t ResourceManager::UploadNewStorageImage(uint32_t width, uint32_t height, VkFormat format) {
 	Image storage_image {
 		.width = width,
@@ -379,35 +258,7 @@ uint32_t ResourceManager::UploadNewStorageImage(uint32_t width, uint32_t height,
 		format);
 	VK_CHECK(vkCreateImageView(context.device, &image_view_info, nullptr, &storage_image.view));
 
-
-	// TODO: OPTIMIZE
-	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
-		if(storage_images[i].handle == VK_NULL_HANDLE) {
-			storage_images[i] = storage_image;
-
-
-			VkDescriptorImageInfo descriptor {
-				.imageView = storage_image.view,
-				.imageLayout = VK_IMAGE_LAYOUT_GENERAL
-			};
-
-			VkWriteDescriptorSet write_descriptor_set {
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = global_descriptor_set1,
-				.dstBinding = 0,
-				.dstArrayElement = i,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				.pImageInfo = &descriptor
-			};
-
-			vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
-			return i;
-		}
-	}
-
-	assert(false && "No free storage image slots left!");
-	return static_cast<uint32_t>(-1);
+	return UploadStorageImage(storage_image);
 }
 
 void ResourceManager::DestroyStorageImage(uint32_t id) {
@@ -440,7 +291,7 @@ void ResourceManager::UpdateGeometry(std::vector<Vertex> &vertices, std::vector<
 	UploadDataToGPUBuffer(global_vertex_buffer, vertices.data(), vertices.size() * sizeof(Vertex));
 	UploadDataToGPUBuffer(global_index_buffer, indices.data(), indices.size() * sizeof(uint32_t));
 
-	// TODO: OPTIMIZE
+	// Gather all primitives from all meshes in a flat array 
 	std::vector<Primitive> primitives;
 	for(Mesh &mesh : scene.meshes) {
 		primitives.insert(primitives.end(), mesh.primitives.begin(), mesh.primitives.end());
@@ -963,5 +814,96 @@ void ResourceManager::UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDevi
 	);
 
 	VkUtils::DestroyMappedBuffer(context.allocator, staging_buffer);
+}
+
+uint32_t ResourceManager::UploadTexture(Image texture, VkSampler sampler) {
+	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
+		if(textures[i].handle == VK_NULL_HANDLE) {
+			textures[i] = texture;
+
+			VkDescriptorImageInfo descriptor {
+				.sampler = sampler,
+				.imageView = texture.view,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			};
+
+			VkWriteDescriptorSet write_descriptor_set {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = global_descriptor_set0,
+				.dstBinding = 4,
+				.dstArrayElement = i,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.pImageInfo = &descriptor
+			};
+
+			vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
+			return i;
+		}
+	}
+
+	assert(false && "No free texture slots left!");
+	return static_cast<uint32_t>(-1);
+}
+
+uint32_t ResourceManager::UploadStorageImage(Image image) {
+	for(uint32_t i = 0; i < MAX_GLOBAL_RESOURCES; ++i) {
+		if(storage_images[i].handle == VK_NULL_HANDLE) {
+			storage_images[i] = image;
+
+			VkDescriptorImageInfo descriptor {
+				.imageView = image.view,
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL
+			};
+
+			VkWriteDescriptorSet write_descriptor_set {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = global_descriptor_set1,
+				.dstBinding = 0,
+				.dstArrayElement = i,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				.pImageInfo = &descriptor
+			};
+
+			vkUpdateDescriptorSets(context.device, 1, &write_descriptor_set, 0, nullptr);
+			return i;
+		}
+	}
+
+	assert(false && "No free storage image slots left!");
+	return static_cast<uint32_t>(-1);
+}
+
+VkSampler ResourceManager::GetSampler(SamplerInfo *sampler_info) {
+	// Try to find matching sampler
+	for(Sampler &sampler : samplers) {
+		if(sampler.info.mag_filter == sampler_info->mag_filter &&
+			sampler.info.min_filter == sampler_info->min_filter &&
+			sampler.info.address_mode_u == sampler_info->address_mode_u &&
+			sampler.info.address_mode_v == sampler_info->address_mode_v) {
+			return sampler.handle;
+		}
+	}
+
+	// Otherwise make one
+	VkSampler sampler;
+	VkSamplerCreateInfo vk_sampler_info {
+		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+		.magFilter = sampler_info->mag_filter,
+		.minFilter = sampler_info->min_filter,
+		.addressModeU = sampler_info->address_mode_u,
+		.addressModeV = sampler_info->address_mode_v,
+		.addressModeW = sampler_info->address_mode_v,
+		.anisotropyEnable = VK_TRUE,
+		.maxAnisotropy = context.gpu.properties.properties.limits.maxSamplerAnisotropy,
+		.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK
+	};
+	vkCreateSampler(context.device, &vk_sampler_info, nullptr, &sampler);
+	samplers.emplace_back(Sampler {
+		.handle = sampler,
+		.info = *sampler_info
+	});
+	return sampler;
 }
 

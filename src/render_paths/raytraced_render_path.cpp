@@ -75,6 +75,8 @@ void RaytracedRenderPath::RegisterPath(VulkanContext &context, RenderGraph &rend
 	);
 }
 
+void RaytracedRenderPath::DeregisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager) {}
+
 void RaytracedRenderPath::ImGuiDrawSettings() {
 	int old_use_anyhit_shader = use_anyhit_shader;
 
@@ -84,6 +86,6 @@ void RaytracedRenderPath::ImGuiDrawSettings() {
 	ImGui::NewLine();
 
 	if(old_use_anyhit_shader != use_anyhit_shader) {
-		Build();
+		Rebuild();
 	}
 }

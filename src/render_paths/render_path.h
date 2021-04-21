@@ -7,8 +7,10 @@ class RenderPath {
 public:
 	RenderPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager);
 	void Build();
+	void Rebuild();
 
 	virtual void RegisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) = 0;
+	virtual void DeregisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager) = 0;
 	virtual void ImGuiDrawSettings() = 0;
 
 private:

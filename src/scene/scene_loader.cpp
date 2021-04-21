@@ -241,7 +241,6 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 
 	// Collect all textures from model, and associate the correct format to them.
 	// This is instead of doing the SRGB to linear conversion in the shaders.
-	// TODO: Ugly, maybe use one map, one set.
 	std::vector<std::pair<cgltf_texture *, VkFormat>> textures_to_upload;
 	std::unordered_set<cgltf_texture *> texture_set;
 	for(int i = 0; i < data->meshes_count; ++i) {

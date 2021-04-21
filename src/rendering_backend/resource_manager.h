@@ -1,5 +1,15 @@
 #pragma once
 
+// The global descriptor set (set = 0) is laid out as follows
+// Layout(set = 0, binding = 0) global_vertex_buffer
+// Layout(set = 0, binding = 1) global_index_buffer
+// Layout(set = 0, binding = 2) global_obj_data_buffer
+// Layout(set = 0, binding = 3) global_tlas
+// Layout(set = 0, binding = 4) textures
+
+// The second global descriptor set (set = 1) is laid out as follows
+// Layout(set = 1, binding = 0) storage_images
+
 inline constexpr uint32_t MAX_GLOBAL_RESOURCES = 2048;
 
 class VulkanContext;
@@ -24,21 +34,10 @@ public:
 	void UpdateGeometry(std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, Scene &scene);
 	void UpdatePerFrameUBO(uint32_t resource_idx, PerFrameData &per_frame_data);
 
-	// The global descriptor set (set = 0) is laid out as follows
-	// Layout(set = 0, binding = 0) global_vertex_buffer
-	// Layout(set = 0, binding = 1) global_index_buffer
-	// Layout(set = 0, binding = 2) global_obj_data_buffer
-	// Layout(set = 0, binding = 3) global_tlas
-	// Layout(set = 0, binding = 4) textures
-
-	// The second global descriptor set (set = 1) is laid out as follows
-	// Layout(set = 1, binding = 0) storage_images
-
 	GPUBuffer global_vertex_buffer;
 	GPUBuffer global_index_buffer;
 	GPUBuffer global_obj_data_buffer;
 
-	
 	AccelerationStructure global_BLAS;
 	AccelerationStructure global_TLAS;
 
@@ -71,6 +70,9 @@ private:
 	void UpdateBLAS(uint32_t vertex_count, std::vector<Primitive> &primitives);
 	void UpdateTLAS(std::vector<Primitive> &primitives);
 	void UploadDataToGPUBuffer(GPUBuffer buffer, void *data, VkDeviceSize size);
+	uint32_t UploadTexture(Image texture, VkSampler sampler);
+	uint32_t UploadStorageImage(Image image);
+	VkSampler GetSampler(SamplerInfo *sampler_info);
 
 	VulkanContext &context;
 };
