@@ -24,5 +24,6 @@ private:
 	std::unique_ptr<RenderGraph> render_graph;
 	std::unique_ptr<RenderPath> active_render_path;
 	UserInterfaceState user_interface_state;
+	int blue_noise_texture_index;
 };
 

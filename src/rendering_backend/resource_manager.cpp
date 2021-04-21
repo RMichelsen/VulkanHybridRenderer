@@ -418,7 +418,8 @@ void ResourceManager::CreateGlobalDescriptorSet0() {
 			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.descriptorCount = MAX_GLOBAL_RESOURCES,
 			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | 
-						  VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR
+						  VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR |
+						  VK_SHADER_STAGE_RAYGEN_BIT_KHR
 		}
 	};
 	std::array<VkDescriptorBindingFlags, 5> descriptor_binding_flags {

@@ -55,6 +55,7 @@ struct PerFrameData {
 	vec2 display_size;
 	vec2 inv_display_size;
 	uint frame_index;
+	int blue_noise_texture_index;
 };
 
 struct Vertex {

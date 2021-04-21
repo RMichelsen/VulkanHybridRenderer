@@ -229,10 +229,6 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 	scene.meshes.push_back(mesh);
 }
 
-void UploadTexture(ResourceManager &resource_manager, cgltf_texture *texture, VkFormat format) {
-
-}
-
 void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *data, Scene &scene) {
 	cgltf_options options {};
 	cgltf_load_buffers(&options, data, path);

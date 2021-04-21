@@ -112,65 +112,39 @@ float rgb_to_luminance(vec3 rgb) {
 	return dot(rgb, vec3(0.2126, 0.7152, 0.0722));
 }
 
-// Generates a seed for a random number generator from 2 inputs plus a backoff
-uint initRand(uint val0, uint val1, uint backoff)
-{
-	uint v0 = val0, v1 = val1, s0 = 0;
-
-	for (uint n = 0; n < backoff; n++)
-	{
-		s0 += 0x9e3779b9;
-		v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
-		v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
-	}
-	return v0;
+// Fresnel-Schlick approximation
+vec3 fresnel_schlick(vec3 f0, vec3 H, vec3 V) {
+	float H_dot_V = max(dot(H, V), 0.0);
+	return f0 + (1 - f0) * (1 - H_dot_V) * (1 - H_dot_V) * (1 - H_dot_V) * (1 - H_dot_V) * (1 - H_dot_V);
 }
 
-// Takes our seed, updates it, and returns a pseudorandom float in [0..1]
-float nextRand(inout uint s)
-{
-	s = (1664525u * s + 1013904223u);
-	return float(s & 0x00FFFFFF) / float(0x01000000);
+// Trowbridge-Reitz GGX
+float D_GGX(float roughness, vec3 N, vec3 H) {
+	float a2 = roughness * roughness;
+	float N_dot_H = max(dot(N, H), 0.0);
+	float f = N_dot_H * N_dot_H * (a2 - 1) + 1;
+	return a2 / (PI * f * f);
 }
 
-// Specular microfacet BRDF
-vec3 specular_brdf(float roughness, vec3 V, vec3 L, vec3 N, vec3 H) {
-	// Heaviside step functions
-	float roughness_sq = roughness * roughness;
-	float N_dot_H = dot(N, H);
-	float N_dot_L = dot(N, L);
-	float N_dot_V = dot(N, V);
+// Schlick-GGX
+float G_GGX(float roughness, vec3 N, vec3 V, vec3 L) {
+	float k = ((roughness + 1) * (roughness + 1)) * 0.125;
+	float N_dot_V = max(dot(N, V), 0.0);
+	float N_dot_L = max(dot(N, L), 0.0);
 
-	float f = (N_dot_H * N_dot_H * (roughness_sq - 1) + 1);
-
-	float D_GGX = (roughness_sq * step(0, N_dot_H)) / (PI * (f * f));
-	float V_GGX = 
-		step(0, dot(H, L)) / (abs(N_dot_L) * sqrt(roughness_sq + (1 - roughness_sq) * N_dot_L * N_dot_L)) *
-		step(0, dot(H, V)) / (abs(N_dot_V) * sqrt(roughness_sq + (1 - roughness_sq) * N_dot_V * N_dot_V));
-
-	return vec3(V_GGX * D_GGX);
+	float G_nvk = N_dot_V / (N_dot_V * (1 - k) + k);
+	float G_nlk = N_dot_L / (N_dot_L * (1 - k) + k);
+	return G_nvk * G_nlk;
 }
 
-// Lambertian BRDF
-vec3 diffuse_brdf(vec3 albedo) {
-	return (1 / PI) * albedo;
+vec3 specular_brdf(float roughness, vec3 F, vec3 V, vec3 L, vec3 N, vec3 H) {
+	vec3 DFG = D_GGX(roughness, N, H) * G_GGX(roughness, N, V, L) * F;
+	float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
+	return DFG / max(denom, 1e-6);
 }
 
-float fresnel(vec3 V, vec3 H) {
-	float V_dot_H = dot(V, H);
-	float f = 1 - abs(V_dot_H);
-	float f5 = f * f * f * f * f;
-
-	return 0.04 + (1 - 0.04) * f;
+vec3 diffuse_brdf(float metallic, vec3 albedo, vec3 F) {
+	vec3 diffuse_portion = vec3(1.0) - F;
+	diffuse_portion *= 1.0 - metallic;
+	return (diffuse_portion * albedo) / PI;
 }
-
-vec3 material_brdf(vec3 albedo, float roughness, float metallic, vec3 V, vec3 L, vec3 N, vec3 H) {
-	float V_dot_H = dot(V, H);
-	float f = 1 - abs(V_dot_H);
-	float f5 = f * f * f * f * f;
-	vec3 specular = specular_brdf(roughness, V, L, N, H);
-	vec3 dielectric_brdf = mix(diffuse_brdf(albedo), specular, fresnel(V, H));
-	vec3 metal_brdf = specular * (albedo + (1 - albedo) * f5);
-	return mix(dielectric_brdf, metal_brdf, metallic);
-}
-

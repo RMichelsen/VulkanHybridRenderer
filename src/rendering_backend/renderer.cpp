@@ -28,6 +28,12 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 		.render_path_state = RenderPathState::Idle,
 		.debug_texture = ""
 	};
+
+	int _, x, y;
+	uint8_t *image_data;
+	image_data = stbi_load("data/misc/blue_noise/LDR_RGBA_0.png", &x, &y, &_, STBI_rgb_alpha);
+	blue_noise_texture_index = resource_manager->UploadTextureFromData(x, y, image_data);
+	free(image_data);
 }
 
 Renderer::~Renderer() {
@@ -190,7 +196,8 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 		.directional_light = resource_manager->scene.directional_light,
 		.display_size = { context->swapchain.extent.width, context->swapchain.extent.height },
 		.inv_display_size = { 1.0f / context->swapchain.extent.width, 1.0f / context->swapchain.extent.height },
-		.frame_index = frame_index++
+		.frame_index = frame_index++,
+		.blue_noise_texture_index = blue_noise_texture_index
 	};
 	resource_manager->UpdatePerFrameUBO(resource_idx, per_frame_data);
 
