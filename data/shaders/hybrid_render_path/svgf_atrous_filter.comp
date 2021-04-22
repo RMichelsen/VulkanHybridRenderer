@@ -63,9 +63,9 @@ void main() {
 	vec4 integrated_shadow_and_ao_p = imageLoad(storage_images[pc.integrated_shadow_and_ao[0]], coords);
 	vec2 variance_p = gauss_3x3_filter(coords);
 	vec2 luminance_p = vec2(rgb_to_luminance(vec3(integrated_shadow_and_ao_p.x)), rgb_to_luminance(vec3(integrated_shadow_and_ao_p.y)));
-	vec2 depth_values = imageLoad(motion_vectors_and_depth_derivatives, coords).zw;
-	float linear_z_p = depth_values.x;
-	float depth_fwidth = depth_values.y;
+//	vec2 depth_values = imageLoad(motion_vectors_and_depth_derivatives, coords).zw;
+//	float linear_z_p = depth_values.x;
+//	float depth_fwidth = depth_values.y;
 
 	float atrous_weights[] = {
 		1.0 / 256.0, 1.0 / 64.0, 3.0 / 128.0, 1.0 / 64.0, 1 / 256.0,
@@ -94,11 +94,11 @@ void main() {
 				int(normal_and_object_id_q.z), 
 				sample_coords
 			);
-			float weight_normal = edge_stopping_normal(
-				oct_decode_to_vec3(normal_and_object_id_p.rg), 
-				oct_decode_to_vec3(normal_and_object_id_q.rg)
-			);
-			float weight_depth = edge_stopping_depth(coords, sample_coords, linear_z_p, depth_fwidth);
+//			float weight_normal = edge_stopping_normal(
+//				oct_decode_to_vec3(normal_and_object_id_p.rg), 
+//				oct_decode_to_vec3(normal_and_object_id_q.rg)
+//			);
+//			float weight_depth = edge_stopping_depth(coords, sample_coords, linear_z_p, depth_fwidth);
 
 			vec2 w = vec2(kernel * weight_object_id);
 			w.x *= edge_stopping_luminance(variance_p.x, luminance_p.x, rgb_to_luminance(vec3(integrated_shadow_and_ao_q.x)));

@@ -89,6 +89,59 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		);
 	}
 
+	render_graph.AddComputePass("SSAO Pass",
+		{
+			VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+			VkUtils::CreateTransientSampledImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+		},
+		{
+			VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16G16B16A16_SFLOAT, 2)
+		},
+		ComputePipelineDescription {
+			.kernels = {
+				ComputeKernel {
+					.shader = "hybrid_render_path/ssao.comp"
+				}
+			}
+		},
+		[&](ComputeExecutionContext &execution_context) {
+			glm::uvec2 display_size = execution_context.GetDisplaySize();
+
+			execution_context.Dispatch(
+				"hybrid_render_path/ssao.comp",
+				display_size.x / 8 + (display_size.x % 8 != 0),
+				display_size.y / 8 + (display_size.y % 8 != 0),
+				1
+			);
+		}
+	);
+
+	render_graph.AddComputePass("SSAO Blur Pass",
+		{
+			VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16G16B16A16_SFLOAT, 0)
+		},
+		{
+			VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
+		},
+		ComputePipelineDescription {
+			.kernels = {
+				ComputeKernel {
+					.shader = "hybrid_render_path/ssao_blur.comp"
+				}
+			}
+		},
+		[&](ComputeExecutionContext &execution_context) {
+			glm::uvec2 display_size = execution_context.GetDisplaySize();
+
+			execution_context.Dispatch(
+				"hybrid_render_path/ssao_blur.comp",
+				display_size.x / 8 + (display_size.x % 8 != 0),
+				display_size.y / 8 + (display_size.y % 8 != 0),
+				1
+			);
+		}
+	);
+
 	render_graph.AddGraphicsPass("G-Buffer Pass",
 		{},
 		{
@@ -237,10 +290,11 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 			VkUtils::CreateTransientSampledImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 2),
 			VkUtils::CreateTransientSampledImage("Shadow Map", 4096, 4096, VK_FORMAT_D32_SFLOAT, 3),
+			VkUtils::CreateTransientSampledImage("Screen Space Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 4),
 			denoise_shadow_and_ao ?
-				VkUtils::CreateTransientSampledImage("Denoised Raytraced Shadows and Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 4) :
-				VkUtils::CreateTransientSampledImage("Raytraced Shadows and Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 4),
-			VkUtils::CreateTransientSampledImage("Raytraced Reflections", VK_FORMAT_R16G16B16A16_SFLOAT, 5)
+				VkUtils::CreateTransientSampledImage("Denoised Raytraced Shadows and Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 5) :
+				VkUtils::CreateTransientSampledImage("Raytraced Shadows and Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 5),
+			VkUtils::CreateTransientSampledImage("Raytraced Reflections", VK_FORMAT_R16G16B16A16_SFLOAT, 6),
 		},
 		{
 			VkUtils::CreateTransientRenderOutput(0),

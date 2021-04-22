@@ -1064,6 +1064,8 @@
     <GLSLShader Include="data\shaders\raytraced_render_path\closesthit_test_alpha.rchit" />
     <GLSLShader Include="data\shaders\hybrid_render_path\reflection_miss.rmiss" />
     <GLSLShader Include="data\shaders\hybrid_render_path\reflection_hit.rchit" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\ssao.comp" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\ssao_blur.comp" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />

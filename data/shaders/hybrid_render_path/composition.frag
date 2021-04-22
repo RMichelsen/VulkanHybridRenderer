@@ -11,8 +11,9 @@ layout(set = 3, binding = 0) uniform sampler2D position_texture;
 layout(set = 3, binding = 1) uniform sampler2D normal_texture;
 layout(set = 3, binding = 2) uniform sampler2D albedo_texture;
 layout(set = 3, binding = 3) uniform sampler2D shadow_map;
-layout(set = 3, binding = 4) uniform sampler2D raytraced_shadow_and_ao_texture;
-layout(set = 3, binding = 5) uniform sampler2D raytraced_reflections_texture;
+layout(set = 3, binding = 4) uniform sampler2D ssao_texture;
+layout(set = 3, binding = 5) uniform sampler2D raytraced_shadow_and_ao_texture;
+layout(set = 3, binding = 6) uniform sampler2D raytraced_reflections_texture;
 
 layout(location = 0) in vec2 in_uv;
 layout(location = 0) out vec4 out_color;
@@ -49,54 +50,40 @@ void main() {
 	if(ambient_occlusion_mode == AMBIENT_OCCLUSION_MODE_RAYTRACED) {
 		ao = raytraced_shadow_and_ao.y;
 	}
+	else if(ambient_occlusion_mode == AMBIENT_OCCLUSION_MODE_SSAO) {
+		ao = texture(ssao_texture, in_uv).x;
+	}
 
 	float min_roughness = 0.04;
 	float roughness = clamp(position_and_roughness.w, min_roughness, 1.0);
 	float metallic = clamp(packed_normal_and_metallic.z, 0.0, 1.0);
-	//vec3 material = material_brdf(albedo, roughness, metallic, V, L, N, H);
 
 	float ambient_factor = PI_INVERSE;
-	float light_intensity = 2.0;
+	float light_intensity = 8.0;
 	vec3 light_color = pfd.directional_light.color.rgb;
 
 	vec3 f0 = vec3(0.04);
 	f0 = mix(f0, albedo, metallic);
 	vec3 F = fresnel_schlick(f0, H, V);
 
+	float N_dot_L = max(dot(N, L), 0.0);
+
 	vec3 ambient_lighting = ao * albedo * ambient_factor;
-	vec3 diffuse_lighting = diffuse_brdf(metallic, albedo, F);
-	vec3 specular_lighting = specular_brdf(roughness, F, V, L, N, H);
-	vec3 lighting = ambient_lighting + (diffuse_lighting + specular_lighting) * max(dot(N, L), 0.0) * light_intensity * light_color * shadow;
+	vec3 diffuse_lighting = diffuse_brdf(metallic, albedo, F) * N_dot_L * light_intensity * light_color * shadow;
+	vec3 specular_lighting = specular_brdf(roughness, F, V, L, N, H) * N_dot_L * light_intensity * light_color * shadow;
 
-
-//		float specular_brdf(float roughness, vec3 F, vec3 V, vec3 L, vec3 N, vec3 H) {
-//			vec3 DFG = D_GGX(roughness, N, H) * G_GGX(roughness, N, V, L) * F;
-//			float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
-//			return DFG / max(denom, 1e-6);
-//		}
-//
-//		float diffuse_brdf(float metallic, vec3 albedo, vec3 F) {
-//			float diffuse_portion = vec3(1.0) - F;
-//			diffuse_portion *= 1.0 - metallic;
-//			return (diffuse_portion * albedo) / PI;
-//		}
-
-
-//	vec3 lighting = ao * albedo * ambient_factor + max(dot(N, L), 0.0) * material * light_color * shadow * light_intensity;
-
-//	vec3 diffuse = light_intensity * light_color * max(dot(N, L), 0.0) * shadow * BRDF_lambertian(vec3(0.04), vec3(1.0), albedo, max(dot(V, H), 0.0));
-//	vec3 specular = light_intensity * light_color * max(dot(N, L), 0.0) * shadow * BRDF_specularGGX(vec3(0.04), vec3(1.0), roughness * roughness, 
-//		max(dot(V, H), 0.0),
-//		max(dot(N, L), 0.0),
-//		max(dot(N, V), 0.0),
-//		max(dot(N, H), 0.0)
-//		);
-//
-	
 	if(reflection_mode == REFLECTION_MODE_RAYTRACED) {
-		lighting += texture(raytraced_reflections_texture, in_uv).rgb * shadow;
+		vec3 reflections = texture(raytraced_reflections_texture, in_uv).rgb * shadow;
+		if(metallic == 1.0) {
+			specular_lighting = reflections;
+		}
+		else {
+			specular_lighting = mix(specular_lighting, reflections, roughness);
+		}
 	}
 
+	vec3 lighting = ambient_lighting + diffuse_lighting + specular_lighting;
+	
 	out_color = vec4(lighting, 1.0);
 }
 

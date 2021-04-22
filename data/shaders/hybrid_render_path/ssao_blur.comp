@@ -1,0 +1,28 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+#include "../common.glsl"
+#include "../../../src/rendering_backend/glsl_common.h"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 3, binding = 0, r16f) uniform image2D screen_space_ambient_occlusion;
+layout(set = 3, binding = 1, r16f) uniform image2D screen_space_ambient_occlusion_blurred;
+
+void main() {
+	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+
+	float ao = 0.0;
+	int contributing_samples = 0;
+	for(int y = -2; y <= 2; ++y) {
+		for(int x = -2; x <= 2; ++x) {
+			ivec2 sample_coords = coords + ivec2(x, y);
+			if(sample_coords.x < 0 || sample_coords.x >= pfd.display_size.x ||
+			   sample_coords.y < 0 || sample_coords.y >= pfd.display_size.y) continue;
+
+			ao += imageLoad(screen_space_ambient_occlusion, sample_coords).x;
+			++contributing_samples;
+		}
+	}
+
+	imageStore(screen_space_ambient_occlusion_blurred, coords, vec4(ao / contributing_samples));
+}

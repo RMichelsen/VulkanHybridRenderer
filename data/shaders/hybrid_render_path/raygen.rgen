@@ -16,8 +16,8 @@ void main() {
 	vec2 uv = pixel_center / vec2(gl_LaunchSizeEXT.xy);
 	uint rng_state = seed_thread((gl_LaunchIDEXT.y * gl_LaunchSizeEXT.y + gl_LaunchIDEXT.x) * pfd.frame_index);
 
-	vec4 origin = texture(position_texture, uv);
-	if(origin.w == -1) {
+	vec4 position_and_roughness = texture(position_texture, uv);
+	if(position_and_roughness.w == -1) {
 		imageStore(raytraced_shadow_and_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), vec4(1.0, 1.0, 0.0, 1.0));
 		imageStore(raytraced_reflections, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
 		return;
@@ -31,39 +31,37 @@ void main() {
 	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.999995));
 	mat3x3 R = onb_from_unit_vector(L);
 
-	vec3 N = oct_decode_to_vec3(texture(normal_texture, uv).rg);
-	vec3 ray_launch_position = origin.xyz + N * 0.01;
+	vec3 normal_and_metallic = texture(normal_texture, uv).xyw;
+	vec3 N = oct_decode_to_vec3(normal_and_metallic.xy);
+	vec3 ray_launch_position = position_and_roughness.xyz + N * 0.01;
 
 	payload = vec4(0.0, 0.0, 0.0, 0.0);
 	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
 		0xFF, 0, 0, 0, ray_launch_position, 0.01, R * cone_dir, 10000.0, 0);
 	float shadow_payload = payload.x;
 
-	// Trace AO rays
-	rnd1 = random01(rng_state);
-	rnd2 = random01(rng_state);
-	vec3 rnd_dir = uniform_sample_cosine_weighted_hemisphere(vec2(rnd1, rnd2));
-	R = onb_from_unit_vector(N);
-
-	payload = vec4(0.0, 0.0, 0.0, 0.0);
-	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
-		0xFF, 0, 0, 0, ray_launch_position, 0.01, R * rnd_dir, 5.0, 0);
-	float ao_payload = payload.x * max(dot(N, R * rnd_dir), 0.0);
+	// Trace AO rays (4spp to improve variance-guided filtering)
+	float ao_payload = 0.0;
+	for(int i = 0; i < 4; ++i) {
+		rnd1 = random01(rng_state);
+		rnd2 = random01(rng_state);
+		vec3 rnd_dir = uniform_sample_cosine_weighted_hemisphere(vec2(rnd1, rnd2));
+		R = onb_from_unit_vector(N);
+		payload = vec4(0.0, 0.0, 0.0, 0.0);
+		traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
+			0xFF, 0, 0, 0, ray_launch_position, 0.01, R * rnd_dir, 5.0, 0);
+		ao_payload += payload.x * max(dot(N, R * rnd_dir), 0.0);
+	}
+	ao_payload /= 4.0;
 
 	imageStore(raytraced_shadow_and_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), vec4(shadow_payload, ao_payload, 0.0, 1.0));
 
 	// Trace reflection rays
-	if(dot(N, vec3(0, 1, 0)) > 0.99) {
-		vec3 camera_position = vec3(pfd.camera_view_inverse[3].xyz);
-		vec3 I = normalize(origin.xyz - camera_position);
-		vec3 reflected_dir = reflect(I, N);
-		reflection_payload = vec4(0.0, 0.0, 0.0, 0.0);
-		traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 1, ray_launch_position, 0.01, reflected_dir, 10000.0, 1);
-		imageStore(raytraced_reflections, ivec2(gl_LaunchIDEXT.xy), reflection_payload);
-	}
-	else {
-		imageStore(raytraced_reflections, ivec2(gl_LaunchIDEXT.xy), vec4(0.0, 0.0, 0.0, 0.0));
-	}
-
+	vec3 camera_position = vec3(pfd.camera_view_inverse[3].xyz);
+	vec3 I = normalize(position_and_roughness.xyz - camera_position);
+	vec3 reflected_dir = reflect(I, N);
+	reflection_payload = vec4(0.0, 0.0, 0.0, 0.0);
+	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 1, ray_launch_position, 0.01, reflected_dir, 10000.0, 1);
+	imageStore(raytraced_reflections, ivec2(gl_LaunchIDEXT.xy), reflection_payload);
 }
 
