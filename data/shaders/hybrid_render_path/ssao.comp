@@ -10,34 +10,33 @@ layout(set = 3, binding = 1) uniform sampler2D normal_texture;
 layout(set = 3, binding = 2, r16f) writeonly uniform image2D screen_space_ambient_occlusion;
 
 void main() {
-	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
-	vec2 sample_coords = coords * pfd.inv_display_size;
-	vec3 P = texture(position_texture, sample_coords).xyz;
-	vec3 N = oct_decode_to_vec3(texture(normal_texture, sample_coords).rg);
-	float Z = (pfd.camera_view * vec4(P, 1.0)).z;
+	vec2 coords = ivec2(gl_GlobalInvocationID.xy) * pfd.inv_display_size;
+	vec3 P = texture(position_texture, coords).xyz;
+	vec3 N = oct_decode_to_vec3(texture(normal_texture, coords).rg);
 
+	float radius = 0.75;
+	float perspective_radius = radius / P.z;
+	int sigma = 1;
+	float beta = 1e-4;
 	uint rng_state = seed_thread((gl_GlobalInvocationID.y * uint(pfd.display_size.y) + gl_GlobalInvocationID.x) * pfd.frame_index);
+	int num_samples = 8;
+	float sum = 0.0;
+	for(int i = 0; i < num_samples; ++i) {
+		// Sample angle and distance (random position on disk)
+		float ang = random01(rng_state) * 2 * PI;
+		float dist = random01(rng_state) * perspective_radius;
+		vec2 offset = vec2(cos(ang), sin(ang)) * dist;
+		vec2 sample_coords = coords + offset;
+		vec3 V = texture(position_texture, sample_coords).xyz - P;
 
-	float ao = 0.0;
-	for(int i = 0; i < 4; ++i) {
-		float rnd1 = random01(rng_state);
-		float rnd2 = random01(rng_state);
-		vec3 rnd_dir = uniform_sample_cosine_weighted_hemisphere(vec2(rnd1, rnd2));
-		mat3x3 R = onb_from_unit_vector(N);
-		vec3 V = R * rnd_dir;
-
-		float dist = 0.2;
-		vec3 P_s = P + V * dist;
-		vec4 P_s_clip = pfd.camera_proj * pfd.camera_view * vec4(P_s, 1.0);
-		vec3 P_s_ndc = (P_s_clip.xyz / P_s_clip.w) * 0.5 + 0.5;
-		float Z_s = (pfd.camera_view * vec4(texture(position_texture, P_s_ndc.xy).xyz, 1.0)).z;
-		ao += Z + 0.15 >= Z_s ? 1.0 * max(dot(N, V), 0.0) : 0.0;
+		sum += max(dot(V, N) - beta, 0.0) / (dot(V, V) + 1e-4);
 	}
-	ao /= 4.0;
+
+	float ao = max(1.0 - (2.0 * sigma / float(num_samples)) * sum, 0.0);
 
 	imageStore(
 		screen_space_ambient_occlusion,
-		coords,
+		ivec2(gl_GlobalInvocationID.xy),
 		vec4(ao)
 	);
 }

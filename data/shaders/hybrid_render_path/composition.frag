@@ -59,7 +59,7 @@ void main() {
 	float metallic = clamp(packed_normal_and_metallic.z, 0.0, 1.0);
 
 	float ambient_factor = PI_INVERSE;
-	float light_intensity = 8.0;
+	float light_intensity = 10.0;
 	vec3 light_color = pfd.directional_light.color.rgb;
 
 	vec3 f0 = vec3(0.04);

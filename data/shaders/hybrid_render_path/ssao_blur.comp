@@ -12,17 +12,15 @@ void main() {
 	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
 
 	float ao = 0.0;
-	int contributing_samples = 0;
-	for(int y = -2; y <= 2; ++y) {
-		for(int x = -2; x <= 2; ++x) {
+	for(int y = -6; y <= 6; ++y) {
+		for(int x = -6; x <= 6; ++x) {
 			ivec2 sample_coords = coords + ivec2(x, y);
 			if(sample_coords.x < 0 || sample_coords.x >= pfd.display_size.x ||
 			   sample_coords.y < 0 || sample_coords.y >= pfd.display_size.y) continue;
 
 			ao += imageLoad(screen_space_ambient_occlusion, sample_coords).x;
-			++contributing_samples;
 		}
 	}
 
-	imageStore(screen_space_ambient_occlusion_blurred, coords, vec4(ao / contributing_samples));
+	imageStore(screen_space_ambient_occlusion_blurred, coords, vec4(ao / (13.0 * 13.0)));
 }

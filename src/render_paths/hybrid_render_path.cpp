@@ -89,58 +89,60 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		);
 	}
 
-	render_graph.AddComputePass("SSAO Pass",
-		{
-			VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
-			VkUtils::CreateTransientSampledImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
-		},
-		{
-			VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16G16B16A16_SFLOAT, 2)
-		},
-		ComputePipelineDescription {
-			.kernels = {
-				ComputeKernel {
-					.shader = "hybrid_render_path/ssao.comp"
+	if(ambient_occlusion_mode == AMBIENT_OCCLUSION_MODE_SSAO) {
+		render_graph.AddComputePass("SSAO Pass",
+			{
+				VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+				VkUtils::CreateTransientSampledImage("World Space Normals", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			},
+			{
+				VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16G16B16A16_SFLOAT, 2)
+			},
+			ComputePipelineDescription {
+				.kernels = {
+					ComputeKernel {
+						.shader = "hybrid_render_path/ssao.comp"
+					}
 				}
+			},
+			[&](ComputeExecutionContext &execution_context) {
+				glm::uvec2 display_size = execution_context.GetDisplaySize();
+
+				execution_context.Dispatch(
+					"hybrid_render_path/ssao.comp",
+					display_size.x / 8 + (display_size.x % 8 != 0),
+					display_size.y / 8 + (display_size.y % 8 != 0),
+					1
+				);
 			}
-		},
-		[&](ComputeExecutionContext &execution_context) {
-			glm::uvec2 display_size = execution_context.GetDisplaySize();
+		);
 
-			execution_context.Dispatch(
-				"hybrid_render_path/ssao.comp",
-				display_size.x / 8 + (display_size.x % 8 != 0),
-				display_size.y / 8 + (display_size.y % 8 != 0),
-				1
-			);
-		}
-	);
-
-	render_graph.AddComputePass("SSAO Blur Pass",
-		{
-			VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16G16B16A16_SFLOAT, 0)
-		},
-		{
-			VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
-		},
-		ComputePipelineDescription {
-			.kernels = {
-				ComputeKernel {
-					.shader = "hybrid_render_path/ssao_blur.comp"
+		render_graph.AddComputePass("SSAO Blur Pass",
+			{
+				VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16G16B16A16_SFLOAT, 0)
+			},
+			{
+				VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
+			},
+			ComputePipelineDescription {
+				.kernels = {
+					ComputeKernel {
+						.shader = "hybrid_render_path/ssao_blur.comp"
+					}
 				}
-			}
-		},
-		[&](ComputeExecutionContext &execution_context) {
-			glm::uvec2 display_size = execution_context.GetDisplaySize();
+			},
+			[&](ComputeExecutionContext &execution_context) {
+				glm::uvec2 display_size = execution_context.GetDisplaySize();
 
-			execution_context.Dispatch(
-				"hybrid_render_path/ssao_blur.comp",
-				display_size.x / 8 + (display_size.x % 8 != 0),
-				display_size.y / 8 + (display_size.y % 8 != 0),
-				1
-			);
-		}
-	);
+				execution_context.Dispatch(
+					"hybrid_render_path/ssao_blur.comp",
+					display_size.x / 8 + (display_size.x % 8 != 0),
+					display_size.y / 8 + (display_size.y % 8 != 0),
+					1
+				);
+			}
+		);
+	}
 
 	render_graph.AddGraphicsPass("G-Buffer Pass",
 		{},
