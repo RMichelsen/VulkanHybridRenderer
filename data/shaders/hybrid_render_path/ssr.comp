@@ -1,0 +1,81 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+#include "../common.glsl"
+#include "../../../src/rendering_backend/glsl_common.h"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 3, binding = 0) uniform sampler2D position_texture;
+layout(set = 3, binding = 1) uniform sampler2D normal_texture;
+layout(set = 3, binding = 2) uniform sampler2D albedo_texture;
+layout(set = 3, binding = 3) uniform sampler2D motion_vectors_and_fragment_depth_texture;
+layout(set = 3, binding = 4, r16f) writeonly uniform image2D screen_space_reflections;
+
+void main() {
+	vec2 coords = ivec2(gl_GlobalInvocationID.xy) * pfd.inv_display_size;
+	vec3 P = texture(position_texture, coords).xyz;
+	vec3 N = oct_decode_to_vec3(texture(normal_texture, coords).rg);
+
+	vec3 camera_position = vec3(pfd.camera_view_inverse[3].xyz);
+	vec3 I = normalize(P - camera_position);
+	vec3 reflected_dir = normalize(reflect(I, N));
+
+	float prev_depth = distance(P, camera_position);
+	float current_depth = 0.0;
+	float ray_increment = 0.0;
+	float increment_size = 0.09;
+	for(int i = 0; i < 128; ++i) {
+		ray_increment += increment_size;
+
+		vec3 point_along_ray = P + reflected_dir * ray_increment;
+		current_depth = distance(point_along_ray, camera_position);
+
+		vec4 point_along_ray_clip_space = pfd.camera_proj * pfd.camera_view * vec4(point_along_ray, 1.0);
+		vec2 point_along_ray_uv = (point_along_ray_clip_space.xy / point_along_ray_clip_space.w) * 0.5 + 0.5;
+
+		if(point_along_ray_uv.x < 0.0 || point_along_ray_uv.x > 1.0 || point_along_ray_uv.y < 0.0 || point_along_ray_uv.y > 1.0) {
+			break;
+		}
+
+		float sampled_depth = distance(texture(position_texture, point_along_ray_uv).xyz, camera_position);
+
+		if(sampled_depth < current_depth && sampled_depth > (prev_depth - 0.18)) {
+			
+			// Binary search to approximate exact intersection
+			float start = 0.0;
+			float end = increment_size;
+			vec2 point_along_ray_uv_adj = vec2(0.0);
+			for(int j = 0; j < 8; ++j) {
+				float middle_point = (start + end) * 0.5;
+				vec3 point_along_ray_adj = P + reflected_dir * ((ray_increment - increment_size) + middle_point);
+				float mid_depth = distance(point_along_ray_adj, camera_position);
+
+				vec4 point_along_ray_clip_space_adj = pfd.camera_proj * pfd.camera_view * vec4(point_along_ray_adj, 1.0);
+				point_along_ray_uv_adj = (point_along_ray_clip_space_adj.xy / point_along_ray_clip_space_adj.w) * 0.5 + 0.5;
+				float sampled_depth_adj = distance(texture(position_texture, point_along_ray_uv_adj).xyz, camera_position);
+
+				if(sampled_depth_adj < mid_depth) {
+					end = middle_point;
+				}
+				else {
+					start = middle_point;
+				}
+			}
+
+			imageStore(
+				screen_space_reflections,
+				ivec2(gl_GlobalInvocationID.xy),
+				texture(albedo_texture, point_along_ray_uv_adj)
+			);
+			return;
+		}
+
+		prev_depth = current_depth;
+	}
+
+	imageStore(
+		screen_space_reflections,
+		ivec2(gl_GlobalInvocationID.xy),
+		vec4(0.0, 0.0, 0.0, 1.0)
+	);
+}

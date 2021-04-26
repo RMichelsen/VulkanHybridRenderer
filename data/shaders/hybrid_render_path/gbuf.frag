@@ -52,7 +52,6 @@ void main() {
 
 	// Motion vector
 	vec2 current_ndc_pos = gl_FragCoord.xy * pfd.inv_display_size;
-	vec4 prev_clipspace_pos = pfd.camera_proj_prev_frame * pfd.camera_view_prev_frame * in_clip_space_pos;
 	vec2 prev_ndc_pos = (in_reprojected_pos.xy / in_reprojected_pos.w) * 0.5 + 0.5;
 	out_motion_vectors_and_fragment_depth = vec4(current_ndc_pos - prev_ndc_pos, in_clip_space_pos.z, fwidth(in_clip_space_pos.z));
 }

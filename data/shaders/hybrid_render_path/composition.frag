@@ -12,8 +12,9 @@ layout(set = 3, binding = 1) uniform sampler2D normal_texture;
 layout(set = 3, binding = 2) uniform sampler2D albedo_texture;
 layout(set = 3, binding = 3) uniform sampler2D shadow_map;
 layout(set = 3, binding = 4) uniform sampler2D ssao_texture;
-layout(set = 3, binding = 5) uniform sampler2D raytraced_shadow_and_ao_texture;
-layout(set = 3, binding = 6) uniform sampler2D raytraced_reflections_texture;
+layout(set = 3, binding = 5) uniform sampler2D ssr_texture;
+layout(set = 3, binding = 6) uniform sampler2D raytraced_shadow_and_ao_texture;
+layout(set = 3, binding = 7) uniform sampler2D raytraced_reflections_texture;
 
 layout(location = 0) in vec2 in_uv;
 layout(location = 0) out vec4 out_color;
@@ -74,6 +75,15 @@ void main() {
 
 	if(reflection_mode == REFLECTION_MODE_RAYTRACED) {
 		vec3 reflections = texture(raytraced_reflections_texture, in_uv).rgb * shadow;
+		if(metallic == 1.0) {
+			specular_lighting = reflections;
+		}
+		else {
+			specular_lighting = mix(specular_lighting, reflections, roughness);
+		}
+	}
+	else if(reflection_mode == REFLECTION_MODE_SSR) {
+		vec3 reflections = texture(ssr_texture, in_uv).rgb * shadow;
 		if(metallic == 1.0) {
 			specular_lighting = reflections;
 		}

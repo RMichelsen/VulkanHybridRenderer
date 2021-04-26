@@ -1066,6 +1066,7 @@
     <GLSLShader Include="data\shaders\hybrid_render_path\reflection_hit.rchit" />
     <GLSLShader Include="data\shaders\hybrid_render_path\ssao.comp" />
     <GLSLShader Include="data\shaders\hybrid_render_path\ssao_blur.comp" />
+    <GLSLShader Include="data\shaders\hybrid_render_path\ssr.comp" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="misc\glsl.xml" />

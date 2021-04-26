@@ -33,7 +33,7 @@ private:
 	int ambient_occlusion_mode = 0;
 	int reflection_mode = 0;
 	bool denoise_shadow_and_ao = true;
-	bool denoise_reflections = true;
 
 	SVGFPushConstants svgf_push_constants;
+	bool svgf_textures_created = false;
 };
