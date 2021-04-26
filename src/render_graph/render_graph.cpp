@@ -53,6 +53,8 @@ void RenderGraph::DestroyResources() {
 		VkUtils::DestroyImage(context.device, context.allocator, image);
 	}
 
+	vkDestroyQueryPool(context.device, timestamp_query_pool, nullptr);
+
 	readers.clear();
 	writers.clear();
 	passes.clear();
@@ -62,6 +64,7 @@ void RenderGraph::DestroyResources() {
 	compute_pipelines.clear();
 	images.clear();
 	image_access.clear();
+	pass_timestamps.clear();
 }
 
 void RenderGraph::AddGraphicsPass(const char *render_pass_name, std::vector<TransientResource> dependencies, 
@@ -155,13 +158,25 @@ void RenderGraph::Build() {
 			CreateComputePass(pass_description);
 		}
 	}
-}
 
-void RenderGraph::Execute(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx) {
 	FindExecutionOrder();
 	assert(SanityCheck());
 
-	for(std::string &pass_name : execution_order) {
+	// Create query pool for timestamp statistics
+	VkQueryPoolCreateInfo query_pool_info {
+		.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+		.queryType = VK_QUERY_TYPE_TIMESTAMP,
+		.queryCount = static_cast<uint32_t>(execution_order.size()) * 2
+	};
+	VK_CHECK(vkCreateQueryPool(context.device, &query_pool_info, nullptr, &timestamp_query_pool));
+}
+
+void RenderGraph::Execute(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx) {
+	uint32_t timestamp_count = static_cast<uint32_t>(execution_order.size()) * 2;
+	vkCmdResetQueryPool(command_buffer, timestamp_query_pool, 0, timestamp_count);
+
+	for(int i = 0; i < execution_order.size(); ++i) {
+		std::string &pass_name = execution_order[i];
 		assert(passes.contains(pass_name));
 		RenderPass &render_pass = passes[pass_name];
 
@@ -171,20 +186,60 @@ void RenderGraph::Execute(VkCommandBuffer command_buffer, uint32_t resource_idx,
 		};
 		vkCmdBeginDebugUtilsLabelEXT(command_buffer, &pass_label);
 
-		InsertBarriers(command_buffer, render_pass);
-
 		if(std::holds_alternative<GraphicsPass>(render_pass.pass)) {
+			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, timestamp_query_pool, (i * 2));
+			InsertBarriers(command_buffer, render_pass);
 			ExecuteGraphicsPass(command_buffer, resource_idx, image_idx, render_pass);
+			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, timestamp_query_pool, (i * 2) + 1);
 		}
 		else if(std::holds_alternative<RaytracingPass>(render_pass.pass)) {
+			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, timestamp_query_pool, (i * 2));
+			InsertBarriers(command_buffer, render_pass);
 			ExecuteRaytracingPass(command_buffer, resource_idx, render_pass);
+			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, timestamp_query_pool, (i * 2) + 1);
 		}
 		else if(std::holds_alternative<ComputePass>(render_pass.pass)) {
+			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, timestamp_query_pool, (i * 2));
+			InsertBarriers(command_buffer, render_pass);
 			ExecuteComputePass(command_buffer, resource_idx, render_pass);
+			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, timestamp_query_pool, (i * 2) + 1);
 		}
 
 		vkCmdEndDebugUtilsLabelEXT(command_buffer);
 	}
+}
+
+void RenderGraph::GatherPerformanceStatistics() {
+	uint32_t timestamp_count = static_cast<uint32_t>(execution_order.size()) * 2;
+	std::vector<uint64_t> timestamps(timestamp_count);
+	VK_CHECK(vkGetQueryPoolResults(context.device, timestamp_query_pool, 0, timestamp_count,
+		timestamp_count * sizeof(uint64_t), timestamps.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT));
+
+	for(int i = 0; i < execution_order.size(); ++i) {
+		std::string &pass_name = execution_order[i];
+		double t1 = static_cast<double>(timestamps[(i * 2)]) * context.gpu.properties.properties.limits.timestampPeriod * 1e-6;
+		double t2 = static_cast<double>(timestamps[(i * 2) + 1]) * context.gpu.properties.properties.limits.timestampPeriod * 1e-6;
+		pass_timestamps[pass_name] = pass_timestamps[pass_name] * 0.95 + (t2 - t1) * 0.05;
+	}
+}
+
+void RenderGraph::DrawPerformanceStatistics() {
+	uint64_t strlen = 0;
+	for(std::string &pass_name : execution_order) {
+		if(pass_name.length() > strlen) {
+			strlen = pass_name.length();
+		}
+	}
+
+	ImGuiIO &io = ImGui::GetIO();
+	ImGui::Begin("Performance Statistics");
+	ImGui::Text("FPS: %s%f", std::string(strlen > 3 ? strlen - 3 : 0, ' ').c_str(), io.Framerate);
+
+	for(std::string &pass_name : execution_order) {
+		ImGui::Text("%s: %s%fms", pass_name.c_str(), std::string(strlen - pass_name.length(), ' ').c_str(), pass_timestamps[pass_name]);
+	}
+
+	ImGui::End();
 }
 
 void RenderGraph::CopyImage(VkCommandBuffer command_buffer, std::string src_image_name, Image dst_image) {

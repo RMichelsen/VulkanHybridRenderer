@@ -97,4 +97,6 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 
 void ForwardRasterRenderPath::DeregisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager) {}
 
-void ForwardRasterRenderPath::ImGuiDrawSettings() {}
+bool ForwardRasterRenderPath::ImGuiDrawSettings() {
+	return false;
+}

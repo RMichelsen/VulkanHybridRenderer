@@ -19,6 +19,8 @@ public:
 
 	void Build();
 	void Execute(VkCommandBuffer command_buffer, uint32_t resource_idx, uint32_t image_idx);
+	void GatherPerformanceStatistics();
+	void DrawPerformanceStatistics();
 	void CopyImage(VkCommandBuffer command_buffer, std::string src_image_name, Image dst_image);
 	VkFormat GetImageFormat(std::string image_name);
 	std::vector<std::string> GetColorAttachments();
@@ -38,6 +40,7 @@ private:
 
 	VulkanContext &context;
 	ResourceManager &resource_manager;
+	VkQueryPool timestamp_query_pool;
 
 	std::vector<std::string> execution_order;
 	std::unordered_map<std::string, std::vector<std::string>> readers;
@@ -49,6 +52,7 @@ private:
 	std::unordered_map<std::string, ComputePipeline> compute_pipelines;
 	std::unordered_map<std::string, Image> images;
 	std::unordered_map<std::string, ImageAccess> image_access;
+	std::unordered_map<std::string, double> pass_timestamps;
 
 	friend class RenderPath;
 	friend class ComputeExecutionContext;

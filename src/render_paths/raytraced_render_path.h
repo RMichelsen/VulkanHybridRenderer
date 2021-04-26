@@ -8,7 +8,7 @@ public:
 	using RenderPath::RenderPath;
 	virtual void RegisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager);
 	virtual void DeregisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager);
-	virtual void ImGuiDrawSettings();
+	virtual bool ImGuiDrawSettings();
 
 private:
 	int use_anyhit_shader = 0;

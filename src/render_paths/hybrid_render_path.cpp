@@ -53,7 +53,8 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 			}
 		);
 	}
-	else if(shadow_mode == SHADOW_MODE_RAYTRACED || ambient_occlusion_mode == AMBIENT_OCCLUSION_MODE_RAYTRACED) {
+	else if(shadow_mode == SHADOW_MODE_RAYTRACED || ambient_occlusion_mode == AMBIENT_OCCLUSION_MODE_RAYTRACED ||
+		    reflection_mode == REFLECTION_MODE_RAYTRACED) {
 		render_graph.AddRaytracingPass("Raytrace Pass",
 			{
 				VkUtils::CreateTransientSampledImage("World Space Position", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
@@ -379,7 +380,7 @@ void HybridRenderPath::DeregisterPath(VulkanContext& context, RenderGraph& rende
 	}
 }
 
-void HybridRenderPath::ImGuiDrawSettings() {
+bool HybridRenderPath::ImGuiDrawSettings() {
 	int old_shadow_mode = shadow_mode;
 	int old_ambient_occlusion_mode = ambient_occlusion_mode;
 	int old_reflection_mode = reflection_mode;
@@ -410,6 +411,8 @@ void HybridRenderPath::ImGuiDrawSettings() {
 	   old_ambient_occlusion_mode != ambient_occlusion_mode ||
 	   old_reflection_mode != reflection_mode ||
 	   old_denoise_shadow_and_ao!= denoise_shadow_and_ao) {
-		Rebuild();
+		return true;
 	}
+
+	return false;
 }

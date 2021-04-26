@@ -44,7 +44,7 @@ Renderer::~Renderer() {
 }
 
 void Renderer::Update() {
-	user_interface_state = user_interface->Update(*active_render_path, render_graph->GetColorAttachments());
+	user_interface_state = user_interface->Update(*render_graph, *active_render_path, render_graph->GetColorAttachments());
 
 	ImGuiIO &io = ImGui::GetIO();
 	Camera &camera = resource_manager->scene.camera;
@@ -159,23 +159,26 @@ void Renderer::Present(HWND hwnd) {
 	switch(user_interface_state.render_path_state) {
 	case RenderPathState::ChangeToHybrid: {
 		active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
-		active_render_path->Build();
 	} break;
 	case RenderPathState::ChangeToRayquery: {
 		active_render_path = std::make_unique<RayqueryRenderPath>(*context, *render_graph, *resource_manager);
-		active_render_path->Build();
 	} break;
 	case RenderPathState::ChangeToRaytraced: {
 		active_render_path = std::make_unique<RaytracedRenderPath>(*context, *render_graph, *resource_manager);
-		active_render_path->Build();
 	} break;
 	case RenderPathState::ChangeToForwardRaster: {
 		active_render_path = std::make_unique<ForwardRasterRenderPath>(*context, *render_graph, *resource_manager);
-		active_render_path->Build();
 	} break;
 	case RenderPathState::Idle:
 	default: {
 	}
+	}
+
+	if(user_interface_state.render_path_needs_rebuild) {
+		active_render_path->Rebuild();
+	}
+	else {
+		render_graph->GatherPerformanceStatistics();
 	}
 }
 

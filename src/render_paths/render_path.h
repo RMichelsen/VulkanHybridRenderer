@@ -11,7 +11,7 @@ public:
 
 	virtual void RegisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager) = 0;
 	virtual void DeregisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager) = 0;
-	virtual void ImGuiDrawSettings() = 0;
+	virtual bool ImGuiDrawSettings() = 0;
 
 private:
 	VulkanContext &context;

@@ -401,5 +401,6 @@ enum class RenderPathState {
 
 struct UserInterfaceState {
 	RenderPathState render_path_state;
+	bool render_path_needs_rebuild;
 	std::string debug_texture;
 };

@@ -26,7 +26,7 @@ UserInterface::UserInterface(VulkanContext &context, ResourceManager &resource_m
 	io.DisplaySize.x = static_cast<float>(context.swapchain.extent.width);
 	io.DisplaySize.y = static_cast<float>(context.swapchain.extent.height);
 
-	io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/calibri.ttf", 20.0f);
+	io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/consola.ttf", 20.0f);
 	unsigned char *font_data;
 	int width, height;
 	io.Fonts->GetTexDataAsRGBA32(&font_data, &width, &height);
@@ -76,8 +76,8 @@ void UserInterface::DestroyResources() {
 	vkDestroyRenderPass(context.device, render_pass, nullptr);
 }
 
-UserInterfaceState UserInterface::Update(RenderPath &active_render_path, 
-	std::vector<std::string> current_color_attachments) {
+UserInterfaceState UserInterface::Update(RenderGraph &render_graph,
+	RenderPath &active_render_path, std::vector<std::string> current_color_attachments) {
 	ImGuiIO &io = ImGui::GetIO();
 	POINT p;
 	GetCursorPos(&p);
@@ -117,12 +117,10 @@ UserInterfaceState UserInterface::Update(RenderPath &active_render_path,
 	}
 	ImGui::EndMainMenuBar();
 
-	ImGui::Begin("Statistics");
-	ImGui::Text("FPS: %f", io.Framerate);
-	ImGui::End();
+	render_graph.DrawPerformanceStatistics();
 
 	ImGui::Begin("Render Path Configuration");
-	active_render_path.ImGuiDrawSettings();
+	bool needs_rebuild = active_render_path.ImGuiDrawSettings() || (render_path_state != RenderPathState::Idle);
 	ImGui::End();
 
 	ImGui::Begin("Debug Texture");
@@ -152,6 +150,7 @@ UserInterfaceState UserInterface::Update(RenderPath &active_render_path,
 
 	return UserInterfaceState {
 		.render_path_state = render_path_state,
+		.render_path_needs_rebuild = needs_rebuild,
 		.debug_texture = current_texture
 	};
 }

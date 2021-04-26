@@ -10,7 +10,8 @@ public:
 	UserInterface(VulkanContext &context, ResourceManager &resource_manager);
 	void DestroyResources();
 
-	UserInterfaceState Update(RenderPath &active_render_path, std::vector<std::string> current_color_attachments);
+	UserInterfaceState Update(RenderGraph &render_graph, RenderPath &active_render_path, 
+		std::vector<std::string> current_color_attachments);
 	void Draw(ResourceManager& resource_manager, VkCommandBuffer command_buffer,
 		uint32_t resource_idx, uint32_t image_idx);
 	uint32_t SetActiveDebugTexture(VkFormat format);
