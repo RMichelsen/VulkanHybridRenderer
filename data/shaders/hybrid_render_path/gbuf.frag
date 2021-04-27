@@ -5,11 +5,10 @@
 
 layout(push_constant) uniform PushConstants { HybridPushConstants pc; };
 
-layout(location = 0) in vec4 in_clip_space_pos;
-layout(location = 1) in vec3 in_normal;
-layout(location = 2) in vec4 in_tangent;
-layout(location = 3) in vec2 in_uv;
-layout(location = 4) in vec4 in_reprojected_pos;
+layout(location = 0) in vec3 in_normal;
+layout(location = 1) in vec4 in_tangent;
+layout(location = 2) in vec2 in_uv;
+layout(location = 3) in vec4 in_reprojected_pos;
 
 layout(location = 0) out vec4 out_albedo;
 layout(location = 1) out vec4 out_world_space_normals_and_linear_depths;
@@ -38,7 +37,7 @@ void main() {
 		N = tangent * tangent_space_normal.x + bitangent * tangent_space_normal.y + in_normal * tangent_space_normal.z;
 	}
 
-	float linear_depth = in_clip_space_pos.z / in_clip_space_pos.w;
+	float linear_depth = gl_FragCoord.z / gl_FragCoord.w;
 	out_world_space_normals_and_linear_depths = vec4(vec3_encode_to_oct(normalize(mat3(pc.normal_matrix) * N)), linear_depth, fwidth(linear_depth));
 
 	// Motion vector

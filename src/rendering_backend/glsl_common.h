@@ -16,7 +16,6 @@ using uint = uint32_t;
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_ray_tracing : enable
-#extension GL_EXT_ray_query : enable
 #endif
 
 struct DefaultPushConstants {

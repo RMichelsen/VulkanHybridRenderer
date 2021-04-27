@@ -40,9 +40,9 @@ void main() {
 		0xFF, 0, 0, 0, ray_launch_position, 0.01, R * cone_dir, 10000.0, 0);
 	float shadow_payload = payload.x;
 
-	// Trace AO rays (4spp to improve variance-guided filtering)
+	// Trace AO rays (2spp to improve variance-guided filtering)
 	float ao_payload = 0.0;
-	for(int i = 0; i < 4; ++i) {
+	for(int i = 0; i < 2; ++i) {
 		rnd1 = random01(rng_state);
 		rnd2 = random01(rng_state);
 		vec3 rnd_dir = uniform_sample_cosine_weighted_hemisphere(vec2(rnd1, rnd2));
@@ -52,7 +52,7 @@ void main() {
 			0xFF, 0, 0, 0, ray_launch_position, 0.01, R * rnd_dir, 5.0, 0);
 		ao_payload += payload.x * max(dot(N, R * rnd_dir), 0.0);
 	}
-	ao_payload /= 4.0;
+	ao_payload /= 2.0;
 
 	imageStore(raytraced_shadow_and_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), vec4(shadow_payload, ao_payload, 0.0, 1.0));
 
