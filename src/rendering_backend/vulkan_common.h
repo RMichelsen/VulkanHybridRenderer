@@ -66,6 +66,7 @@ struct Mesh {
 //};
 
 struct Scene {
+	std::string name;
 	Camera camera;
 	DirectionalLight directional_light;
 	std::vector<Mesh> meshes;

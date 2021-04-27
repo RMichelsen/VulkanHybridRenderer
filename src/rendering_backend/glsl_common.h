@@ -32,7 +32,7 @@ struct SVGFPushConstants {
 	// Pingpong texture
 	ivec2 integrated_shadow_and_ao;
 
-	int prev_frame_normals_and_object_id;
+	int prev_frame_normals_and_linear_depths;
 	int shadow_and_ao_history;
 	int shadow_and_ao_moments_history;
 	int atrous_step;
@@ -42,18 +42,20 @@ struct DirectionalLight {
 	mat4 projview;
 	vec4 direction;
 	vec4 color;
+	vec4 intensity;
 };
 
 struct PerFrameData {
 	mat4 camera_view;
 	mat4 camera_proj;
-	mat4 camera_view_prev_frame;
-	mat4 camera_proj_prev_frame;
 	mat4 camera_view_inverse;
 	mat4 camera_proj_inverse;
+	mat4 camera_viewproj_inverse;
+	mat4 camera_view_prev_frame;
+	mat4 camera_proj_prev_frame;
 	DirectionalLight directional_light;
 	vec2 display_size;
-	vec2 inv_display_size;
+	vec2 display_size_inverse;
 	uint frame_index;
 	int blue_noise_texture_index;
 };
@@ -93,5 +95,19 @@ layout(set = 0, binding = 3) uniform accelerationStructureEXT TLAS;
 layout(set = 0, binding = 4) uniform sampler2D textures[];
 layout(set = 1, binding = 0) uniform image2D storage_images[];
 layout(set = 2, binding = 0) uniform PFD { PerFrameData pfd; };
+
+// Reconstruct view-space position from depth
+vec3 get_view_space_position(float depth, vec2 uv) {
+	vec4 reprojected_position = pfd.camera_proj_inverse * vec4(uv * 2.0 - vec2(1.0), depth, 1.0);
+	vec3 view_space_position = reprojected_position.xyz / reprojected_position.w;
+	return view_space_position;
+}
+
+// Reconstruct world-space position from depth
+vec3 get_world_space_position(float depth, vec2 uv) {
+	vec4 reprojected_position = pfd.camera_viewproj_inverse * vec4(uv * 2.0 - vec2(1.0), depth, 1.0);
+	vec3 world_space_position = reprojected_position.xyz / reprojected_position.w;
+	return world_space_position;
+}
 #endif
 

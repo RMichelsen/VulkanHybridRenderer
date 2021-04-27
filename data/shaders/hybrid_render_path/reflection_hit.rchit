@@ -38,9 +38,9 @@ void main() {
 		roughness *= metallic_roughness.b;
 	}
 
-	vec3 camera_position = vec3(pfd.camera_view_inverse[3].xyz);
+	vec3 camera_position = pfd.camera_view_inverse[3].xyz;
 	vec3 V = normalize(camera_position - position);
-	vec3 L = -normalize(pfd.directional_light.direction.xyz);
+	vec3 L = -pfd.directional_light.direction.xyz;
 	vec3 N = normal;
 	vec3 H = normalize(L + V);
 	vec3 ray_launch_position = position + N * 0.01;
@@ -57,7 +57,7 @@ void main() {
 	// Assume quite low ambient contribution, 
 	// in reality would need to trace AO rays, but too expensive
 	float ambient_factor = PI_INVERSE * 0.2;
-	float light_intensity = 2.0;
+	vec3 light_intensity = pfd.directional_light.intensity.xyz;
 	vec3 light_color = pfd.directional_light.color.rgb;
 
 	vec3 f0 = vec3(0.04);

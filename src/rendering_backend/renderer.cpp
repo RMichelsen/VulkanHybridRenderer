@@ -19,7 +19,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context, *resource_manager);
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
-	resource_manager->LoadScene("Pica.glb");
+	resource_manager->LoadScene("Sponza.glb");
 
 	active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
 	active_render_path->Build();
@@ -192,15 +192,16 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	per_frame_data = PerFrameData {
 		.camera_view = camera.view,
 		.camera_proj = camera.perspective,
-		.camera_view_prev_frame = prev_frame_view,
-		.camera_proj_prev_frame = prev_frame_proj,
 		.camera_view_inverse = camera.transform,
 		.camera_proj_inverse = glm::inverse(camera.perspective),
+		.camera_viewproj_inverse = glm::inverse(camera.perspective * camera.view),
+		.camera_view_prev_frame = prev_frame_view,
+		.camera_proj_prev_frame = prev_frame_proj,
 		.directional_light = resource_manager->scene.directional_light,
 		.display_size = { context->swapchain.extent.width, context->swapchain.extent.height },
-		.inv_display_size = { 1.0f / context->swapchain.extent.width, 1.0f / context->swapchain.extent.height },
+		.display_size_inverse = { 1.0f / context->swapchain.extent.width, 1.0f / context->swapchain.extent.height },
 		.frame_index = frame_index++,
-		.blue_noise_texture_index = blue_noise_texture_index
+		.blue_noise_texture_index = blue_noise_texture_index,
 	};
 	resource_manager->UpdatePerFrameUBO(resource_idx, per_frame_data);
 

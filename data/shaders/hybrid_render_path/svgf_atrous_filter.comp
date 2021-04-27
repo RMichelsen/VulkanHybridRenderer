@@ -5,9 +5,9 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(set = 3, binding = 0, r16f) readonly uniform image2D motion_vectors_and_depth_derivatives;
-layout(set = 3, binding = 1, r16f) readonly uniform image2D position_texture;
-layout(set = 3, binding = 2, r16f) readonly uniform image2D normal_texture;
+layout(set = 3, binding = 0, r16f) readonly uniform image2D world_space_normals_and_linear_depths;
+layout(set = 3, binding = 1, r16f) readonly uniform image2D motion_vectors_and_metallic_roughness;
+layout(set = 3, binding = 2) uniform sampler2D depth;
 layout(set = 3, binding = 3, r16f) readonly uniform image2D raytraced_shadow_and_ao_texture;
 layout(set = 3, binding = 4, r16f) writeonly uniform image2D denoised_raytraced_shadow_and_ao;
 
@@ -37,14 +37,8 @@ vec2 gauss_3x3_filter(ivec2 coords) {
 	return filtered_shadow_and_ao;
 }
 
-float edge_stopping_object_id(int object_id_p, int object_id_q, ivec2 sample_coords) {
-	if(object_id_p == object_id_q) return 1.0;
-	else return 0.0;
-}
-
-float edge_stopping_depth(ivec2 coords, ivec2 sample_coords, float linear_z_p, float depth_fwidth) {
-	float linear_z_q = float(imageLoad(motion_vectors_and_depth_derivatives, sample_coords).z);
-	float e = abs(linear_z_p - linear_z_q) / max(depth_fwidth, 1e-6);
+float edge_stopping_depth(float linear_depth_p, float linear_depth_q, float linear_depth_fwidth) {
+	float e = abs(linear_depth_p - linear_depth_q) / max(linear_depth_fwidth, 1e-6);
 	return exp(-e);
 }
 
@@ -59,13 +53,14 @@ float edge_stopping_luminance(float variance_p, float luminance_p, float luminan
 
 void main() {
 	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
-	vec4 normal_and_object_id_p = imageLoad(normal_texture, coords);
+	vec4 normal_and_linear_depths_p = imageLoad(world_space_normals_and_linear_depths, coords);
+	vec3 normal_p = oct_decode_to_vec3(normal_and_linear_depths_p.xy);
+	float linear_depth_p = normal_and_linear_depths_p.z;
+	float linear_depth_fwidth = normal_and_linear_depths_p.w;
+
 	vec4 integrated_shadow_and_ao_p = imageLoad(storage_images[pc.integrated_shadow_and_ao[0]], coords);
 	vec2 variance_p = gauss_3x3_filter(coords);
 	vec2 luminance_p = vec2(rgb_to_luminance(vec3(integrated_shadow_and_ao_p.x)), rgb_to_luminance(vec3(integrated_shadow_and_ao_p.y)));
-//	vec2 depth_values = imageLoad(motion_vectors_and_depth_derivatives, coords).zw;
-//	float linear_z_p = depth_values.x;
-//	float depth_fwidth = depth_values.y;
 
 	float atrous_weights[] = {
 		1.0 / 256.0, 1.0 / 64.0, 3.0 / 128.0, 1.0 / 64.0, 1 / 256.0,
@@ -87,20 +82,14 @@ void main() {
 			vec4 integrated_shadow_and_ao_q = imageLoad(storage_images[pc.integrated_shadow_and_ao[0]], sample_coords);
 			float kernel = atrous_weights[5 * (y + 2) + (x + 2)];
 
-			vec4 normal_and_object_id_q = imageLoad(normal_texture, sample_coords); 
+			vec4 normal_and_linear_depths_q = imageLoad(world_space_normals_and_linear_depths, sample_coords);
+			vec3 normal_q = oct_decode_to_vec3(normal_and_linear_depths_q.xy);
+			float linear_depth_q = normal_and_linear_depths_q.z;
 
-			float weight_object_id = edge_stopping_object_id(
-				int(normal_and_object_id_p.z), 
-				int(normal_and_object_id_q.z), 
-				sample_coords
-			);
-//			float weight_normal = edge_stopping_normal(
-//				oct_decode_to_vec3(normal_and_object_id_p.rg), 
-//				oct_decode_to_vec3(normal_and_object_id_q.rg)
-//			);
-//			float weight_depth = edge_stopping_depth(coords, sample_coords, linear_z_p, depth_fwidth);
+			float weight_normal = edge_stopping_normal(normal_p, normal_q);
+			float weight_depth = edge_stopping_depth(linear_depth_p, linear_depth_q, linear_depth_fwidth);
 
-			vec2 w = vec2(kernel * weight_object_id);
+			vec2 w = vec2(kernel * weight_normal * weight_depth);
 			w.x *= edge_stopping_luminance(variance_p.x, luminance_p.x, rgb_to_luminance(vec3(integrated_shadow_and_ao_q.x)));
 			w.y *= edge_stopping_luminance(variance_p.y, luminance_p.y, rgb_to_luminance(vec3(integrated_shadow_and_ao_q.y)));
 

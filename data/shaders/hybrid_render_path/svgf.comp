@@ -5,32 +5,33 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(set = 3, binding = 0, r16f) readonly uniform image2D motion_vectors_and_depth_derivatives;
-layout(set = 3, binding = 1, r16f) readonly uniform image2D position_texture;
-layout(set = 3, binding = 2, r16f) readonly uniform image2D normal_texture;
+layout(set = 3, binding = 0, r16f) readonly uniform image2D world_space_normals_and_linear_depths;
+layout(set = 3, binding = 1, r16f) readonly uniform image2D motion_vectors_and_metallic_roughness;
+layout(set = 3, binding = 2) uniform sampler2D depth;
 layout(set = 3, binding = 3, r16f) readonly uniform image2D raytraced_shadow_and_ao_texture;
 layout(set = 3, binding = 4, r16f) writeonly uniform image2D denoised_raytraced_shadow_and_ao;
 
 layout(push_constant) uniform PushConstants { SVGFPushConstants pc; };
 
-bool is_valid_reprojection(ivec2 prev_coords, int current_object_id, vec3 current_normal) {
+bool is_valid_reprojection(ivec2 prev_coords, float current_linear_depth, 
+	float current_linear_depth_fwidth, vec3 current_normal) {
 	// Reject if coords is outside of display
 	if(prev_coords.x < 0 || prev_coords.y < 0 ||
 	   prev_coords.x >= pfd.display_size.x || prev_coords.y >= pfd.display_size.y) {
 	   return false;
 	}
 
-	vec4 prev_normal_and_obj_id = imageLoad(storage_images[pc.prev_frame_normals_and_object_id], prev_coords);
+	vec4 prev_normal_and_linear_depths = imageLoad(storage_images[pc.prev_frame_normals_and_linear_depths], prev_coords);
 
-	// Reject if object ID has changed
-	int prev_object_id = int(prev_normal_and_obj_id.z);
-	if(current_object_id == -1.0 || current_object_id != prev_object_id) {
+	// Reject if normals deviate too much
+	float prev_linear_depth = prev_normal_and_linear_depths.z;
+	if(abs(current_linear_depth - prev_linear_depth) / (current_linear_depth_fwidth + 1e-4) > 10.0) {
 		return false;
 	}
 
 	// Reject if normals aren't aligned
 	// Merge metric from [Kerzner and Salvi 2014]
-	vec3 prev_normal = oct_decode_to_vec3(prev_normal_and_obj_id.xy);
+	vec3 prev_normal = oct_decode_to_vec3(prev_normal_and_linear_depths.xy);
 	if(dot(current_normal, prev_normal) < COS_PI_4) {
 		return false;
 	}
@@ -40,11 +41,11 @@ bool is_valid_reprojection(ivec2 prev_coords, int current_object_id, vec3 curren
 
 void main() {
 	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
-	vec4 current_normal_and_obj_id = imageLoad(normal_texture, coords);
-	vec3 current_normal = oct_decode_to_vec3(current_normal_and_obj_id.xy);
-	int current_obj_id = int(current_normal_and_obj_id.z);
-	vec4 motion_vector_and_depth_derivatives = imageLoad(motion_vectors_and_depth_derivatives, coords);
-	vec2 motion_vector = motion_vector_and_depth_derivatives.xy;
+	vec4 current_normal_and_linear_depths = imageLoad(world_space_normals_and_linear_depths, coords);
+	vec3 current_normal = oct_decode_to_vec3(current_normal_and_linear_depths.xy);
+	float current_linear_depth = current_normal_and_linear_depths.z;
+	float current_linear_depth_fwidth = current_normal_and_linear_depths.w;
+	vec2 motion_vector = imageLoad(motion_vectors_and_metallic_roughness, coords).xy;
 	vec4 current_shadow_and_ao = imageLoad(raytraced_shadow_and_ao_texture, coords);
 	float current_shadow = current_shadow_and_ao.x;
 	float current_ao = current_shadow_and_ao.y;
@@ -65,7 +66,7 @@ void main() {
 	float sum = 0.0;
 	for(int i = 0; i < 4; ++i) {
 		ivec2 sample_coords = prev_coords_aligned + offsets[i];
-		if(is_valid_reprojection(sample_coords, current_obj_id, current_normal)) {
+		if(is_valid_reprojection(sample_coords, current_linear_depth, current_linear_depth_fwidth, current_normal)) {
 			vec2 prev_shadow_and_ao = imageLoad(storage_images[pc.shadow_and_ao_history], sample_coords).xy;
 			prev_shadow += bilinear_weights[i] * prev_shadow_and_ao.x;
 			prev_ao += bilinear_weights[i] * prev_shadow_and_ao.y;
@@ -83,7 +84,7 @@ void main() {
 		for(int y = -1; y <= 1; ++y) {
 			for(int x = -1; x <= 1; ++x) {
 				ivec2 sample_coords = prev_coords_aligned + ivec2(x, y);
-				if(is_valid_reprojection(sample_coords, current_obj_id, current_normal)) {
+				if(is_valid_reprojection(sample_coords, current_linear_depth, current_linear_depth_fwidth, current_normal)) {
 					vec2 prev_shadow_and_ao = imageLoad(storage_images[pc.shadow_and_ao_history], sample_coords).xy;
 					vec4 prev_shadow_and_ao_moments = imageLoad(storage_images[pc.shadow_and_ao_moments_history], sample_coords);
 					prev_shadow += prev_shadow_and_ao.x;

@@ -12,7 +12,7 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 	render_graph.AddGraphicsPass("Depth Prepass",
 		{},
 		{
-			VkUtils::CreateTransientAttachmentImage("ShadowMap", 4096, 4096, VK_FORMAT_D32_SFLOAT, 0)
+			VkUtils::CreateTransientAttachmentImage("ShadowMap", 4096, 4096, VK_FORMAT_D32_SFLOAT, 0, VkUtils::ClearDepth(0.0f))
 		},
 		{
 			GraphicsPipelineDescription {
@@ -56,7 +56,7 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 		},
 		{
 			VkUtils::CreateTransientRenderOutput(0, true),
-			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1, DEFAULT_CLEAR_VALUE, true)
+			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1, VkUtils::ClearDepth(0.0f), true)
 		},
 		{
 			GraphicsPipelineDescription {

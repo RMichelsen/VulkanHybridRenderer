@@ -353,14 +353,13 @@ inline TransientResource CreateTransientRenderOutput(uint32_t binding, bool mult
 			.height = 0,
 			.format = VK_FORMAT_UNDEFINED,
 			.binding = binding,
-			.clear_value = DEFAULT_CLEAR_VALUE,
 			.multisampled = multisampled
 		}
 	};
 }
 
-inline TransientResource CreateTransientAttachmentImage(const char *name, VkFormat format, uint32_t binding,
-	VkClearValue clear_value = DEFAULT_CLEAR_VALUE, bool multisampled = false) {
+inline TransientResource CreateTransientAttachmentImage(const char *name, VkFormat format, uint32_t binding, 
+	VkClearValue clear_value, bool multisampled = false) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = name,
@@ -377,7 +376,7 @@ inline TransientResource CreateTransientAttachmentImage(const char *name, VkForm
 }
 
 inline TransientResource CreateTransientAttachmentImage(const char *name, uint32_t width, uint32_t height,
-	VkFormat format, uint32_t binding, VkClearValue clear_value = DEFAULT_CLEAR_VALUE, bool multisampled = false) {
+	VkFormat format, uint32_t binding, VkClearValue clear_value, bool multisampled = false) {
 	return TransientResource {
 		.type = TransientResourceType::Image,
 		.name = name,
@@ -474,5 +473,31 @@ inline VkSampleCountFlagBits GetMaxMultisampleCount(VkSampleCountFlags color_sam
 	if(compatible_counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
 	return VK_SAMPLE_COUNT_1_BIT;
 }
+
+inline VkClearValue ClearColor(float r, float g, float b, float a) {
+	return VkClearValue {
+		.color {
+			.float32 = {r, g, b, a}
+		}
+	};
 }
 
+inline VkClearValue ClearDepth(float val) {
+	return VkClearValue {
+		.depthStencil {
+			.depth = val
+		}
+	};
+}
+
+inline glm::mat4x4 InfiniteReverseDepthProjection(float yfov, float aspect_ratio, float znear) {
+	float scale = 1.0f / glm::tan(yfov * 0.5f);
+
+	return glm::mat4x4 {
+		scale / aspect_ratio, 0.0f, 0.0f, 0.0f,
+		0.0f, scale, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, -1.0f,
+		0.0f, 0.0f,	znear, 0.0f
+	};
+}
+}

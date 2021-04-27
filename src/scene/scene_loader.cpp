@@ -2,6 +2,7 @@
 #include "scene_loader.h"
 
 #include "rendering_backend/resource_manager.h"
+#include "rendering_backend/vulkan_utils.h"
 
 namespace SceneLoader {
 VkFilter GetVkFilter(cgltf_int filter) {
@@ -40,24 +41,22 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 	std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) {
 
 	if(node.camera) {
-		if(node.camera->type == cgltf_camera_type_perspective) {
-			scene.camera.perspective = glm::perspective(
-				node.camera->data.perspective.yfov,
-				node.camera->data.perspective.aspect_ratio,
-				node.camera->data.perspective.znear,
-				node.camera->data.perspective.zfar
-			);
-		}
-		else if(node.camera->type == cgltf_camera_type_orthographic) {
-			scene.camera.perspective = glm::ortho(
-				-node.camera->data.orthographic.xmag,
-				node.camera->data.orthographic.xmag,
-				-node.camera->data.orthographic.ymag,
-				node.camera->data.orthographic.ymag,
-				node.camera->data.orthographic.znear,
-				node.camera->data.orthographic.zfar
-			);
-		}
+		assert(node.camera->type == cgltf_camera_type_perspective);
+		// Since we use a reverse Z-buffer for increased floating point precision,
+		// znear and zfar are reversed.
+		scene.camera.perspective = VkUtils::InfiniteReverseDepthProjection(
+			node.camera->data.perspective.yfov,
+			node.camera->data.perspective.aspect_ratio,
+			node.camera->data.perspective.znear
+		);
+
+		//scene.camera.perspective = glm::perspective(
+		//	node.camera->data.perspective.yfov,
+		//	node.camera->data.perspective.aspect_ratio,
+		//	node.camera->data.perspective.znear,
+		//	node.camera->data.perspective.zfar
+		//);
+
 		cgltf_node_transform_world(&node, glm::value_ptr(scene.camera.transform));
 		float yaw, pitch, roll;
 		glm::extractEulerAngleYXZ(scene.camera.transform, yaw, pitch, roll);
@@ -83,17 +82,18 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		glm::decompose(node_transform, scale, rot, translation, skew, persp);
 
 		// TODO: Might want to compute bounding box of scene
-		glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 1.0f, 64.0f);
-		glm::vec3 light_direction = glm::rotate(rot, glm::vec3(0.0f, 0.0f, -1.0f));
+		glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 64.0f, 1.0f);
+		glm::vec3 light_direction = glm::normalize(glm::rotate(rot, glm::vec3(0.0f, 0.0f, -1.0f)));
 		glm::mat4 light_view = glm::lookAt(
-			-glm::normalize(light_direction) * 60.0f,
+			-light_direction * 60.0f,
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			glm::vec3(0.0f, 1.0f, 0.0f)
 		);
 		scene.directional_light = DirectionalLight {
 			.projview = light_perspective * light_view,
-			.direction = glm::vec4(light_direction, 1.0f),
-			.color = glm::vec4(glm::make_vec3(node.light->color), 1.0f)
+			.direction = glm::vec4(light_direction, 0.0f),
+			.color = glm::vec4(glm::make_vec3(node.light->color), 1.0f),
+			.intensity = !scene.name.compare("Pica.glb") ? glm::vec4(2.0f) : glm::vec4(30.0f)
 		};
 		return;
 	}
@@ -331,7 +331,9 @@ void ParseglTF(ResourceManager &resource_manager, const char *path, cgltf_data *
 }
 
 Scene LoadScene(ResourceManager &resource_manager, const char *path) {
-	Scene scene {};
+	Scene scene {
+		.name = std::filesystem::path(path).filename().string()
+	};
 	cgltf_options options {};
 	cgltf_data *data = nullptr;
 	cgltf_result result = cgltf_parse_file(&options, path, &data);

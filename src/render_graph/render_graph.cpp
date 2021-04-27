@@ -841,18 +841,7 @@ void RenderGraph::ExecuteGraphicsPass(VkCommandBuffer command_buffer, uint32_t r
 		else {
 			image_views.emplace_back(images[attachment.name].view);
 		}
-
-		if(VkUtils::IsDepthFormat(attachment.image.format)) {
-			clear_values.emplace_back(VkClearValue {
-				.depthStencil = VkClearDepthStencilValue { 
-					.depth = 1.0f, 
-					.stencil = 0 
-				}
-			});
-		}
-		else {
-			clear_values.emplace_back(attachment.image.clear_value);
-		}
+		clear_values.emplace_back(attachment.image.clear_value);
 	}
 	if(is_multisampled_pass) {
 		image_views.emplace_back(context.swapchain.image_views[image_idx]);

@@ -5,21 +5,30 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(set = 3, binding = 0) uniform sampler2D position_texture;
-layout(set = 3, binding = 1) uniform sampler2D normal_texture;
+layout(set = 3, binding = 0) uniform sampler2D world_space_normals_and_linear_depths;
+layout(set = 3, binding = 1) uniform sampler2D depth;
 layout(set = 3, binding = 2, r16f) writeonly uniform image2D screen_space_ambient_occlusion;
 
 void main() {
-	vec2 coords = ivec2(gl_GlobalInvocationID.xy) * pfd.inv_display_size;
-	vec3 P = texture(position_texture, coords).xyz;
-	vec3 N = oct_decode_to_vec3(texture(normal_texture, coords).rg);
+	vec2 coords = ivec2(gl_GlobalInvocationID.xy) * pfd.display_size_inverse;
+	float current_depth = texture(depth, coords).x;
+	if(current_depth == 0.0) {
+		imageStore(
+			screen_space_ambient_occlusion,
+			ivec2(gl_GlobalInvocationID.xy),
+			vec4(0.0)
+		);
+		return;
+	}
+	vec3 P = get_view_space_position(current_depth, coords);
+	vec3 N = normalize(mat3(pfd.camera_view) * oct_decode_to_vec3(texture(world_space_normals_and_linear_depths, coords).xy));
 
 	float radius = 0.75;
 	float perspective_radius = radius / P.z;
 	int sigma = 1;
 	float beta = 1e-4;
 	uint rng_state = seed_thread((gl_GlobalInvocationID.y * uint(pfd.display_size.y) + gl_GlobalInvocationID.x) * pfd.frame_index);
-	int num_samples = 8;
+	int num_samples = 4;
 	float sum = 0.0;
 	for(int i = 0; i < num_samples; ++i) {
 		// Sample angle and distance (random position on disk)
@@ -27,12 +36,12 @@ void main() {
 		float dist = random01(rng_state) * perspective_radius;
 		vec2 offset = vec2(cos(ang), sin(ang)) * dist;
 		vec2 sample_coords = coords + offset;
-		vec3 V = texture(position_texture, sample_coords).xyz - P;
+		vec3 V = get_view_space_position(texture(depth, sample_coords).x, sample_coords) - P;
 
 		sum += max(dot(V, N) - beta, 0.0) / (dot(V, V) + 1e-4);
 	}
 
-	float ao = max(1.0 - (2.0 * sigma / float(num_samples)) * sum, 0.0);
+	float ao = max(1.0 - ((2.0 * sigma) / float(num_samples)) * sum, 0.0);
 
 	imageStore(
 		screen_space_ambient_occlusion,

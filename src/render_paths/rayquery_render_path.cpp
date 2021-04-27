@@ -14,7 +14,7 @@ void RayqueryRenderPath::RegisterPath(VulkanContext &context, RenderGraph &rende
 		},
 		{
 			VkUtils::CreateTransientRenderOutput(0),
-			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1)
+			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1, VkUtils::ClearDepth(0.0f))
 		},
 		{
 			GraphicsPipelineDescription {

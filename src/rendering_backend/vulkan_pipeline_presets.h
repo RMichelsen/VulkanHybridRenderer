@@ -36,7 +36,7 @@ inline constexpr VkPipelineDepthStencilStateCreateInfo DEPTH_STENCIL_STATE_ON {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
 	.depthTestEnable = VK_TRUE,
 	.depthWriteEnable = VK_TRUE,
-	.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL,
+	.depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL
 };
 inline constexpr VkPipelineDepthStencilStateCreateInfo DEPTH_STENCIL_STATE_OFF {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
@@ -75,9 +75,4 @@ inline constexpr VkPipelineDynamicStateCreateInfo DYNAMIC_STATE_DEPTH_BIAS {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
 	.dynamicStateCount = static_cast<uint32_t>(DEPTH_BIAS_STATE.size()),
 	.pDynamicStates = DEPTH_BIAS_STATE.data()
-};
-inline constexpr VkClearValue DEFAULT_CLEAR_VALUE {
-	.color = VkClearColorValue {
-		.float32 = { 0.2f, 0.2f, 0.2f, 1.0f }
-	}
 };

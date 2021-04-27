@@ -108,8 +108,12 @@ vec3 oct_decode_to_vec3(vec2 e) {
 }
 
 // Convert RGB to Luminance
+//float rgb_to_luminance(vec3 rgb) {
+//	return dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+//}
+
 float rgb_to_luminance(vec3 rgb) {
-	return dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+	return rgb.r;
 }
 
 // Fresnel-Schlick approximation
