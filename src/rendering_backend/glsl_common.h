@@ -16,6 +16,7 @@ using uint = uint32_t;
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_ray_query : enable
 #endif
 
 struct DefaultPushConstants {
@@ -35,6 +36,13 @@ struct SVGFPushConstants {
 	int shadow_and_ao_history;
 	int shadow_and_ao_moments_history;
 	int atrous_step;
+};
+
+struct SSRPushConstants {
+	float ray_distance;
+	float thickness;
+	float resolution;
+	int bsearch_steps;
 };
 
 struct DirectionalLight {

@@ -21,7 +21,7 @@ void main() {
 		return;
 	}
 	vec3 P = get_view_space_position(current_depth, coords);
-	vec3 N = normalize(mat3(pfd.camera_view) * texture(world_space_normals_and_object_ids, coords).xyz);
+	vec3 N = mat3(pfd.camera_view) * texture(world_space_normals_and_object_ids, coords).xyz;
 
 	float radius = 0.75;
 	float perspective_radius = radius / P.z;

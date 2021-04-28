@@ -297,6 +297,10 @@ void RenderGraph::CopyImage(VkCommandBuffer command_buffer, std::string src_imag
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
 
+bool RenderGraph::ContainsImage(std::string image_name) {
+	return images.contains(image_name);
+}
+
 VkFormat RenderGraph::GetImageFormat(std::string image_name) {
 	assert(images.contains(image_name));
 	return images[image_name].format;

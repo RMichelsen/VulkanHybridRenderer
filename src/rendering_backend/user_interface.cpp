@@ -125,6 +125,7 @@ UserInterfaceState UserInterface::Update(RenderGraph &render_graph,
 	active_render_path.ImGuiDrawSettings();
 	ImGui::End();
 
+	ImGui::SetNextWindowBgAlpha(1.0f);
 	ImGui::Begin("Debug Texture");
 	if(ImGui::BeginCombo("##texture_combo", current_texture.c_str()))
 	{

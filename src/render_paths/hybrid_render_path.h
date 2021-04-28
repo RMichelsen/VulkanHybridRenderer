@@ -36,4 +36,6 @@ private:
 
 	SVGFPushConstants svgf_push_constants;
 	bool svgf_textures_created = false;
+
+	SSRPushConstants ssr_push_constants;
 };

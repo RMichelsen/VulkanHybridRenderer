@@ -19,7 +19,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context, *resource_manager);
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
-	resource_manager->LoadScene("Sponza.glb");
+	resource_manager->LoadScene("Pica.glb");
 
 	active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
 	active_render_path->Build();
@@ -208,7 +208,8 @@ void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t
 	
 	render_graph->Execute(resources.command_buffer, resource_idx, image_idx);
 
-	if(!user_interface_state.debug_texture.empty()) {
+	if(!user_interface_state.debug_texture.empty() && 
+		render_graph->ContainsImage(user_interface_state.debug_texture)) {
 		VkFormat format = render_graph->GetImageFormat(user_interface_state.debug_texture);
 		uint32_t active_debug_texture = user_interface->SetActiveDebugTexture(format);
 		render_graph->CopyImage(

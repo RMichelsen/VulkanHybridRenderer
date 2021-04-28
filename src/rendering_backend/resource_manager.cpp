@@ -211,7 +211,8 @@ uint32_t ResourceManager::UploadEmptyTexture(uint32_t width, uint32_t height, Vk
 
 	VkUtils::ExecuteOneTimeCommands(context.device, context.graphics_queue,
 		context.command_pool, [&](VkCommandBuffer command_buffer) {
-			VkUtils::InsertImageBarrier(command_buffer, texture.handle, VK_IMAGE_ASPECT_COLOR_BIT,
+			VkUtils::InsertImageBarrier(command_buffer, texture.handle, VkUtils::IsDepthFormat(format) ? 
+				VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT,
 				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				0, VK_ACCESS_TRANSFER_WRITE_BIT);

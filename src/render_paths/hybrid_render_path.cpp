@@ -106,7 +106,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				VkUtils::CreateTransientSampledImage("Depth", VK_FORMAT_D32_SFLOAT, 1),
 			},
 			{
-				VkUtils::CreateTransientStorageImage("Raytraced Shadows and Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
+				VkUtils::CreateTransientStorageImage("Raytraced Shadows and Ambient Occlusion", VK_FORMAT_R16G16_SFLOAT, 2),
 				VkUtils::CreateTransientStorageImage("Raytraced Reflections", VK_FORMAT_R16G16B16A16_SFLOAT, 3)
 			},
 			RaytracingPipelineDescription {
@@ -191,6 +191,13 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 	}
 
 	if(reflection_mode == REFLECTION_MODE_SSR) {
+		ssr_push_constants = SSRPushConstants {
+			.ray_distance = 25.0f,
+			.thickness = -20.0f,
+			.resolution = 0.5f,
+			.bsearch_steps = 2
+		};
+
 		render_graph.AddComputePass("SSR Pass",
 			{
 				VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 0),
@@ -206,6 +213,10 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 					ComputeKernel {
 						.shader = "hybrid_render_path/ssr.comp"
 					}
+				},
+				.push_constant_description = PushConstantDescription {
+					.size = sizeof(SSRPushConstants),
+					.shader_stage = VK_SHADER_STAGE_COMPUTE_BIT
 				}
 			},
 			[&](ComputeExecutionContext &execution_context) {
@@ -215,7 +226,8 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 					"hybrid_render_path/ssr.comp",
 					display_size.x / 8 + (display_size.x % 8 != 0),
 					display_size.y / 8 + (display_size.y % 8 != 0),
-					1
+					1,
+					ssr_push_constants
 				);
 			}
 		);
@@ -396,6 +408,15 @@ void HybridRenderPath::ImGuiDrawSettings() {
 	ImGui::RadioButton("Screen-Space Reflections", &reflection_mode, REFLECTION_MODE_SSR);
 	ImGui::RadioButton("No Reflections", &reflection_mode, REFLECTION_MODE_OFF);
 	ImGui::NewLine();
+	ImGui::NewLine();
+
+	if(reflection_mode == REFLECTION_MODE_SSR) {
+		ImGui::Text("SSR Reflection Settings");
+		ImGui::SliderFloat("Ray Distance", &ssr_push_constants.ray_distance, 0.1f, 40.0f);
+		ImGui::SliderFloat("Thickness", &ssr_push_constants.thickness, -50.0, 0.0f);
+		ImGui::SliderFloat("Resolution", &ssr_push_constants.resolution, 0.1f, 1.0f);
+		ImGui::SliderInt("Binary Search Steps", &ssr_push_constants.bsearch_steps, 1, 100);
+	}
 
 	if(old_shadow_mode != shadow_mode || 
 	   old_ambient_occlusion_mode != ambient_occlusion_mode ||

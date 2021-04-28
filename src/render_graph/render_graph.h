@@ -22,6 +22,7 @@ public:
 	void GatherPerformanceStatistics();
 	void DrawPerformanceStatistics();
 	void CopyImage(VkCommandBuffer command_buffer, std::string src_image_name, Image dst_image);
+	bool ContainsImage(std::string image_name);
 	VkFormat GetImageFormat(std::string image_name);
 	std::vector<std::string> GetColorAttachments();
 
