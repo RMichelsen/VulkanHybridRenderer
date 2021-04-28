@@ -193,9 +193,9 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 	if(reflection_mode == REFLECTION_MODE_SSR) {
 		ssr_push_constants = SSRPushConstants {
 			.ray_distance = 25.0f,
-			.thickness = -20.0f,
-			.resolution = 0.5f,
-			.bsearch_steps = 2
+			.step_size = 0.1f,
+			.thickness = 0.5f,
+			.bsearch_steps = 10
 		};
 
 		render_graph.AddComputePass("SSR Pass",
@@ -413,8 +413,8 @@ void HybridRenderPath::ImGuiDrawSettings() {
 	if(reflection_mode == REFLECTION_MODE_SSR) {
 		ImGui::Text("SSR Reflection Settings");
 		ImGui::SliderFloat("Ray Distance", &ssr_push_constants.ray_distance, 0.1f, 40.0f);
-		ImGui::SliderFloat("Thickness", &ssr_push_constants.thickness, -50.0, 0.0f);
-		ImGui::SliderFloat("Resolution", &ssr_push_constants.resolution, 0.1f, 1.0f);
+		ImGui::SliderFloat("Step Size", &ssr_push_constants.step_size, 0.01f, 5.0f);
+		ImGui::SliderFloat("Thickness", &ssr_push_constants.thickness, 0.0, 1.0f);
 		ImGui::SliderInt("Binary Search Steps", &ssr_push_constants.bsearch_steps, 1, 100);
 	}
 

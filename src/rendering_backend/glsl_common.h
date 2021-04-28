@@ -40,8 +40,8 @@ struct SVGFPushConstants {
 
 struct SSRPushConstants {
 	float ray_distance;
+	float step_size;
 	float thickness;
-	float resolution;
 	int bsearch_steps;
 };
 
