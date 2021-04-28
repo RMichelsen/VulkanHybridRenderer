@@ -112,10 +112,6 @@ vec3 oct_decode_to_vec3(vec2 e) {
 //	return dot(rgb, vec3(0.2126, 0.7152, 0.0722));
 //}
 
-float rgb_to_luminance(vec3 rgb) {
-	return rgb.r;
-}
-
 // Fresnel-Schlick approximation
 vec3 fresnel_schlick(vec3 f0, vec3 H, vec3 V) {
 	float H_dot_V = max(dot(H, V), 0.0);

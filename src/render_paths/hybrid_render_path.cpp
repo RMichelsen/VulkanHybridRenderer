@@ -14,7 +14,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		{},
 		{
 			VkUtils::CreateTransientAttachmentImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 0, VkUtils::ClearColor(0.0f, 0.0f, 0.0f, 0.0f)),
-			VkUtils::CreateTransientAttachmentImage("World Space Normals and Linear Depths", VK_FORMAT_R16G16B16A16_SFLOAT, 1, VkUtils::ClearColor(0.0f, 0.0f, 0.0f, 0.0f)),
+			VkUtils::CreateTransientAttachmentImage("World Space Normals and Object IDs", VK_FORMAT_R16G16B16A16_SFLOAT, 1, VkUtils::ClearColor(0.0f, 0.0f, 0.0f, 0.0f)),
 			VkUtils::CreateTransientAttachmentImage("Motion Vectors and Metallic Roughness", VK_FORMAT_R16G16B16A16_SFLOAT, 2, VkUtils::ClearColor(0.0f, 0.0f, -1.0f, -1.0f)),
 			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 3, VkUtils::ClearDepth(0.0f))
 		},
@@ -102,7 +102,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		    reflection_mode == REFLECTION_MODE_RAYTRACED) {
 		render_graph.AddRaytracingPass("Raytrace Pass",
 			{
-				VkUtils::CreateTransientSampledImage("World Space Normals and Linear Depths", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+				VkUtils::CreateTransientSampledImage("World Space Normals and Object IDs", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
 				VkUtils::CreateTransientSampledImage("Depth", VK_FORMAT_D32_SFLOAT, 1),
 			},
 			{
@@ -138,7 +138,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 	if(ambient_occlusion_mode == AMBIENT_OCCLUSION_MODE_SSAO) {
 		render_graph.AddComputePass("SSAO Pass",
 			{
-				VkUtils::CreateTransientSampledImage("World Space Normals and Linear Depths", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+				VkUtils::CreateTransientSampledImage("World Space Normals and Object IDs", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
 				VkUtils::CreateTransientSampledImage("Depth", VK_FORMAT_D32_SFLOAT, 1),
 			},
 			{
@@ -194,7 +194,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		render_graph.AddComputePass("SSR Pass",
 			{
 				VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 0),
-				VkUtils::CreateTransientSampledImage("World Space Normals and Linear Depths", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+				VkUtils::CreateTransientSampledImage("World Space Normals and Object IDs", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 				VkUtils::CreateTransientSampledImage("Motion Vectors and Metallic Roughness", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
 				VkUtils::CreateTransientSampledImage("Depth", VK_FORMAT_D32_SFLOAT, 3),
 			},
@@ -229,7 +229,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		svgf_push_constants.integrated_shadow_and_ao.y =
 			resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 				context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
-		svgf_push_constants.prev_frame_normals_and_linear_depths =
+		svgf_push_constants.prev_frame_normals_and_object_ids =
 			resource_manager.UploadNewStorageImage(context.swapchain.extent.width,
 				context.swapchain.extent.height, VK_FORMAT_R16G16B16A16_SFLOAT);
 		svgf_push_constants.shadow_and_ao_history =
@@ -242,7 +242,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 		render_graph.AddComputePass("SVGF Denoise Pass",
 			{
-				VkUtils::CreateTransientStorageImage("World Space Normals and Linear Depths", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
+				VkUtils::CreateTransientStorageImage("World Space Normals and Object IDs", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
 				VkUtils::CreateTransientStorageImage("Motion Vectors and Metallic Roughness", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 				VkUtils::CreateTransientSampledImage("Depth", VK_FORMAT_D32_SFLOAT, 2),
 				VkUtils::CreateTransientStorageImage("Raytraced Shadows and Ambient Occlusion", VK_FORMAT_R16G16_SFLOAT, 3),
@@ -297,7 +297,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 					std::swap(svgf_push_constants.integrated_shadow_and_ao.x, svgf_push_constants.integrated_shadow_and_ao.y);
 				}
 
-				execution_context.BlitImageTransientToStorage("World Space Normals and Linear Depths", svgf_push_constants.prev_frame_normals_and_linear_depths);
+				execution_context.BlitImageTransientToStorage("World Space Normals and Object IDs", svgf_push_constants.prev_frame_normals_and_object_ids);
 				execution_context.BlitImageStorageToTransient(
 					svgf_push_constants.integrated_shadow_and_ao.y,
 					"Denoised Raytraced Shadows and Ambient Occlusion"
@@ -313,7 +313,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 		{
 
 			VkUtils::CreateTransientSampledImage("Albedo", VK_FORMAT_B8G8R8A8_UNORM, 0),
-			VkUtils::CreateTransientSampledImage("World Space Normals and Linear Depths", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
+			VkUtils::CreateTransientSampledImage("World Space Normals and Object IDs", VK_FORMAT_R16G16B16A16_SFLOAT, 1),
 			VkUtils::CreateTransientSampledImage("Motion Vectors and Metallic Roughness", VK_FORMAT_R16G16B16A16_SFLOAT, 2),
 			VkUtils::CreateTransientSampledImage("Depth", VK_FORMAT_D32_SFLOAT, 3),
 
@@ -363,7 +363,7 @@ void HybridRenderPath::DeregisterPath(VulkanContext& context, RenderGraph& rende
 	if(svgf_textures_created) {
 		resource_manager.DestroyStorageImage(svgf_push_constants.integrated_shadow_and_ao.x);
 		resource_manager.DestroyStorageImage(svgf_push_constants.integrated_shadow_and_ao.y);
-		resource_manager.DestroyStorageImage(svgf_push_constants.prev_frame_normals_and_linear_depths);
+		resource_manager.DestroyStorageImage(svgf_push_constants.prev_frame_normals_and_object_ids);
 		resource_manager.DestroyStorageImage(svgf_push_constants.shadow_and_ao_history);
 		resource_manager.DestroyStorageImage(svgf_push_constants.shadow_and_ao_moments_history);
 		svgf_textures_created = false;

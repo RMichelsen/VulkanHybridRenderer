@@ -8,7 +8,7 @@ layout(constant_id = AMBIENT_OCCLUSION_MODE_SPEC_CONST_INDEX) const int ambient_
 layout(constant_id = REFLECTION_MODE_SPEC_CONST_INDEX) const int reflection_mode = 0;
 
 layout(set = 3, binding = 0) uniform sampler2D albedo;
-layout(set = 3, binding = 1) uniform sampler2D world_space_normals_and_linear_depths;
+layout(set = 3, binding = 1) uniform sampler2D world_space_normals_and_object_ids;
 layout(set = 3, binding = 2) uniform sampler2D motion_vectors_and_metallic_roughness;
 layout(set = 3, binding = 3) uniform sampler2D depth;
 layout(set = 3, binding = 4) uniform sampler2D shadow_map;
@@ -24,7 +24,7 @@ void main() {
 	vec3 albedo = texture(albedo, in_uv).rgb;
 	float depth = texture(depth, in_uv).x;
 	vec3 P = get_world_space_position(depth, in_uv);
-	vec3 N = oct_decode_to_vec3(texture(world_space_normals_and_linear_depths, in_uv).xy);
+	vec3 N = texture(world_space_normals_and_object_ids, in_uv).xyz;
 	vec2 metallic_roughness = texture(motion_vectors_and_metallic_roughness, in_uv).zw;
 
 	vec2 raytraced_shadow_and_ao = vec2(1.0, 1.0);

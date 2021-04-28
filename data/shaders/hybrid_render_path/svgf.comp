@@ -5,7 +5,7 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(set = 3, binding = 0, r16f) readonly uniform image2D world_space_normals_and_linear_depths;
+layout(set = 3, binding = 0, r16f) readonly uniform image2D world_space_normals_and_object_ids;
 layout(set = 3, binding = 1, r16f) readonly uniform image2D motion_vectors_and_metallic_roughness;
 layout(set = 3, binding = 2) uniform sampler2D depth;
 layout(set = 3, binding = 3, r16f) readonly uniform image2D raytraced_shadow_and_ao_texture;
@@ -13,25 +13,24 @@ layout(set = 3, binding = 4, r16f) writeonly uniform image2D denoised_raytraced_
 
 layout(push_constant) uniform PushConstants { SVGFPushConstants pc; };
 
-bool is_valid_reprojection(ivec2 prev_coords, float current_linear_depth, 
-	float current_linear_depth_fwidth, vec3 current_normal) {
+bool is_valid_reprojection(ivec2 prev_coords, int current_object_id, vec3 current_normal) {
 	// Reject if coords is outside of display
 	if(prev_coords.x < 0 || prev_coords.y < 0 ||
 	   prev_coords.x >= pfd.display_size.x || prev_coords.y >= pfd.display_size.y) {
 	   return false;
 	}
 
-	vec4 prev_normal_and_linear_depths = imageLoad(storage_images[pc.prev_frame_normals_and_linear_depths], prev_coords);
+	vec4 prev_normal_and_object_ids = imageLoad(storage_images[pc.prev_frame_normals_and_object_ids], prev_coords);
 
-	// Reject if normals deviate too much
-	float prev_linear_depth = prev_normal_and_linear_depths.z;
-	if(abs(current_linear_depth - prev_linear_depth) / (current_linear_depth_fwidth + 1e-4) > 10.0) {
+	// Reject if object IDs do not match
+	int prev_object_id = int(prev_normal_and_object_ids.w);
+	if(current_object_id != prev_object_id) {
 		return false;
 	}
 
 	// Reject if normals aren't aligned
 	// Merge metric from [Kerzner and Salvi 2014]
-	vec3 prev_normal = oct_decode_to_vec3(prev_normal_and_linear_depths.xy);
+	vec3 prev_normal = prev_normal_and_object_ids.xyz;
 	if(dot(current_normal, prev_normal) < COS_PI_4) {
 		return false;
 	}
@@ -41,10 +40,9 @@ bool is_valid_reprojection(ivec2 prev_coords, float current_linear_depth,
 
 void main() {
 	ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
-	vec4 current_normal_and_linear_depths = imageLoad(world_space_normals_and_linear_depths, coords);
-	vec3 current_normal = oct_decode_to_vec3(current_normal_and_linear_depths.xy);
-	float current_linear_depth = current_normal_and_linear_depths.z;
-	float current_linear_depth_fwidth = current_normal_and_linear_depths.w;
+	vec4 current_normal_and_object_ids = imageLoad(world_space_normals_and_object_ids, coords);
+	vec3 current_normal = current_normal_and_object_ids.xyz;
+	int current_object_id = int(current_normal_and_object_ids.w);
 	vec2 motion_vector = imageLoad(motion_vectors_and_metallic_roughness, coords).xy;
 	vec4 current_shadow_and_ao = imageLoad(raytraced_shadow_and_ao_texture, coords);
 	float current_shadow = current_shadow_and_ao.x;
@@ -66,7 +64,7 @@ void main() {
 	float sum = 0.0;
 	for(int i = 0; i < 4; ++i) {
 		ivec2 sample_coords = prev_coords_aligned + offsets[i];
-		if(is_valid_reprojection(sample_coords, current_linear_depth, current_linear_depth_fwidth, current_normal)) {
+		if(is_valid_reprojection(sample_coords, current_object_id, current_normal)) {
 			vec2 prev_shadow_and_ao = imageLoad(storage_images[pc.shadow_and_ao_history], sample_coords).xy;
 			prev_shadow += bilinear_weights[i] * prev_shadow_and_ao.x;
 			prev_ao += bilinear_weights[i] * prev_shadow_and_ao.y;
@@ -84,7 +82,7 @@ void main() {
 		for(int y = -1; y <= 1; ++y) {
 			for(int x = -1; x <= 1; ++x) {
 				ivec2 sample_coords = prev_coords_aligned + ivec2(x, y);
-				if(is_valid_reprojection(sample_coords, current_linear_depth, current_linear_depth_fwidth, current_normal)) {
+				if(is_valid_reprojection(sample_coords, current_object_id, current_normal)) {
 					vec2 prev_shadow_and_ao = imageLoad(storage_images[pc.shadow_and_ao_history], sample_coords).xy;
 					vec4 prev_shadow_and_ao_moments = imageLoad(storage_images[pc.shadow_and_ao_moments_history], sample_coords);
 					prev_shadow += prev_shadow_and_ao.x;
@@ -98,9 +96,9 @@ void main() {
 		reprojection_valid = sum > 1e-6;
 	}
 
-	float shadow_luminance = rgb_to_luminance(vec3(current_shadow));
+	float shadow_luminance = current_shadow;
 	vec2 shadow_moments = vec2(shadow_luminance, shadow_luminance * shadow_luminance);
-	float ao_luminance = rgb_to_luminance(vec3(current_ao));
+	float ao_luminance = current_ao;
 	vec2 ao_moments = vec2(ao_luminance, ao_luminance * ao_luminance);
 
 	// If the reprojection is valid, integrate shadow and ao

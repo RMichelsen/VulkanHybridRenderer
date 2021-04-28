@@ -5,7 +5,7 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(set = 3, binding = 0) uniform sampler2D world_space_normals_and_linear_depths;
+layout(set = 3, binding = 0) uniform sampler2D world_space_normals_and_object_ids;
 layout(set = 3, binding = 1) uniform sampler2D depth;
 layout(set = 3, binding = 2, r16f) writeonly uniform image2D screen_space_ambient_occlusion;
 
@@ -21,7 +21,7 @@ void main() {
 		return;
 	}
 	vec3 P = get_view_space_position(current_depth, coords);
-	vec3 N = normalize(mat3(pfd.camera_view) * oct_decode_to_vec3(texture(world_space_normals_and_linear_depths, coords).xy));
+	vec3 N = normalize(mat3(pfd.camera_view) * texture(world_space_normals_and_object_ids, coords).xyz);
 
 	float radius = 0.75;
 	float perspective_radius = radius / P.z;

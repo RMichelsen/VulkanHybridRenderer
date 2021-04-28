@@ -3,7 +3,7 @@
 #include "../common.glsl"
 #include "../../../src/rendering_backend/glsl_common.h"
 
-layout(set = 3, binding = 0) uniform sampler2D world_space_normals_and_linear_depths;
+layout(set = 3, binding = 0) uniform sampler2D world_space_normals_and_object_ids;
 layout(set = 3, binding = 1) uniform sampler2D depth;
 layout(set = 3, binding = 2, rgba16f) uniform image2D raytraced_shadow_and_ambient_occlusion;
 layout(set = 3, binding = 3, rgba16f) uniform image2D raytraced_reflections;
@@ -32,7 +32,7 @@ void main() {
 	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.999995));
 	mat3x3 R = onb_from_unit_vector(L);
 
-	vec3 N = oct_decode_to_vec3(texture(world_space_normals_and_linear_depths, uv).xy);
+	vec3 N = texture(world_space_normals_and_object_ids, uv).xyz;
 	vec3 ray_launch_position = P + N * 0.01;
 
 	payload = vec4(0.0, 0.0, 0.0, 0.0);

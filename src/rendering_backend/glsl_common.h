@@ -31,7 +31,7 @@ struct SVGFPushConstants {
 	// Pingpong texture
 	ivec2 integrated_shadow_and_ao;
 
-	int prev_frame_normals_and_linear_depths;
+	int prev_frame_normals_and_object_ids;
 	int shadow_and_ao_history;
 	int shadow_and_ao_moments_history;
 	int atrous_step;

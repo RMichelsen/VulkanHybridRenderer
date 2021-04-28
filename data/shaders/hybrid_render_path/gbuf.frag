@@ -11,7 +11,7 @@ layout(location = 2) in vec2 in_uv;
 layout(location = 3) in vec4 in_reprojected_pos;
 
 layout(location = 0) out vec4 out_albedo;
-layout(location = 1) out vec4 out_world_space_normals_and_linear_depths;
+layout(location = 1) out vec4 out_world_space_normals_and_object_ids;
 layout(location = 2) out vec4 out_motion_vectors_and_metallic_roughness;
 
 void main() {
@@ -37,8 +37,7 @@ void main() {
 		N = tangent * tangent_space_normal.x + bitangent * tangent_space_normal.y + in_normal * tangent_space_normal.z;
 	}
 
-	float linear_depth = gl_FragCoord.z / gl_FragCoord.w;
-	out_world_space_normals_and_linear_depths = vec4(vec3_encode_to_oct(normalize(mat3(pc.normal_matrix) * N)), linear_depth, fwidth(linear_depth));
+	out_world_space_normals_and_object_ids = vec4(normalize(mat3(pc.normal_matrix) * N), pc.object_id);
 
 	// Motion vector
 	vec2 current_ndc_pos = gl_FragCoord.xy * pfd.display_size_inverse;
