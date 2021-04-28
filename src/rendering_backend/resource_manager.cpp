@@ -485,7 +485,7 @@ void ResourceManager::CreateGlobalDescriptorSet1() {
 			.descriptorCount = MAX_GLOBAL_RESOURCES,
 			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT |
 						  VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR |
-						  VK_SHADER_STAGE_COMPUTE_BIT
+						  VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR
 		}
 	};
 	std::array<VkDescriptorBindingFlags, 1> descriptor_binding_flags {

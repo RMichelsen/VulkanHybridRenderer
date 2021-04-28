@@ -74,6 +74,7 @@ void main() {
 	vec3 I = normalize(P - camera_position);
 	vec3 reflected_dir = normalize(reflect(I, N));
 
+	// If the reflected ray points "approximately towards" the camera
 	if(dot(I, reflected_dir) < -0.2) {
 		return;
 	}
@@ -86,9 +87,6 @@ void main() {
 		float distance_to_ray = distance(camera_position, ray_position);
 
 		vec2 sample_uv = world_space_to_uv(ray_position);
-		if(sample_uv.x < 0.0 || sample_uv.y < 0.0 || sample_uv.x >= pfd.display_size.x || sample_uv.y >= pfd.display_size.y) {
-			return;
-		}
 		vec3 screen_position = get_world_space_position(texture(depth, sample_uv).x, sample_uv);
 		float distance_to_screen = distance(camera_position, screen_position);
 		float delta_distance = distance_to_ray - distance_to_screen;
@@ -111,9 +109,6 @@ void main() {
 		float distance_to_ray = distance(camera_position, ray_position);
 
 		final_uv = world_space_to_uv(ray_position);
-		if(final_uv.x < 0.0 || final_uv.y < 0.0 || final_uv.x >= pfd.display_size.x || final_uv.y >= pfd.display_size.y) {
-			return;
-		}
 		vec3 screen_position = get_world_space_position(texture(depth, final_uv).x, final_uv);
 		float distance_to_screen = distance(camera_position, screen_position);
 		float delta_distance = distance_to_ray - distance_to_screen;

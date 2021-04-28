@@ -330,7 +330,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 			VkUtils::CreateTransientSampledImage("Depth", VK_FORMAT_D32_SFLOAT, 3),
 
 			VkUtils::CreateTransientSampledImage("Shadow Map", 4096, 4096, VK_FORMAT_D32_SFLOAT, 4),
-			VkUtils::CreateTransientSampledImage("Screen Space Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 5),
+			VkUtils::CreateTransientSampledImage("Screen Space Ambient Occlusion", VK_FORMAT_R16_SFLOAT, 5),
 			VkUtils::CreateTransientSampledImage("Screen Space Reflections", VK_FORMAT_R16G16B16A16_SFLOAT, 6),
 			denoise_shadow_and_ao ?
 				VkUtils::CreateTransientSampledImage("Denoised Raytraced Shadows and Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 7) :
@@ -414,7 +414,7 @@ void HybridRenderPath::ImGuiDrawSettings() {
 		ImGui::Text("SSR Reflection Settings");
 		ImGui::SliderFloat("Ray Distance", &ssr_push_constants.ray_distance, 0.1f, 40.0f);
 		ImGui::SliderFloat("Step Size", &ssr_push_constants.step_size, 0.01f, 5.0f);
-		ImGui::SliderFloat("Thickness", &ssr_push_constants.thickness, 0.0, 1.0f);
+		ImGui::SliderFloat("Thickness", &ssr_push_constants.thickness, 0.0, 3.0f);
 		ImGui::SliderInt("Binary Search Steps", &ssr_push_constants.bsearch_steps, 1, 100);
 	}
 
