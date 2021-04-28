@@ -370,7 +370,7 @@ void HybridRenderPath::DeregisterPath(VulkanContext& context, RenderGraph& rende
 	}
 }
 
-bool HybridRenderPath::ImGuiDrawSettings() {
+void HybridRenderPath::ImGuiDrawSettings() {
 	int old_shadow_mode = shadow_mode;
 	int old_ambient_occlusion_mode = ambient_occlusion_mode;
 	int old_reflection_mode = reflection_mode;
@@ -401,8 +401,6 @@ bool HybridRenderPath::ImGuiDrawSettings() {
 	   old_ambient_occlusion_mode != ambient_occlusion_mode ||
 	   old_reflection_mode != reflection_mode ||
 	   old_denoise_shadow_and_ao!= denoise_shadow_and_ao) {
-		return true;
+		Rebuild();
 	}
-
-	return false;
 }

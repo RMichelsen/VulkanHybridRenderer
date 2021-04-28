@@ -174,12 +174,7 @@ void Renderer::Present(HWND hwnd) {
 	}
 	}
 
-	if(user_interface_state.render_path_needs_rebuild) {
-		active_render_path->Rebuild();
-	}
-	else {
-		render_graph->GatherPerformanceStatistics();
-	}
+	render_graph->GatherPerformanceStatistics();
 }
 
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {

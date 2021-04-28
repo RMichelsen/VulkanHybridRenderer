@@ -55,6 +55,4 @@ void RayqueryRenderPath::RegisterPath(VulkanContext &context, RenderGraph &rende
 
 void RayqueryRenderPath::DeregisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager) {}
 
-bool RayqueryRenderPath::ImGuiDrawSettings() {
-	return false;
-}
+void RayqueryRenderPath::ImGuiDrawSettings() {}

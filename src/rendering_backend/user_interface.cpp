@@ -122,7 +122,7 @@ UserInterfaceState UserInterface::Update(RenderGraph &render_graph,
 	render_graph.DrawPerformanceStatistics();
 
 	ImGui::Begin("Render Path Configuration");
-	bool needs_rebuild = active_render_path.ImGuiDrawSettings() || (render_path_state != RenderPathState::Idle);
+	active_render_path.ImGuiDrawSettings();
 	ImGui::End();
 
 	ImGui::Begin("Debug Texture");
@@ -152,7 +152,6 @@ UserInterfaceState UserInterface::Update(RenderGraph &render_graph,
 
 	return UserInterfaceState {
 		.render_path_state = render_path_state,
-		.render_path_needs_rebuild = needs_rebuild,
 		.debug_texture = current_texture
 	};
 }

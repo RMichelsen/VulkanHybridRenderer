@@ -8,5 +8,5 @@ public:
 	using RenderPath::RenderPath;
 	virtual void RegisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager);
 	virtual void DeregisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager);
-	virtual bool ImGuiDrawSettings();
+	virtual void ImGuiDrawSettings();
 };

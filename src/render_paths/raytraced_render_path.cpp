@@ -77,7 +77,7 @@ void RaytracedRenderPath::RegisterPath(VulkanContext &context, RenderGraph &rend
 
 void RaytracedRenderPath::DeregisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager) {}
 
-bool RaytracedRenderPath::ImGuiDrawSettings() {
+void RaytracedRenderPath::ImGuiDrawSettings() {
 	int old_use_anyhit_shader = use_anyhit_shader;
 
 	ImGui::Text("Alpha test for shadows:");
@@ -86,8 +86,6 @@ bool RaytracedRenderPath::ImGuiDrawSettings() {
 	ImGui::NewLine();
 
 	if(old_use_anyhit_shader != use_anyhit_shader) {
-		return true;
+		Rebuild();
 	}
-
-	return false;
 }
