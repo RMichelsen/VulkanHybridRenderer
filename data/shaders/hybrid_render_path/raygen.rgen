@@ -50,7 +50,7 @@ void main() {
 		payload = vec4(0.0, 0.0, 0.0, 0.0);
 		traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
 			0xFF, 0, 0, 0, ray_launch_position, 0.01, R * rnd_dir, 5.0, 0);
-		ao_payload += payload.x * max(dot(N, R * rnd_dir), 0.0);
+		ao_payload += payload.x;
 	}
 	ao_payload /= 2.0;
 
