@@ -25,16 +25,15 @@ void main() {
 
 	vec3 P = get_world_space_position(current_depth, uv);
 	vec3 L = -pfd.directional_light.direction.xyz;
+	vec3 N = texture(world_space_normals_and_object_ids, uv).xyz;
+	vec3 ray_launch_position = P + N * 0.01;
 
 	// Trace shadow rays
 	float rnd1 = random01(rng_state);
 	float rnd2 = random01(rng_state);
 	vec3 cone_dir = normalize(uniform_sample_cone(vec2(rnd1, rnd2), 0.999995));
 	mat3x3 R = onb_from_unit_vector(L);
-
-	vec3 N = texture(world_space_normals_and_object_ids, uv).xyz;
-	vec3 ray_launch_position = P + N * 0.01;
-
+	
 	payload = vec4(0.0, 0.0, 0.0, 0.0);
 	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
 		0xFF, 0, 0, 0, ray_launch_position, 0.01, R * cone_dir, 10000.0, 0);

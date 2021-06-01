@@ -19,7 +19,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context, *resource_manager);
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
-	resource_manager->LoadScene("Pica.glb");
+	resource_manager->LoadScene("Sponza.glb");
 
 	active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
 	active_render_path->Build();
@@ -183,6 +183,20 @@ void Renderer::Present(HWND hwnd) {
 
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {
 	Camera &camera = resource_manager->scene.camera;
+	//camera.perspective = glm::mat4x4(2.77778f, 0.0f, 0.0f, 0.0f,
+	//	0.0f, 4.93827f, 0.0f, 0.0f,
+	//	0.0f, 0.0f, 0.0f, -1.0f,
+	//	0.0f, 0.0f, 0.1f, 0.0f);
+	//camera.transform = glm::mat4x4(0.925471f, 0.0f, -0.378819f, 0.0f,
+	//	-0.178402f, 0.882164f, -0.435843f, 0.0f,
+	//	0.33418f, 0.470942f, 0.816417f, 0.0f,
+	//	7.4727f, 29.7179f, 35.0076f, 1.0f);
+	//camera.view = glm::mat4x4(0.925471f, -0.178402f, 0.33418f, 0.0f,
+	//	-1.49012e-08f, 0.882164f, 0.470942f, 0.0f,
+	//	-0.378819f, -0.435843f, 0.816417, 0.0f,
+	//	6.34576f, -9.6251f, -45.0734f, 1.0f);
+	//camera.yaw = 0.388519377f;
+	//camera.pitch = -0.490358353f;
 
 	static uint32_t frame_index = 0;
 	static PerFrameData per_frame_data {};

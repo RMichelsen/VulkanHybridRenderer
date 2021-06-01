@@ -44,8 +44,25 @@ void main() {
 	else if(shadow_mode == SHADOW_MODE_RASTERIZED) {
 		vec4 pos_lightspace = SHADOW_BIAS_MATRIX * pfd.directional_light.projview * vec4(P, 1.0);
 		vec4 shadow_coord = pos_lightspace / pos_lightspace.w;
-		float depth = texture(shadow_map, shadow_coord.xy).r;
-		shadow = shadow_coord.z < depth - 0.001 ? 0.0 : 1.0;
+
+		// PCF
+		float scale = 1.0 / 4096.0;
+		float depth = 0.0;
+		for(float i = -1.5; i <= 1.5; i += 1.0) {
+			for(float j = -1.5; j <= 1.5; j += 1.0) {
+				float depth_sample = texture(shadow_map, shadow_coord.xy + vec2(i, j) * scale).r;
+				if(shadow_coord.z < depth_sample - 1e-6) {
+					depth += 0.0;
+				}
+				else {
+					depth += 1.0;
+				}
+			}
+		}
+		shadow = depth / 16.0;
+
+		//float depth = texture(shadow_map, shadow_coord.xy).r;
+		//shadow = shadow_coord.z < depth - 0.001 ? 0.0 : 1.0;
 	}
 
 	float ao = 1.0;
