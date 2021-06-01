@@ -136,6 +136,10 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 	}
 
 	if(ambient_occlusion_mode == AMBIENT_OCCLUSION_MODE_SSAO) {
+		ssao_push_constants = SSAOPushConstants {
+			.radius = 0.75f
+		};
+
 		render_graph.AddComputePass("SSAO Pass",
 			{
 				VkUtils::CreateTransientSampledImage("World Space Normals and Object IDs", VK_FORMAT_R16G16B16A16_SFLOAT, 0),
@@ -175,6 +179,10 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 					ComputeKernel {
 						.shader = "hybrid_render_path/ssao_blur.comp"
 					}
+				},
+				.push_constant_description = PushConstantDescription {
+					.size = sizeof(SSAOPushConstants),
+					.shader_stage = VK_SHADER_STAGE_COMPUTE_BIT
 				}
 			},
 			[&](ComputeExecutionContext &execution_context) {
@@ -184,7 +192,8 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 					"hybrid_render_path/ssao_blur.comp",
 					display_size.x / 8 + (display_size.x % 8 != 0),
 					display_size.y / 8 + (display_size.y % 8 != 0),
-					1
+					1,
+					ssao_push_constants
 				);
 			}
 		);
@@ -410,8 +419,13 @@ void HybridRenderPath::ImGuiDrawSettings() {
 	ImGui::NewLine();
 	ImGui::NewLine();
 
+	if(ambient_occlusion_mode == AMBIENT_OCCLUSION_MODE_SSAO) {
+		ImGui::Text("SSAO Settings");
+		ImGui::SliderFloat("Radius", &ssao_push_constants.radius, 0.1f, 5.0f);
+	}
+
 	if(reflection_mode == REFLECTION_MODE_SSR) {
-		ImGui::Text("SSR Reflection Settings");
+		ImGui::Text("SSR Settings");
 		ImGui::SliderFloat("Ray Distance", &ssr_push_constants.ray_distance, 0.1f, 40.0f);
 		ImGui::SliderFloat("Step Size", &ssr_push_constants.step_size, 0.01f, 5.0f);
 		ImGui::SliderFloat("Thickness", &ssr_push_constants.thickness, 0.0, 3.0f);

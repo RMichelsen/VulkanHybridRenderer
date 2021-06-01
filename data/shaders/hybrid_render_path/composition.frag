@@ -45,7 +45,7 @@ void main() {
 		vec4 pos_lightspace = SHADOW_BIAS_MATRIX * pfd.directional_light.projview * vec4(P, 1.0);
 		vec4 shadow_coord = pos_lightspace / pos_lightspace.w;
 		float depth = texture(shadow_map, shadow_coord.xy).r;
-		shadow = shadow_coord.z < depth - 0.003 ? 0.0 : 1.0;
+		shadow = shadow_coord.z < depth - 0.001 ? 0.0 : 1.0;
 	}
 
 	float ao = 1.0;

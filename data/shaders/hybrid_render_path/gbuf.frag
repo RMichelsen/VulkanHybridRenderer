@@ -27,6 +27,9 @@ void main() {
 	if(primitive.material.alpha_mask == 1 && albedo.a < primitive.material.alpha_cutoff) {
 		discard;
 	}
+	if(albedo.a == 0.0f) {
+		discard;
+	}
 	out_albedo = albedo;
 
 	vec3 N = in_normal;

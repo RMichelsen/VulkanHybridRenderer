@@ -159,22 +159,26 @@ void Renderer::Present(HWND hwnd) {
 	switch(user_interface_state.render_path_state) {
 	case RenderPathState::ChangeToHybrid: {
 		active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
+		active_render_path->Build();
 	} break;
 	case RenderPathState::ChangeToRayquery: {
 		active_render_path = std::make_unique<RayqueryRenderPath>(*context, *render_graph, *resource_manager);
+		active_render_path->Build();
 	} break;
 	case RenderPathState::ChangeToRaytraced: {
 		active_render_path = std::make_unique<RaytracedRenderPath>(*context, *render_graph, *resource_manager);
+		active_render_path->Build();
 	} break;
 	case RenderPathState::ChangeToForwardRaster: {
 		active_render_path = std::make_unique<ForwardRasterRenderPath>(*context, *render_graph, *resource_manager);
+		active_render_path->Build();
 	} break;
 	case RenderPathState::Idle:
 	default: {
+		render_graph->GatherPerformanceStatistics();
 	}
 	}
 
-	render_graph->GatherPerformanceStatistics();
 }
 
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {

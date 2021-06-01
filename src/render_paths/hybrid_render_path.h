@@ -38,4 +38,5 @@ private:
 	bool svgf_textures_created = false;
 
 	SSRPushConstants ssr_push_constants;
+	SSAOPushConstants ssao_push_constants;
 };

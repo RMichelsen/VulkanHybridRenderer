@@ -119,6 +119,7 @@ UserInterfaceState UserInterface::Update(RenderGraph &render_graph,
 	}
 	ImGui::EndMainMenuBar();
 
+	ImGui::SetNextWindowBgAlpha(1.0f);
 	render_graph.DrawPerformanceStatistics();
 
 	ImGui::Begin("Render Path Configuration");

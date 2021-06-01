@@ -45,6 +45,10 @@ struct SSRPushConstants {
 	int bsearch_steps;
 };
 
+struct SSAOPushConstants {
+	float radius;
+};
+
 struct DirectionalLight {
 	mat4 projview;
 	vec4 direction;

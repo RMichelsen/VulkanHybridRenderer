@@ -82,10 +82,10 @@ void ParseNode(cgltf_node &node, Scene &scene, std::unordered_map<const char *, 
 		glm::decompose(node_transform, scale, rot, translation, skew, persp);
 
 		// TODO: Might want to compute bounding box of scene
-		glm::mat4 light_perspective = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, 64.0f, 1.0f);
+		glm::mat4 light_perspective = glm::ortho(-15.0f, 15.0f, -15.0f, 15.0f, 32.0f, 1.0f);
 		glm::vec3 light_direction = glm::normalize(glm::rotate(rot, glm::vec3(0.0f, 0.0f, -1.0f)));
 		glm::mat4 light_view = glm::lookAt(
-			-light_direction * 60.0f,
+			-light_direction * 30.0f,
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			glm::vec3(0.0f, 1.0f, 0.0f)
 		);

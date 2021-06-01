@@ -42,14 +42,15 @@ void main() {
 
 	vec3 light_dir = -pfd.directional_light.direction.xyz;
 	vec3 light_color = pfd.directional_light.color.rgb;
-	vec3 albedo_lighting = 0.2 * albedo;
+	vec3 light_intensity = pfd.directional_light.intensity.xyz;
+	vec3 albedo_lighting = PI_INVERSE * albedo;
 
 	shadow_payload = true;
 	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT, 
 		0xFF, 0, 0, 1, position, 0.1, light_dir, 10000.0, 1);
 
 	if(!shadow_payload) {
-		payload = vec4(albedo_lighting + max(dot(N, light_dir), 0.0) * albedo * light_color, 1.0);
+		payload = vec4(albedo_lighting + max(dot(N, light_dir), 0.0) * albedo * light_intensity * light_color, 1.0);
 	}
 	else {
 		payload = vec4(albedo_lighting, 1.0);

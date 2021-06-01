@@ -9,6 +9,8 @@ layout(set = 3, binding = 0) uniform sampler2D world_space_normals_and_object_id
 layout(set = 3, binding = 1) uniform sampler2D depth;
 layout(set = 3, binding = 2, r16f) writeonly uniform image2D screen_space_ambient_occlusion;
 
+layout(push_constant) uniform PushConstants { SSAOPushConstants pc; };
+
 void main() {
 	vec2 coords = ivec2(gl_GlobalInvocationID.xy) * pfd.display_size_inverse;
 	float current_depth = texture(depth, coords).x;
@@ -23,12 +25,12 @@ void main() {
 	vec3 P = get_view_space_position(current_depth, coords);
 	vec3 N = mat3(pfd.camera_view) * texture(world_space_normals_and_object_ids, coords).xyz;
 
-	float radius = 0.75;
+	float radius = pc.radius;
 	float perspective_radius = radius / P.z;
 	int sigma = 1;
 	float beta = 1e-4;
 	uint rng_state = seed_thread((gl_GlobalInvocationID.y * uint(pfd.display_size.y) + gl_GlobalInvocationID.x) * pfd.frame_index);
-	int num_samples = 4;
+	int num_samples = 16;
 	float sum = 0.0;
 	for(int i = 0; i < num_samples; ++i) {
 		// Sample angle and distance (random position on disk)
