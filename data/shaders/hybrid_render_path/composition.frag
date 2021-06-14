@@ -20,6 +20,43 @@ layout(set = 3, binding = 8) uniform sampler2D raytraced_reflections_texture;
 layout(location = 0) in vec2 in_uv;
 layout(location = 0) out vec4 out_color;
 
+float textureProj(vec4 shadowCoord, vec2 off)
+{
+	float shadow = 1.0;
+	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) 
+	{
+		float dist = texture( shadow_map, shadowCoord.st + off ).r;
+		if ( shadowCoord.w > 0.0 && dist > shadowCoord.z ) 
+		{
+			shadow = 0.0;
+		}
+	}
+	return shadow;
+}
+
+float filterPCF(vec4 sc)
+{
+	ivec2 texDim = textureSize(shadow_map, 0);
+	float scale = 1.5;
+	float dx = scale * 1.0 / float(texDim.x);
+	float dy = scale * 1.0 / float(texDim.y);
+
+	float shadowFactor = 0.0;
+	int count = 0;
+	int range = 1;
+	
+	for (int x = -range; x <= range; x++)
+	{
+		for (int y = -range; y <= range; y++)
+		{
+			shadowFactor += textureProj(sc, vec2(dx*x, dy*y));
+			count++;
+		}
+	
+	}
+	return shadowFactor / count;
+}
+
 void main() {
 	vec3 albedo = texture(albedo, in_uv).rgb;
 	float depth = texture(depth, in_uv).x;
@@ -48,21 +85,29 @@ void main() {
 		// PCF
 		float scale = 1.0 / 4096.0;
 		float depth = 0.0;
-		for(float i = -1.5; i <= 1.5; i += 1.0) {
-			for(float j = -1.5; j <= 1.5; j += 1.0) {
-				float depth_sample = texture(shadow_map, shadow_coord.xy + vec2(i, j) * scale).r;
-				if(shadow_coord.z < depth_sample - 1e-6) {
-					depth += 0.0;
-				}
-				else {
-					depth += 1.0;
-				}
+
+		vec2 offsets[] = {
+			vec2(-1.5, -1.5), vec2(-1.5, -0.5), vec2(-1.5, 0.5), vec2(-1.5, 1.5),
+			vec2(-0.5, -1.5), vec2(-0.5, -0.5), vec2(-0.5, 0.5), vec2(-0.5, 1.5),
+			vec2(0.5, -1.5), vec2(0.5, -0.5), vec2(0.5, 0.5), vec2(0.5, 1.5),
+			vec2(1.5, -1.5), vec2(1.5, -0.5), vec2(1.5, 0.5), vec2(1.5, 1.5)
+		};
+
+		for(int i = 0; i < 16; ++i) {
+			float depth_sample = texture(shadow_map, shadow_coord.xy + offsets[i] * scale).r;
+			if(shadow_coord.z < depth_sample - 1e-4) {
+				depth += 0.0;
+			}
+			else {
+				depth += 1.0;
 			}
 		}
 		shadow = depth / 16.0;
 
-		//float depth = texture(shadow_map, shadow_coord.xy).r;
-		//shadow = shadow_coord.z < depth - 0.001 ? 0.0 : 1.0;
+		//shadow = filterPCF(shadow_coord);
+
+//		depth = texture(shadow_map, shadow_coord.xy).r;
+//		shadow = shadow_coord.z < depth - 0.001 ? 0.0 : 1.0;
 	}
 
 	float ao = 1.0;

@@ -67,7 +67,6 @@ void main() {
 	vec3 ambient_lighting = albedo * ambient_factor;
 	vec3 diffuse_lighting = diffuse_brdf(metallic, albedo, F);
 	vec3 specular_lighting = specular_brdf(roughness, F, V, L, N, H);
-	vec3 lighting = ambient_lighting + (diffuse_lighting + specular_lighting) * max(dot(N, L), 0.0) * light_intensity * light_color * shadow_payload.xyz;
+	vec3 lighting = ambient_lighting + (diffuse_lighting + specular_lighting) * max(dot(N, L), 0.0) * light_intensity * light_color; //* shadow_payload.xyz;
 	reflection_payload = vec4(lighting, 1.0);
 }
-

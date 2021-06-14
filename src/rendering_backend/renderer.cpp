@@ -19,7 +19,7 @@ Renderer::Renderer(HINSTANCE hinstance, HWND hwnd) : context(std::make_unique<Vu
 	resource_manager = std::make_unique<ResourceManager>(*context);
 	render_graph = std::make_unique<RenderGraph>(*context, *resource_manager);
 	user_interface = std::make_unique<UserInterface>(*context, *resource_manager);
-	resource_manager->LoadScene("Sponza.glb");
+	resource_manager->LoadScene("Pica.glb");
 
 	active_render_path = std::make_unique<HybridRenderPath>(*context, *render_graph, *resource_manager);
 	active_render_path->Build();
@@ -183,20 +183,30 @@ void Renderer::Present(HWND hwnd) {
 
 void Renderer::Render(FrameResources &resources, uint32_t resource_idx, uint32_t image_idx) {
 	Camera &camera = resource_manager->scene.camera;
-	//camera.perspective = glm::mat4x4(2.77778f, 0.0f, 0.0f, 0.0f,
-	//	0.0f, 4.93827f, 0.0f, 0.0f,
-	//	0.0f, 0.0f, 0.0f, -1.0f,
-	//	0.0f, 0.0f, 0.1f, 0.0f);
-	//camera.transform = glm::mat4x4(0.925471f, 0.0f, -0.378819f, 0.0f,
-	//	-0.178402f, 0.882164f, -0.435843f, 0.0f,
-	//	0.33418f, 0.470942f, 0.816417f, 0.0f,
-	//	7.4727f, 29.7179f, 35.0076f, 1.0f);
-	//camera.view = glm::mat4x4(0.925471f, -0.178402f, 0.33418f, 0.0f,
-	//	-1.49012e-08f, 0.882164f, 0.470942f, 0.0f,
-	//	-0.378819f, -0.435843f, 0.816417, 0.0f,
-	//	6.34576f, -9.6251f, -45.0734f, 1.0f);
-	//camera.yaw = 0.388519377f;
-	//camera.pitch = -0.490358353f;
+
+	//camera.perspective = glm::mat4x4(1.20629, 0, 0, 0, 0, 2.14451, 0, 0, 0, 0, 0, -1, 0, 0, 0.1, 0);
+	//camera.transform = glm::mat4x4(-0.378053, -1.96266e-07, -0.925784, 0, -0.513913, 0.831776, 0.209861, 0, 0.770045,
+	//	0.555111, -0.314456, 0, 4.55439, 0.417298, 1.04369, 1);
+	//camera.view = glm::mat4x4(-0.378053, -0.513913, 0.770045, 0, -1.93715e-07, 0.831777, 0.555111, 0, -0.925784,
+	//	0.209861, -0.314456, 0, 2.68803, 1.77443, -3.41054, 1);
+	//camera.yaw = 1.95848906;
+	//camera.pitch = 0.588496029;
+	//camera.roll = 2.35960243e-07;
+
+	//camera.perspective = glm::mat4x4(1.42815, 0, 0, 0, 0, 2.53893, 0, 0, 0, 0, 0, -1, 0, 0, 0.1, 0);
+	//camera.transform = glm::mat4x4(-0.244939, -2.35675e-06, 0.969538, 0, 0.543565, 0.828057, 0.137326, 0, -0.802833, 0.560644, -0.202822, 0, -4.40721, 2.44122, -8.25143, 1);
+	//camera.view = glm::mat4x4(-0.244939, 0.543565, -0.802833, 0, -2.34693e-06, 0.828057, 0.560644, 0, 0.969538, 0.137326, -0.202822, -0, 6.92058, 1.50727, -6.58048, 1);
+	//camera.yaw = -1.81825173;
+	//camera.pitch = -0.595163226;
+	//camera.roll = 0;
+
+	camera.perspective = glm::mat4x4(2.77778, 0, 0, 0, 0, 4.93827, 0, 0, 0, 0, 0, -1, 0, 0, 0.1, 0);
+	camera.transform = glm::mat4x4(0.82545, 0, -0.564476, 0, -0.286426, 0.8617, -0.418849, 0, 0.486408, 0.507419, 0.71129, 0, 11.41, 32.2663, 30.3888, 1);
+	camera.view = glm::mat4x4(0.82545, -0.286426, 0.486408, -0, -1.49012e-08, 0.8617, 0.507419, 0, -0.564476, -0.418849, 0.71129, -0, 7.73534, -11.8075, -43.5377, 1);
+	camera.yaw = 0.599797845;
+	camera.pitch = -0.532186687;
+	camera.roll = -0.00000000;
+
 
 	static uint32_t frame_index = 0;
 	static PerFrameData per_frame_data {};

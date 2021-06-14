@@ -56,14 +56,14 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 	);
 	
 	if(shadow_mode == SHADOW_MODE_RASTERIZED) {
-		render_graph.AddGraphicsPass("Depth Prepass",
+		render_graph.AddGraphicsPass("Shadow Map Pass",
 			{},
 			{
 				VkUtils::CreateTransientAttachmentImage("Shadow Map", 4096, 4096, VK_FORMAT_D32_SFLOAT, 0, VkUtils::ClearDepth(0.0f))
 			},
 			{
 				GraphicsPipelineDescription {
-					.name = "Depth Prepass Pipeline",
+					.name = "Shadow Map Pass Pipeline",
 					.vertex_shader = "hybrid_render_path/depth_prepass.vert",
 					.fragment_shader = "hybrid_render_path/depth_prepass.frag",
 					.vertex_input_state = VertexInputState::Default,
@@ -77,7 +77,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				}
 			},
 			[&](ExecuteGraphicsCallback execute_pipeline) {
-				execute_pipeline("Depth Prepass Pipeline",
+				execute_pipeline("Shadow Map Pass Pipeline",
 					[&](GraphicsExecutionContext &execution_context) {
 						execution_context.BindGlobalVertexAndIndexBuffers();
 						int object_id = 0;
