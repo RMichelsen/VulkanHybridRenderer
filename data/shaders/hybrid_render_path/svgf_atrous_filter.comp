@@ -84,9 +84,9 @@ void main() {
 			int object_id_q = int(normal_and_object_ids_q.w);
 
 			float weight_normal = edge_stopping_normal(normal_p, normal_q);
-			float weight_depth = edge_stopping_object_id(object_id_p, object_id_q);
+			float weight_obj_id = edge_stopping_object_id(object_id_p, object_id_q);
 
-			vec2 w = vec2(kernel * weight_normal * weight_depth);
+			vec2 w = vec2(kernel * weight_normal * weight_obj_id);
 			w.x *= edge_stopping_luminance(variance_p.x, integrated_shadow_and_ao_p.x, integrated_shadow_and_ao_q.x);
 			w.y *= edge_stopping_luminance(variance_p.y, integrated_shadow_and_ao_p.y, integrated_shadow_and_ao_q.y);
 

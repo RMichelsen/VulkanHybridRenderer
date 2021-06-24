@@ -146,7 +146,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 				VkUtils::CreateTransientSampledImage("Depth", VK_FORMAT_D32_SFLOAT, 1),
 			},
 			{
-				VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16_SFLOAT, 2)
+				VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16G16B16A16_SFLOAT, 2)
 			},
 			ComputePipelineDescription {
 				.kernels = {
@@ -169,10 +169,10 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 
 		render_graph.AddComputePass("SSAO Blur Pass",
 			{
-				VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16_SFLOAT, 0)
+				VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion Raw", VK_FORMAT_R16G16B16A16_SFLOAT, 0)
 			},
 			{
-				VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion", VK_FORMAT_R16_SFLOAT, 1)
+				VkUtils::CreateTransientStorageImage("Screen Space Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 1)
 			},
 			ComputePipelineDescription {
 				.kernels = {
@@ -339,7 +339,7 @@ void HybridRenderPath::RegisterPath(VulkanContext &context, RenderGraph &render_
 			VkUtils::CreateTransientSampledImage("Depth", VK_FORMAT_D32_SFLOAT, 3),
 
 			VkUtils::CreateTransientSampledImage("Shadow Map", 4096, 4096, VK_FORMAT_D32_SFLOAT, 4),
-			VkUtils::CreateTransientSampledImage("Screen Space Ambient Occlusion", VK_FORMAT_R16_SFLOAT, 5),
+			VkUtils::CreateTransientSampledImage("Screen Space Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 5),
 			VkUtils::CreateTransientSampledImage("Screen Space Reflections", VK_FORMAT_R16G16B16A16_SFLOAT, 6),
 			denoise_shadow_and_ao ?
 				VkUtils::CreateTransientSampledImage("Denoised Raytraced Shadows and Ambient Occlusion", VK_FORMAT_R16G16B16A16_SFLOAT, 7) :

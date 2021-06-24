@@ -9,4 +9,7 @@ public:
 	virtual void RegisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager);
 	virtual void DeregisterPath(VulkanContext &context, RenderGraph &render_graph, ResourceManager &resource_manager);
 	virtual void ImGuiDrawSettings();
+
+private:
+	int enable_msaa = 1;
 };

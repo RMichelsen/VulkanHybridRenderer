@@ -55,8 +55,8 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 			VkUtils::CreateTransientSampledImage("ShadowMap", 4096, 4096, VK_FORMAT_D32_SFLOAT, 0)
 		},
 		{
-			VkUtils::CreateTransientRenderOutput(0, true),
-			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1, VkUtils::ClearDepth(0.0f), true)
+			VkUtils::CreateTransientRenderOutput(0, enable_msaa ? true : false),
+			VkUtils::CreateTransientAttachmentImage("Depth", VK_FORMAT_D32_SFLOAT, 1, VkUtils::ClearDepth(0.0f), enable_msaa ? true : false)
 		},
 		{
 			GraphicsPipelineDescription {
@@ -64,7 +64,7 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 				.vertex_shader = "forward_raster_render_path/default.vert",
 				.fragment_shader = "forward_raster_render_path/default.frag",
 				.vertex_input_state = VertexInputState::Default,
-				.multisample_state = MultisampleState::On,
+				.multisample_state = enable_msaa ? MultisampleState::On : MultisampleState::Off,
 				.depth_stencil_state = DepthStencilState::On,
 				.dynamic_state = DynamicState::None,
 				.push_constants = PushConstantDescription {
@@ -97,4 +97,15 @@ void ForwardRasterRenderPath::RegisterPath(VulkanContext &context, RenderGraph &
 
 void ForwardRasterRenderPath::DeregisterPath(VulkanContext& context, RenderGraph& render_graph, ResourceManager& resource_manager) {}
 
-void ForwardRasterRenderPath::ImGuiDrawSettings() {}
+void ForwardRasterRenderPath::ImGuiDrawSettings() {
+	int old_enable_msaa = enable_msaa;
+
+	ImGui::Text("Multisample Anti-Aliasing");
+	ImGui::RadioButton("Disable", &enable_msaa, 0);
+	ImGui::RadioButton("Enable", &enable_msaa, 1);
+	ImGui::NewLine();
+
+	if(old_enable_msaa != enable_msaa) {
+		Rebuild();
+	}
+}

@@ -46,9 +46,9 @@ void main() {
 	vec3 ray_launch_position = position + N * 0.01;
 
 	// Trace shadow ray
-	shadow_payload = vec4(0.0, 0.0, 0.0, 0.0);
-	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
-		0xFF, 0, 0, 0, ray_launch_position, 0.01, L, 10000.0, 0);
+	//shadow_payload = vec4(0.0, 0.0, 0.0, 0.0);
+	//traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
+	//	0xFF, 0, 0, 0, ray_launch_position, 0.01, L, 10000.0, 0);
 
 	float min_roughness = 0.04;
 	roughness = clamp(roughness, min_roughness, 1.0);
