@@ -41,27 +41,27 @@ void main() {
 	float shadow_payload = payload.x;
 
 	// Trace AO rays (2spp to improve variance-guided filtering)
-	//float ao_payload = 0.0;
-	//for(int i = 0; i < 2; ++i) {
-	//	rnd1 = random01(rng_state);
-	//	rnd2 = random01(rng_state);
-	//	vec3 rnd_dir = uniform_sample_cosine_weighted_hemisphere(vec2(rnd1, rnd2));
-	//	R = onb_from_unit_vector(N);
-	//	payload = vec4(0.0, 0.0, 0.0, 0.0);
-	//	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
-	//		0xFF, 0, 0, 0, ray_launch_position, 0.01, R * rnd_dir, 5.0, 0);
-	//	ao_payload += payload.x;
-	//}
-	//ao_payload /= 2.0;
-	//
-	//imageStore(raytraced_shadow_and_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), vec4(0.0, ao_payload, 0.0, 1.0));
+	float ao_payload = 0.0;
+	for(int i = 0; i < 2; ++i) {
+		rnd1 = random01(rng_state);
+		rnd2 = random01(rng_state);
+		vec3 rnd_dir = uniform_sample_cosine_weighted_hemisphere(vec2(rnd1, rnd2));
+		R = onb_from_unit_vector(N);
+		payload = vec4(0.0, 0.0, 0.0, 0.0);
+		traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT, 
+			0xFF, 0, 0, 0, ray_launch_position, 0.01, R * rnd_dir, 5.0, 0);
+		ao_payload += payload.x;
+	}
+	ao_payload /= 2.0;
+	
+	imageStore(raytraced_shadow_and_ambient_occlusion, ivec2(gl_LaunchIDEXT.xy), vec4(shadow_payload, ao_payload, 0.0, 1.0));
 
 	// Trace reflection rays
-	//vec3 camera_position = vec3(pfd.camera_view_inverse[3].xyz);
-	//vec3 I = normalize(P - camera_position);
-	//vec3 reflected_dir = reflect(I, N);
-	//reflection_payload = vec4(0.0, 0.0, 0.0, 0.0);
-	//traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 1, ray_launch_position, 0.01, reflected_dir, 10000.0, 1);
-	//imageStore(raytraced_reflections, ivec2(gl_LaunchIDEXT.xy), reflection_payload);
+	vec3 camera_position = vec3(pfd.camera_view_inverse[3].xyz);
+	vec3 I = normalize(P - camera_position);
+	vec3 reflected_dir = reflect(I, N);
+	reflection_payload = vec4(0.0, 0.0, 0.0, 0.0);
+	traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 1, ray_launch_position, 0.01, reflected_dir, 10000.0, 1);
+	imageStore(raytraced_reflections, ivec2(gl_LaunchIDEXT.xy), reflection_payload);
 }
 
