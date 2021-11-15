@@ -70,29 +70,6 @@ void RenderGraph::DestroyResources() {
 void RenderGraph::AddGraphicsPass(const char *render_pass_name, std::vector<TransientResource> dependencies, 
 	std::vector<TransientResource> outputs, std::vector<GraphicsPipelineDescription> pipelines, 
 	GraphicsPassCallback callback) {
-	bool set = false;
-	bool multisampled_pass = false;
-	for(TransientResource &output : outputs) {
-		if(output.type == TransientResourceType::Image) {
-			if(set) {
-				assert(multisampled_pass == output.image.multisampled);
-			}
-			else {
-				multisampled_pass = output.image.multisampled;
-				set = true;
-			}
-		}
-	}
-	for(GraphicsPipelineDescription &pipeline_description : pipelines) {
-		if(set) {
-			assert(multisampled_pass == (pipeline_description.multisample_state == MultisampleState::On ? true : false));
-		}
-		else {
-			multisampled_pass = (pipeline_description.multisample_state == MultisampleState::On ? true : false);
-			set = true;
-		}
-	}
-	
 	RenderPassDescription pass_description {
 		.name = render_pass_name,
 		.dependencies = dependencies,
@@ -354,8 +331,10 @@ void RenderGraph::CreateGraphicsPass(RenderPassDescription &pass_description) {
 			case TransientImageType::AttachmentImage: {
 				assert(!input_resource && "Attachment images must be outputs");
 				bool is_render_output = !strcmp(resource.name, "RENDER_OUTPUT");
+				
 				VkImageLayout layout = VkUtils::GetImageLayoutFromResourceType(resource.image.type,
 					resource.image.format);
+
 				graphics_pass.attachments[resource.image.binding] = resource;
 				attachments[resource.image.binding] = VkAttachmentDescription {
 					.format = is_render_output ? context.swapchain.format : resource.image.format,
